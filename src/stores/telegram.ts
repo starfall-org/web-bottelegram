@@ -14,6 +14,8 @@ import type {
   VoiceMessage,
   DocumentMessage,
   StickerMessage,
+  ChatMember,
+  RenderedMember,
 } from "../types/types";
 
 // Helper functions
@@ -55,6 +57,7 @@ function createTelegramStore() {
   let hasNewerMessages = $state(false);
   let showSidebar = $state(window.innerWidth > 768);
   let showSettings = $state(false);
+  let chatAdminStatus = $state(new Map<string, boolean>());
 
   let bot: Bot | null = null;
 
@@ -642,6 +645,86 @@ Group: @contentdownload_group`)
     replyTo = messageId;
   };
 
+  const fetchChatAdministrators = async (chatId: string): Promise<RenderedMember[]> => {
+    if (!bot) throw new Error("Bot not initialized");
+    
+    try {
+      const admins = await bot.api.getChatAdministrators(chatId);
+      const rendered: RenderedMember[] = admins.map((member: ChatMember) => {
+        const name = [member.user.first_name, member.user.last_name]
+          .filter(Boolean)
+          .join(" ") || member.user.username || "User";
+        
+        let badge = "";
+        if (member.status === "creator") {
+          badge = "👑 Creator";
+        } else if (member.status === "administrator") {
+          badge = "⭐ Administrator";
+        } else {
+          badge = member.status;
+        }
+        
+        return {
+          id: member.user.id,
+          name,
+          username: member.user.username,
+          status: member.status,
+          badge,
+        };
+      });
+      
+      // Remember that bot is admin in this chat
+      chatAdminStatus.set(chatId, true);
+      saveState();
+      
+      return rendered;
+    } catch (error) {
+      console.error("Error fetching chat administrators:", error);
+      // Remember that bot is not admin in this chat
+      chatAdminStatus.set(chatId, false);
+      saveState();
+      throw error;
+    }
+  };
+
+  const kickMember = async (chatId: string, userId: number, userName: string) => {
+    if (!bot) throw new Error("Bot not initialized");
+    
+    try {
+      await bot.api.banChatMember(chatId, userId);
+      enqueueToast("✅ Success", `Kicked ${userName} from the group`, "success", 3000);
+    } catch (error: any) {
+      const errorMsg = error?.message || "Failed to kick member";
+      enqueueToast("❌ Error", errorMsg, "error");
+      throw error;
+    }
+  };
+
+  const toggleAdminStatus = async (chatId: string, userId: number, promote: boolean, userName: string) => {
+    if (!bot) throw new Error("Bot not initialized");
+    
+    try {
+      const permissions = {
+        can_manage_chat: promote,
+        can_delete_messages: promote,
+        can_manage_video_chats: promote,
+        can_restrict_members: promote,
+        can_promote_members: false,
+        can_change_info: promote,
+        can_invite_users: promote,
+        can_pin_messages: promote,
+      };
+      
+      await bot.api.promoteChatMember(chatId, userId, permissions);
+      const action = promote ? "promoted" : "demoted";
+      enqueueToast("✅ Success", `${userName} has been ${action}`, "success", 3000);
+    } catch (error: any) {
+      const errorMsg = error?.message || "Failed to change admin status";
+      enqueueToast("❌ Error", errorMsg, "error");
+      throw error;
+    }
+  };
+
   // Initialize state on creation
   loadState();
 
@@ -667,6 +750,9 @@ Group: @contentdownload_group`)
     setReplyContext,
     setToken,
     getTokenPrompt,
+    fetchChatAdministrators,
+    kickMember,
+    toggleAdminStatus,
   };
 
   return {
@@ -683,6 +769,7 @@ Group: @contentdownload_group`)
     hasNewerMessages,
     showSidebar,
     showSettings,
+    chatAdminStatus,
     // Actions
     ...actions,
   };
