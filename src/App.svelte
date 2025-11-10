@@ -8,6 +8,7 @@
   import ChatList from "./components/ChatList.svelte";
   import MessageList from "./components/MessageList.svelte";
   import MessageInput from "./components/MessageInput.svelte";
+  import MembersOverlay from "./components/MembersOverlay.svelte";
   import ToastContainer from "./components/ToastContainer.svelte";
 
   const initializeBot = telegramStore.initializeBot;
@@ -21,6 +22,9 @@
   const getTokenPrompt = telegramStore.getTokenPrompt;
   const setHasNewerMessages = telegramStore.setHasNewerMessages;
   const searchChat = telegramStore.searchChat;
+  const fetchChatAdministrators = telegramStore.fetchChatAdministrators;
+  const kickMember = telegramStore.kickMember;
+  const toggleAdminStatus = telegramStore.toggleAdminStatus;
 
   let token = $state(telegramStore.token);
   let chats = $state(telegramStore.chats);
@@ -331,32 +335,14 @@
     </div>
   {/if}
 
-  {#if showMembersPanel}
-    <div
-      class="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/70 px-4 py-8"
-      role="dialog"
-      aria-modal="true"
-      onclick={(event) => {
-        if (event.target === event.currentTarget) showMembersPanel = false;
-      }}
-    >
-      <div
-        class="w-full max-w-lg rounded-2xl border border-slate-800 bg-slate-900 p-8 text-center shadow-xl"
-        onclick={(event) => event.stopPropagation()}
-      >
-        <h2 class="text-lg font-semibold text-white">Members panel</h2>
-        <p class="mt-3 text-sm text-slate-400">
-          Group member management will be available in an upcoming update.
-        </p>
-        <button
-          class="mt-6 inline-flex items-center justify-center rounded-full border border-slate-700 px-4 py-2 text-sm font-medium text-slate-200 transition hover:border-slate-500 hover:text-white"
-          onclick={() => (showMembersPanel = false)}
-        >
-          Close
-        </button>
-      </div>
-    </div>
-  {/if}
+  <MembersOverlay
+    visible={showMembersPanel}
+    onClose={() => (showMembersPanel = false)}
+    chatId={currentChatId}
+    onFetchMembers={fetchChatAdministrators}
+    onKickMember={kickMember}
+    onToggleAdmin={toggleAdminStatus}
+  />
 
   <ToastContainer toasts={toastQueue} />
 </div>

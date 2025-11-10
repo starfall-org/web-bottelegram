@@ -110,6 +110,49 @@ export interface BotData {
   currentChat: string;
 }
 
+// Bot and member types
+export interface BotInfo {
+  id: number;
+  first_name: string;
+  username: string;
+  can_join_groups: boolean;
+  can_read_all_group_messages: boolean;
+}
+
+export interface ChatMember {
+  user: {
+    id: number;
+    first_name: string;
+    last_name?: string;
+    username?: string;
+  };
+  status: 'creator' | 'administrator' | 'member' | 'restricted' | 'left' | 'kicked';
+  can_be_edited?: boolean;
+  is_member?: boolean;
+  can_send_messages?: boolean;
+  can_send_media_messages?: boolean;
+  can_send_polls?: boolean;
+  can_send_other_messages?: boolean;
+  can_add_web_page_previews?: boolean;
+  can_change_info?: boolean;
+  can_invite_users?: boolean;
+  can_pin_messages?: boolean;
+  can_manage_topics?: boolean;
+  can_manage_voice_chats?: boolean;
+  can_manage_chat?: boolean;
+  can_delete_messages?: boolean;
+  can_restrict_members?: boolean;
+  can_promote_members?: boolean;
+}
+
+export interface RenderedMember {
+  id: number;
+  name: string;
+  username?: string;
+  status: ChatMember['status'];
+  badge: string;
+}
+
 // New Telegram store state interfaces
 export interface TelegramState {
   token: string;
@@ -124,6 +167,7 @@ export interface TelegramState {
   hasNewerMessages: boolean;
   showSidebar: boolean;
   showSettings: boolean;
+  chatAdminStatus: Map<string, boolean>;
 }
 
 export interface TelegramActions {
@@ -142,18 +186,13 @@ export interface TelegramActions {
   deleteMessage: (chatId: string, messageId: number) => Promise<void>;
   getChat: (chatId: string) => Promise<any>;
   searchChat: (query: string) => Promise<string | null>;
-  getChatAdministrators: (chatId: string) => Promise<any>;
+  getChatAdministrators: (chatId: string) => Promise<ChatMember[]>;
   getFileUrl: (fileId: string) => Promise<string>;
   clearReplyContext: () => void;
   setReplyContext: (messageId: number, preview: string) => void;
   setToken: (token: string) => void;
   getTokenPrompt: () => string;
+  fetchChatAdministrators: (chatId: string) => Promise<RenderedMember[]>;
+  kickMember: (chatId: string, userId: number, userName: string) => Promise<void>;
+  toggleAdminStatus: (chatId: string, userId: number, promote: boolean, userName: string) => Promise<void>;
 }
-
-export interface BotInfo {
-  id: number;
-  first_name: string;
-  username: string;
-  can_join_groups: boolean;
-  can_read_all_group_messages: boolean;
-} 
