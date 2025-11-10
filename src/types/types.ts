@@ -195,4 +195,9 @@ export interface TelegramActions {
   fetchChatAdministrators: (chatId: string) => Promise<RenderedMember[]>;
   kickMember: (chatId: string, userId: number, userName: string) => Promise<void>;
   toggleAdminStatus: (chatId: string, userId: number, promote: boolean, userName: string) => Promise<void>;
+  setProxyBase: (proxyBase: string) => void;
+  testConnection: () => Promise<string>;
+  deleteWebhook: () => Promise<boolean>;
+  requestNotifications: () => Promise<boolean>;
+  clearChatHistoryForToken: () => void;
 }

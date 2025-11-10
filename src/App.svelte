@@ -25,8 +25,14 @@
   const fetchChatAdministrators = telegramStore.fetchChatAdministrators;
   const kickMember = telegramStore.kickMember;
   const toggleAdminStatus = telegramStore.toggleAdminStatus;
+  const testConnection = telegramStore.testConnection;
+  const deleteWebhook = telegramStore.deleteWebhook;
+  const requestNotifications = telegramStore.requestNotifications;
+  const setProxyBase = telegramStore.setProxyBase;
+  const clearChatHistoryForToken = telegramStore.clearChatHistoryForToken;
 
   let token = $state(telegramStore.token);
+  let proxyBase = $state(telegramStore.proxyBase);
   let chats = $state(telegramStore.chats);
   let currentChatId = $state(telegramStore.currentChatId);
   let replyTo = $state(telegramStore.replyTo);
@@ -330,7 +336,17 @@
         >
           ✕
         </button>
-        <Settings {botInfo} {token} {clearData} />
+        <Settings
+          {botInfo}
+          {token}
+          {proxyBase}
+          {clearData}
+          {testConnection}
+          {deleteWebhook}
+          {requestNotifications}
+          {setProxyBase}
+          {clearChatHistoryForToken}
+        />
       </div>
     </div>
   {/if}
