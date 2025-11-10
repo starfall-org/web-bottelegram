@@ -17,6 +17,7 @@ import type {
   ChatMember,
   RenderedMember,
 } from "../types/types";
+import type { Message } from "grammy/types";
 
 // Helper functions
 function initials(text: string): string {
@@ -50,7 +51,7 @@ function createTelegramStore() {
   let token = tokenValue;
   let proxyBase = localStorage.getItem("proxyBase") || "";
   let chats = new Map<string, RichChat>();
-  let currentChatId = <string | null>null;
+  let currentChatId = <number | null>null;
   let replyTo = <number | null>null;
   let cachedFileUrls = new Map<string, string>();
   let toastQueue = <Toast[]>[];
@@ -183,7 +184,7 @@ function createTelegramStore() {
         const msg = ctx.message;
         if (!msg?.chat) return;
 
-        await processIncomingMessage(msg.chat.id.toString(), msg, true);
+        await processIncomingMessage(msg.chat.id, msg, true);
       });
 
       await bot.start();
@@ -201,21 +202,21 @@ function createTelegramStore() {
 
   // Process incoming messages
   const processIncomingMessage = async (
-    chatId: string,
-    msg: any,
+    chatId: number,
+    msg: Message,
     incoming: boolean
   ) => {
     // Ensure chat exists
-    if (!chats.has(chatId)) {
+    if (!chats.has(chatId.toString())) {
       const chat = msg.chat;
-      const isPrivate = chat.type === "private";
+      const isPrivate = chatId > 0;
       const title = isPrivate
         ? [msg.chat.first_name, msg.chat.last_name].filter(Boolean).join(" ") ||
           msg.chat.username ||
           "Người dùng"
         : msg.chat.title || chat.type || "Chat";
 
-      chats.set(chatId, {
+      chats.set(chatId.toString(), {
         id: chatId,
         type: chat.type,
         title,
@@ -228,7 +229,7 @@ function createTelegramStore() {
       });
     }
 
-    const chat = chats.get(chatId)!;
+    const chat = chats.get(chatId.toString())!;
     const fromName = senderNameFromMsg(msg);
 
     // Create base message
@@ -382,18 +383,18 @@ function createTelegramStore() {
   };
 
   // Action functions
-  const selectChat = (chatId: string) => {
+  const selectChat = (chatId: number) => {
     currentChatId = chatId;
     hasNewerMessages = false;
-    const chat = chats.get(chatId);
+    const chat = chats.get(chatId.toString());
     if (chat) {
       chat.unread = 0;
       saveState();
     }
   };
 
-  const markRead = (chatId: string) => {
-    const chat = chats.get(chatId);
+  const markRead = (chatId: number) => {
+    const chat = chats.get(chatId.toString());
     if (chat) {
       chat.unread = 0;
       saveState();
@@ -471,7 +472,7 @@ function createTelegramStore() {
   };
 
   const sendText = async (
-    chatId: string,
+    chatId: number,
     text: string,
     replyToMessageId?: number
   ) => {
@@ -510,7 +511,7 @@ function createTelegramStore() {
   };
 
   const sendChatAction = async (
-    chatId: string,
+    chatId: number,
     action: string
   ): Promise<void> => {
     if (!bot) throw new Error("Bot not initialized");
@@ -518,7 +519,7 @@ function createTelegramStore() {
   };
 
   const sendMedia = async (
-    chatId: string,
+    chatId: number,
     files: FileList,
     caption?: string,
     replyToMessageId?: number
@@ -573,14 +574,14 @@ function createTelegramStore() {
     }
   };
 
-  const deleteMessage = async (chatId: string, messageId: number) => {
+  const deleteMessage = async (chatId: number, messageId: number) => {
     if (!bot) throw new Error("Bot not initialized");
 
     try {
       await bot.api.deleteMessage(chatId, messageId);
 
       // Remove from local state
-      const chat = chats.get(chatId);
+      const chat = chats.get(chatId.toString());
       if (chat) {
         chat.messages = chat.messages.filter((m) => m.id !== messageId);
         chat.messageIds.delete(messageId);
@@ -605,7 +606,7 @@ function createTelegramStore() {
     }
   };
 
-  const getChat = async (chatId: string) => {
+  const getChat = async (chatId: number) => {
     if (!bot) throw new Error("Bot not initialized");
     return bot.api.getChat(chatId);
   };
@@ -633,9 +634,10 @@ function createTelegramStore() {
 
       let chatId: string | number = trimmedQuery;
 
-      // If starts with @, it's a username
       if (trimmedQuery.startsWith("@")) {
-        chatId = trimmedQuery;
+        // If it starts with @, try to get the chat ID
+        const chatInfo = await bot.api.getChat(trimmedQuery.slice(1));
+        chatId = chatInfo.id;
       } else if (!isNaN(Number(trimmedQuery))) {
         // If it's a number, use it as-is
         chatId = trimmedQuery;
@@ -650,19 +652,17 @@ function createTelegramStore() {
 
       // Try to get chat info
       const chatInfo = await bot.api.getChat(chatId);
-
-      const chatIdStr = String(chatInfo.id);
-
+      const targetId = chatInfo.id;
       // Check if chat already exists
-      if (chats.has(chatIdStr)) {
+      if (chats.has(targetId.toString())) {
         enqueueToast(
           "Already Added",
           chatInfo.title || "Chat already in sidebar",
           "info"
         );
-        selectChat(chatIdStr);
+        selectChat(targetId);
         saveState();
-        return chatIdStr;
+        return targetId.toString();
       }
 
       // Add new chat
@@ -673,8 +673,8 @@ function createTelegramStore() {
           "User"
         : chatInfo.title || chatInfo.type || "Chat";
 
-      chats.set(chatIdStr, {
-        id: chatIdStr,
+      chats.set(targetId.toString(), {
+        id: targetId,
         type: chatInfo.type,
         title,
         avatarText: initials(title),
@@ -687,9 +687,9 @@ function createTelegramStore() {
 
       saveState();
       enqueueToast("Found!", title, "success");
-      selectChat(chatIdStr);
+      selectChat(targetId);
 
-      return chatIdStr;
+      return targetId.toString();
     } catch (error: any) {
       const errorMsg = error?.message || "Unknown error";
       const errorCode = error?.error_code || error?.code;

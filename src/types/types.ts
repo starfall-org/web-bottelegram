@@ -14,8 +14,8 @@ export interface Message {
 // Rich message types based on telegram.html structure
 export interface BaseMessage {
   id: number;
-  chatId: string;
-  side: 'left' | 'right';
+  chatId: number;
+  side: "left" | "right";
   date: number; // timestamp in ms
   fromName: string;
   reply_to?: number;
@@ -23,49 +23,56 @@ export interface BaseMessage {
 }
 
 export interface TextMessage extends BaseMessage {
-  type: 'text';
+  type: "text";
   text: string;
 }
 
 export interface PhotoMessage extends BaseMessage {
-  type: 'photo';
+  type: "photo";
   mediaUrl: string;
   caption?: string;
 }
 
 export interface VideoMessage extends BaseMessage {
-  type: 'video';
+  type: "video";
   mediaUrl: string;
   caption?: string;
 }
 
 export interface AudioMessage extends BaseMessage {
-  type: 'audio';
+  type: "audio";
   mediaUrl: string;
   caption?: string;
 }
 
 export interface VoiceMessage extends BaseMessage {
-  type: 'voice';
+  type: "voice";
   mediaUrl: string;
   caption?: string;
 }
 
 export interface DocumentMessage extends BaseMessage {
-  type: 'document';
+  type: "document";
   mediaUrl: string;
   caption?: string;
   fileName?: string;
 }
 
 export interface StickerMessage extends BaseMessage {
-  type: 'sticker';
+  type: "sticker";
   mediaUrl: string;
-  stickerFormat: 'webp' | 'webm' | 'tgs';
+  stickerFormat: "webp" | "webm" | "tgs";
   emoji?: string;
 }
 
-export type RichMessage = TextMessage | PhotoMessage | VideoMessage | AudioMessage | VoiceMessage | DocumentMessage | StickerMessage;
+export type RichMessage =
+  | TextMessage
+  | PhotoMessage
+  | VideoMessage
+  | AudioMessage
+  | VoiceMessage
+  | DocumentMessage
+  | StickerMessage;
 
 export interface Messages {
   [key: string]: Message[];
@@ -83,8 +90,8 @@ export interface Chat {
 
 // Rich chat type based on telegram.html structure
 export interface RichChat {
-  id: string;
-  type: 'private' | 'group' | 'supergroup' | 'channel';
+  id: number;
+  type: "private" | "group" | "supergroup" | "channel";
   title: string;
   avatarText: string;
   messages: RichMessage[];
@@ -99,7 +106,7 @@ export interface Toast {
   id: string;
   title: string;
   body: string;
-  type: 'info' | 'success' | 'warning' | 'error';
+  type: "info" | "success" | "warning" | "error";
   timestamp: number;
   duration?: number; // Auto-dismiss duration in ms, defaults to 5000
 }
@@ -126,7 +133,13 @@ export interface ChatMember {
     last_name?: string;
     username?: string;
   };
-  status: 'creator' | 'administrator' | 'member' | 'restricted' | 'left' | 'kicked';
+  status:
+    | "creator"
+    | "administrator"
+    | "member"
+    | "restricted"
+    | "left"
+    | "kicked";
   can_be_edited?: boolean;
   is_member?: boolean;
   can_send_messages?: boolean;
@@ -149,7 +162,7 @@ export interface RenderedMember {
   id: number;
   name: string;
   username?: string;
-  status: ChatMember['status'];
+  status: ChatMember["status"];
   badge: string;
 }
 
@@ -172,19 +185,29 @@ export interface TelegramState {
 
 export interface TelegramActions {
   initializeBot: () => Promise<void>;
-  selectChat: (chatId: string) => void;
-  markRead: (chatId: string) => void;
+  selectChat: (chatId: number) => void;
+  markRead: (chatId: number) => void;
   saveState: () => void;
   loadState: () => void;
   setHasNewerMessages: (value: boolean) => void;
-  enqueueToast: (title: string, body: string, type?: Toast['type'], duration?: number) => void;
+  enqueueToast: (
+    title: string,
+    body: string,
+    type?: Toast["type"],
+    duration?: number
+  ) => void;
   dismissToast: (id: string) => void;
   clearToasts: () => void;
-  sendText: (chatId: string, text: string, replyTo?: number) => Promise<void>;
-  sendMedia: (chatId: string, files: FileList, caption?: string, replyTo?: number) => Promise<void>;
-  sendChatAction: (chatId: string, action: string) => Promise<void>;
-  deleteMessage: (chatId: string, messageId: number) => Promise<void>;
-  getChat: (chatId: string) => Promise<any>;
+  sendText: (chatId: number, text: string, replyTo?: number) => Promise<void>;
+  sendMedia: (
+    chatId: number,
+    files: FileList,
+    caption?: string,
+    replyTo?: number
+  ) => Promise<void>;
+  sendChatAction: (chatId: number, action: string) => Promise<void>;
+  deleteMessage: (chatId: number, messageId: number) => Promise<void>;
+  getChat: (chatId: number) => Promise<any>;
   searchChat: (query: string) => Promise<string | null>;
   getChatAdministrators: (chatId: string) => Promise<ChatMember[]>;
   getFileUrl: (fileId: string) => Promise<string>;
@@ -193,8 +216,17 @@ export interface TelegramActions {
   setToken: (token: string) => void;
   getTokenPrompt: () => string;
   fetchChatAdministrators: (chatId: string) => Promise<RenderedMember[]>;
-  kickMember: (chatId: string, userId: number, userName: string) => Promise<void>;
-  toggleAdminStatus: (chatId: string, userId: number, promote: boolean, userName: string) => Promise<void>;
+  kickMember: (
+    chatId: string,
+    userId: number,
+    userName: string
+  ) => Promise<void>;
+  toggleAdminStatus: (
+    chatId: string,
+    userId: number,
+    promote: boolean,
+    userName: string
+  ) => Promise<void>;
   setProxyBase: (proxyBase: string) => void;
   testConnection: () => Promise<string>;
   deleteWebhook: () => Promise<boolean>;
