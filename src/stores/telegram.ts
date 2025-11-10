@@ -52,6 +52,7 @@ function createTelegramStore() {
   let toastQueue = $state<Toast[]>([]);
   let botInfo = $state<BotInfo | null>(null);
   let isConnected = $state(false);
+  let hasNewerMessages = $state(false);
   let showSidebar = $state(window.innerWidth > 768);
   let showSettings = $state(false);
 
@@ -65,6 +66,7 @@ function createTelegramStore() {
     chats.clear();
     currentChatId = null;
     cachedFileUrls.clear();
+    hasNewerMessages = false;
     loadState();
     if (newToken) {
       initializeBot();
@@ -123,6 +125,7 @@ function createTelegramStore() {
       if (parsed.cachedFileUrls) {
         cachedFileUrls = new Map(parsed.cachedFileUrls);
       }
+      hasNewerMessages = false;
     } catch (error) {
       console.error("Error loading state:", error);
     }
@@ -320,10 +323,14 @@ Group: @contentdownload_group`)
       chat.lastText = lastText;
       chat.lastDate = richMessage.date;
 
-      if (incoming && chatId !== currentChatId) {
-        chat.unread++;
-        // Trigger toast notification for new messages
-        enqueueToast(chat.title, chat.lastText, 'info');
+      if (incoming) {
+        if (chatId !== currentChatId) {
+          chat.unread++;
+          // Trigger toast notification for new messages
+          enqueueToast(chat.title, chat.lastText, 'info');
+        } else {
+          hasNewerMessages = true;
+        }
       }
 
       saveState();
@@ -361,6 +368,7 @@ Group: @contentdownload_group`)
   // Action functions
   const selectChat = (chatId: string) => {
     currentChatId = chatId;
+    hasNewerMessages = false;
     const chat = chats.get(chatId);
     if (chat) {
       chat.unread = 0;
@@ -374,6 +382,10 @@ Group: @contentdownload_group`)
       chat.unread = 0;
       saveState();
     }
+  };
+
+  const setHasNewerMessages = (value: boolean) => {
+    hasNewerMessages = value;
   };
 
   // Audio feedback helper
@@ -448,6 +460,7 @@ Group: @contentdownload_group`)
 
       // Process the sent message as outgoing
       await processIncomingMessage(chatId, sent, false);
+      hasNewerMessages = false;
       
       // Show success toast
       enqueueToast("Message Sent", "Your message was delivered successfully", "success", 2000);
@@ -513,6 +526,7 @@ Group: @contentdownload_group`)
     markRead,
     saveState,
     loadState,
+    setHasNewerMessages,
     enqueueToast,
     dismissToast,
     clearToasts,
@@ -539,6 +553,7 @@ Group: @contentdownload_group`)
     toastQueue,
     botInfo,
     isConnected,
+    hasNewerMessages,
     showSidebar,
     showSettings,
     // Actions
