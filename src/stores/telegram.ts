@@ -476,6 +476,48 @@ Group: @contentdownload_group`)
     await bot.api.sendChatAction(chatId, action as any);
   };
 
+  const sendMedia = async (chatId: string, files: FileList, caption?: string, replyToMessageId?: number) => {
+    if (!bot) throw new Error("Bot not initialized");
+    if (!files || files.length === 0) return;
+
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const payload: any = {
+          chat_id: chatId,
+          caption: caption || "",
+        };
+        if (replyToMessageId) {
+          payload.reply_to_message_id = replyToMessageId;
+        }
+
+        let sent;
+        const fileType = file.type.split('/')[0];
+
+        if (fileType === 'image') {
+          sent = await bot.api.sendPhoto(chatId, file as any, payload);
+        } else if (fileType === 'video') {
+          sent = await bot.api.sendVideo(chatId, file as any, payload);
+        } else if (fileType === 'audio') {
+          sent = await bot.api.sendAudio(chatId, file as any, payload);
+        } else {
+          // Default to document for unknown types
+          sent = await bot.api.sendDocument(chatId, file as any, payload);
+        }
+
+        // Process the sent message as outgoing
+        await processIncomingMessage(chatId, sent, false);
+      }
+
+      hasNewerMessages = false;
+      enqueueToast("Media Sent", "Your media was delivered successfully", "success", 2000);
+    } catch (error) {
+      console.error("Error sending media:", error);
+      enqueueToast("Send Failed", "Failed to send media. Please try again.", "error");
+      throw error;
+    }
+  };
+
   const deleteMessage = async (chatId: string, messageId: number) => {
     if (!bot) throw new Error("Bot not initialized");
 
@@ -531,6 +573,7 @@ Group: @contentdownload_group`)
     dismissToast,
     clearToasts,
     sendText,
+    sendMedia,
     sendChatAction,
     deleteMessage,
     getChat,

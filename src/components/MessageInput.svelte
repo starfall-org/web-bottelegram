@@ -12,10 +12,11 @@
     replyPreview: string | null;
     clearReply: () => void;
     disabled: boolean;
-    onAttach: () => void;
+    onAttach: (files: FileList | null) => void;
   } = $props();
 
   let messageText: string = $state("");
+  let fileInputEl: HTMLInputElement;
 
   const triggerSend = () => {
     const trimmed = messageText.trim();
@@ -29,6 +30,16 @@
       event.preventDefault();
       triggerSend();
     }
+  };
+
+  const triggerFileInput = () => {
+    fileInputEl?.click();
+  };
+
+  const handleFileChange = (event: Event) => {
+    const target = event.target as HTMLInputElement;
+    onAttach(target.files);
+    target.value = '';
   };
 </script>
 
@@ -52,9 +63,19 @@
   {/if}
 
   <div class="flex items-end gap-3">
+    <input
+      type="file"
+      bind:this={fileInputEl}
+      onchange={handleFileChange}
+      multiple
+      accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.zip,.rar,.7z"
+      hidden
+      aria-label="Attach file"
+    />
+
     <button
       class="flex h-10 w-10 items-center justify-center rounded-full border border-slate-700 text-slate-200 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
-      onclick={onAttach}
+      onclick={triggerFileInput}
       disabled={disabled}
       aria-label="Attach file"
     >
