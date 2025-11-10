@@ -159,17 +159,24 @@ function createTelegramStore() {
       }
 
       // Get bot info
-      botInfo = await bot.api.getMe();
+      const gmInfo = await bot.api.getMe();
+      botInfo = {
+        id: gmInfo.id,
+        username: gmInfo.username,
+        first_name: gmInfo.first_name,
+        can_join_groups: gmInfo.can_join_groups,
+        can_read_all_group_messages: gmInfo.can_read_all_group_messages,
+      };
       document.title = `${botInfo?.first_name} - Bottelegram` || "Bottelegram";
 
       // Set up message handlers
       bot.command("start", (ctx) =>
-        ctx.reply(`Welcome! This bot is powered by 
-https://bottelegram.web.app
+        ctx.reply(
+          `Welcome! This bot is powered by https://bottelegram.web.app
 
-Channel: @contentdownload
-
-Group: @contentdownload_group`)
+        Channel @starfall_org
+        Group @starfall_community`
+        )
       );
 
       bot.on("message", async (ctx) => {

@@ -27,15 +27,12 @@
     canShowMembers: boolean;
   } = $props();
 
-  const displayTitle = $derived(() => activeChat?.title ?? "Select a chat");
-  const displayInitials = $derived(() => activeChat?.avatarText ?? "?");
-  const botDescription = $derived(() => {
-    if (!botInfo) return "Bot disconnected";
-    const username = botInfo.username
-      ? `@${botInfo.username}`
-      : botInfo.first_name;
-    return `${username} • ID ${botInfo.id}`;
-  });
+  const displayTitle = $derived(activeChat?.title ?? "Select a chat");
+  const displayInitials = $derived(activeChat?.avatarText ?? "?");
+  const botDescription = $derived(
+    (botInfo?.username ? `@${botInfo.username}` : botInfo?.first_name) +
+      ` • ID ${botInfo?.id || "0"}`
+  );
   const statusVariant = $derived(() => {
     const text = statusText?.toLowerCase() ?? "";
     if (text.includes("token")) return "bg-slate-500";

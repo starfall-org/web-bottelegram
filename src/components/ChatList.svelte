@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { render } from "svelte/server";
   import type { Chat } from "../types/types";
   import ChatSearch from "./ChatSearch.svelte";
 
@@ -37,7 +38,11 @@
 
   const handleSelect = (chatId: string) => {
     selectChat(chatId);
-    if (typeof window !== "undefined" && window.innerWidth < 768 && showSidebar) {
+    if (
+      typeof window !== "undefined" &&
+      window.innerWidth < 768 &&
+      showSidebar
+    ) {
       toggleSidebar();
     }
   };
@@ -48,9 +53,10 @@
     {#if onSearch}
       <ChatSearch {onSearch} disabled={searchDisabled} />
     {:else}
-      <slot name="search">
+      {#snippet scs()}
         <div class="px-4 py-3 text-sm text-slate-500">Search coming soon.</div>
-      </slot>
+      {/snippet}
+      {@render scs()}
     {/if}
   </div>
 
@@ -69,7 +75,9 @@
           onclick={() => handleSelect(chat.id)}
           aria-pressed={currentChat === chat.id}
         >
-          <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-800 text-sm font-semibold uppercase text-slate-100">
+          <div
+            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-800 text-sm font-semibold uppercase text-slate-100"
+          >
             {chat.avatarText ?? "?"}
           </div>
           <div class="flex min-w-0 flex-1 flex-col gap-1">
@@ -81,13 +89,17 @@
                 {formatTimestamp(chat.lastTimestamp)}
               </span>
             </div>
-            <span class={`truncate text-xs ${chat.unread ? "text-slate-200" : "text-slate-400"}`}>
+            <span
+              class={`truncate text-xs ${chat.unread ? "text-slate-200" : "text-slate-400"}`}
+            >
               {chat.lastMessage || "No messages yet"}
             </span>
           </div>
 
           {#if chat.unread}
-            <span class="ml-2 inline-flex h-6 min-w-[1.5rem] items-center justify-center rounded-full bg-blue-600 px-2 text-xs font-semibold text-white">
+            <span
+              class="ml-2 inline-flex h-6 min-w-[1.5rem] items-center justify-center rounded-full bg-blue-600 px-2 text-xs font-semibold text-white"
+            >
               {chat.unread}
             </span>
           {/if}
