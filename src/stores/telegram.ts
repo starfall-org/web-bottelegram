@@ -725,6 +725,79 @@ Group: @contentdownload_group`)
     }
   };
 
+  const setProxyBase = (newProxyBase: string) => {
+    proxyBase = newProxyBase;
+    localStorage.setItem("proxyBase", newProxyBase);
+    saveState();
+    // Reinitialize bot with new proxy if token exists
+    if (token) {
+      bot = null;
+      initializeBot();
+    }
+  };
+
+  const testConnection = async () => {
+    if (!bot) throw new Error("Bot not initialized");
+    
+    try {
+      const me = await bot.api.getMe();
+      const username = me.username || "(no username)";
+      const message = `✅ Connected: @${username} (ID: ${me.id})`;
+      enqueueToast("Connection Test", message, "success", 3000);
+      return message;
+    } catch (error: any) {
+      const errorMsg = error?.message || "Connection test failed";
+      const message = `❌ Connection Failed: ${errorMsg}`;
+      enqueueToast("Connection Error", message, "error");
+      throw error;
+    }
+  };
+
+  const deleteWebhook = async () => {
+    if (!bot) throw new Error("Bot not initialized");
+    
+    try {
+      await bot.api.deleteWebhook({ drop_pending_updates: false });
+      enqueueToast("Webhook Deleted", "✅ Webhook has been deleted successfully", "success", 3000);
+      return true;
+    } catch (error: any) {
+      const errorMsg = error?.message || "Failed to delete webhook";
+      enqueueToast("Delete Webhook Error", `❌ ${errorMsg}`, "error");
+      throw error;
+    }
+  };
+
+  const requestNotifications = async () => {
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission === "granted") {
+        enqueueToast("Notifications Enabled", "✅ Browser notifications are now enabled", "success", 3000);
+        return true;
+      } else if (permission === "denied") {
+        enqueueToast("Notifications Denied", "❌ Notification permission was denied", "warning", 3000);
+        return false;
+      } else {
+        enqueueToast("Notifications Pending", "⏳ Notification permission is pending", "info", 3000);
+        return false;
+      }
+    } catch (error: any) {
+      const errorMsg = error?.message || "Failed to request notification permission";
+      enqueueToast("Notification Error", `❌ ${errorMsg}`, "error");
+      throw error;
+    }
+  };
+
+  const clearChatHistoryForToken = () => {
+    if (!token) return;
+    localStorage.removeItem(`telegram_${token}`);
+    chats.clear();
+    currentChatId = null;
+    cachedFileUrls.clear();
+    hasNewerMessages = false;
+    chatAdminStatus.clear();
+    enqueueToast("Data Cleared", "✅ Local chat history has been cleared", "success", 2000);
+  };
+
   // Initialize state on creation
   loadState();
 
@@ -753,6 +826,11 @@ Group: @contentdownload_group`)
     fetchChatAdministrators,
     kickMember,
     toggleAdminStatus,
+    setProxyBase,
+    testConnection,
+    deleteWebhook,
+    requestNotifications,
+    clearChatHistoryForToken,
   };
 
   return {
