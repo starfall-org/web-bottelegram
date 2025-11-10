@@ -137,6 +137,7 @@ export interface TelegramActions {
   dismissToast: (id: string) => void;
   clearToasts: () => void;
   sendText: (chatId: string, text: string, replyTo?: number) => Promise<void>;
+  sendMedia: (chatId: string, files: FileList, caption?: string, replyTo?: number) => Promise<void>;
   sendChatAction: (chatId: string, action: string) => Promise<void>;
   deleteMessage: (chatId: string, messageId: number) => Promise<void>;
   getChat: (chatId: string) => Promise<any>;

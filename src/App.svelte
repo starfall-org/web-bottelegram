@@ -15,6 +15,8 @@
   const markRead = telegramStore.markRead;
   const enqueueToast = telegramStore.enqueueToast;
   const sendText = telegramStore.sendText;
+  const sendMedia = telegramStore.sendMedia;
+  const deleteMessage = telegramStore.deleteMessage;
   const clearReplyContext = telegramStore.clearReplyContext;
   const getTokenPrompt = telegramStore.getTokenPrompt;
   const setHasNewerMessages = telegramStore.setHasNewerMessages;
@@ -68,7 +70,7 @@
     return `[${message.type}]`;
   }
 
-  const replyPreview = $derived(() => {
+  const replyPreview = $derived.by(() => {
     if (!replyTo || !currentChat) return null;
     const target = currentChat.messages.find((msg) => msg.id === replyTo);
     return renderMessagePreview(target);
@@ -80,7 +82,7 @@
     return `${trimmed.slice(0, 77)}…`;
   }
 
-  const chatTiles = $derived(() => {
+  const chatTiles = $derived.by(() => {
     const normalizedSearch = chatSearch.trim().toLowerCase();
     const list = Array.from(chats.values())
       .sort((a, b) => b.lastDate - a.lastDate)
@@ -106,16 +108,16 @@
     });
   });
 
-  const statusText = $derived(() => {
+  const statusText = $derived.by(() => {
     if (!token) return "Token required";
     return isConnected ? "Connected" : "Disconnected";
   });
 
-  const canShowMembers = $derived(() =>
+  const canShowMembers = $derived.by(() =>
     currentChat ? ["group", "supergroup"].includes(currentChat.type) : false
   );
 
-  const activeChatMeta = $derived(() => {
+  const activeChatMeta = $derived.by(() => {
     if (!currentChat) return null;
     return {
       id: currentChat.id,
@@ -163,8 +165,30 @@
       });
   };
 
-  const handleAttachment = () => {
-    enqueueToast("Attachments", "File uploads will be available soon.", "warning", 4000);
+  const handleAttachment = (files: FileList | null) => {
+    if (!files || files.length === 0 || !currentChatId) return;
+
+    sendMedia(currentChatId, files, "", replyTo || undefined)
+      .then(() => {
+        clearReplyContext();
+        setHasNewerMessages(false);
+        requestAnimationFrame(() => scrollToBottom());
+      })
+      .catch(() => {
+        // Errors are surfaced via toasts in the store
+      });
+  };
+
+  const handleDeleteMessage = (messageId: number) => {
+    if (!currentChatId) return;
+
+    deleteMessage(currentChatId, messageId)
+      .then(() => {
+        setHasNewerMessages(false);
+      })
+      .catch(() => {
+        // Errors are surfaced via toasts in the store
+      });
   };
 
   const handleSelectChat = (chatId: string) => {
@@ -282,6 +306,7 @@
         showScrollButton={false}
         {scrollToBottom}
         {handleScroll}
+        onDeleteMessage={handleDeleteMessage}
       />
 
       <div class="border-t border-slate-800 bg-slate-900">
