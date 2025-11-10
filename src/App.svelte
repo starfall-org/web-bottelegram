@@ -20,6 +20,7 @@
   const clearReplyContext = telegramStore.clearReplyContext;
   const getTokenPrompt = telegramStore.getTokenPrompt;
   const setHasNewerMessages = telegramStore.setHasNewerMessages;
+  const searchChat = telegramStore.searchChat;
 
   let token = $state(telegramStore.token);
   let chats = $state(telegramStore.chats);
@@ -33,7 +34,6 @@
   let hasNewerMessages = $state(telegramStore.hasNewerMessages);
 
   let messagesContainer = $state<HTMLDivElement | null>(null);
-  let chatSearch = $state("");
   let showMembersPanel = $state(false);
 
   $effect(() => {
@@ -83,8 +83,7 @@
   }
 
   const chatTiles = $derived.by(() => {
-    const normalizedSearch = chatSearch.trim().toLowerCase();
-    const list = Array.from(chats.values())
+    return Array.from(chats.values())
       .sort((a, b) => b.lastDate - a.lastDate)
       .map((chat) => ({
         id: chat.id,
@@ -95,17 +94,6 @@
         unread: chat.unread,
         hasNotification: chat.unread > 0,
       }));
-
-    if (!normalizedSearch) {
-      return list;
-    }
-
-    return list.filter((chat) => {
-      const nameMatches = chat.name.toLowerCase().includes(normalizedSearch);
-      const idMatches = chat.id.toLowerCase().includes(normalizedSearch);
-      const lastMatches = chat.lastMessage?.toLowerCase().includes(normalizedSearch);
-      return nameMatches || idMatches || lastMatches;
-    });
   });
 
   const statusText = $derived.by(() => {
@@ -203,6 +191,10 @@
     }
   };
 
+  const handleSearchChat = async (query: string) => {
+    await searchChat(query);
+  };
+
   const toggleSidebar = () => {
     telegramStore.showSidebar = !telegramStore.showSidebar;
   };
@@ -256,34 +248,9 @@
       selectChat={handleSelectChat}
       showSidebar={showSidebar}
       toggleSidebar={toggleSidebar}
-    >
-      <div slot="search" class="px-4 py-3">
-        <label class="sr-only" for="chat-search">Search chats</label>
-        <div class="relative">
-          <input
-            id="chat-search"
-            type="text"
-            placeholder="Search chats..."
-            bind:value={chatSearch}
-            class="w-full rounded-xl border border-slate-800 bg-slate-900/80 px-4 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-          />
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 20 20"
-            fill="none"
-            stroke="currentColor"
-            class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="m19 19-4-4m1-5a6 6 0 1 1-12 0 6 6 0 0 1 12 0Z"
-            />
-          </svg>
-        </div>
-      </div>
-    </ChatList>
+      onSearch={handleSearchChat}
+      searchDisabled={!isConnected}
+    />
   </aside>
 
   <section class="flex flex-1 flex-col overflow-hidden">

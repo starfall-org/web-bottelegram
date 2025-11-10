@@ -141,6 +141,7 @@ export interface TelegramActions {
   sendChatAction: (chatId: string, action: string) => Promise<void>;
   deleteMessage: (chatId: string, messageId: number) => Promise<void>;
   getChat: (chatId: string) => Promise<any>;
+  searchChat: (query: string) => Promise<string | null>;
   getChatAdministrators: (chatId: string) => Promise<any>;
   getFileUrl: (fileId: string) => Promise<string>;
   clearReplyContext: () => void;
