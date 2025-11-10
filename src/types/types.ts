@@ -74,6 +74,9 @@ export interface Messages {
 export interface Chat {
   id: string;
   name: string;
+  avatarText?: string;
+  lastMessage?: string;
+  lastTimestamp?: number;
   unread?: number;
   hasNotification?: boolean;
 }
@@ -118,6 +121,7 @@ export interface TelegramState {
   toastQueue: Toast[];
   botInfo: BotInfo | null;
   isConnected: boolean;
+  hasNewerMessages: boolean;
   showSidebar: boolean;
   showSettings: boolean;
 }
@@ -128,6 +132,7 @@ export interface TelegramActions {
   markRead: (chatId: string) => void;
   saveState: () => void;
   loadState: () => void;
+  setHasNewerMessages: (value: boolean) => void;
   enqueueToast: (title: string, body: string, type?: Toast['type'], duration?: number) => void;
   dismissToast: (id: string) => void;
   clearToasts: () => void;

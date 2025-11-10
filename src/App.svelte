@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { onMount } from "svelte";
   import type { RichChat, RichMessage } from "./types/types";
   import { telegramStore } from "./stores/telegram";
   import { showNotification } from "./utils/botUtils";
@@ -11,33 +10,30 @@
   import MessageInput from "./components/MessageInput.svelte";
   import ToastContainer from "./components/ToastContainer.svelte";
 
-  // Get store values
   const initializeBot = telegramStore.initializeBot;
   const selectChat = telegramStore.selectChat;
   const markRead = telegramStore.markRead;
   const enqueueToast = telegramStore.enqueueToast;
-  const dismissToast = telegramStore.dismissToast;
-  const clearToasts = telegramStore.clearToasts;
   const sendText = telegramStore.sendText;
   const clearReplyContext = telegramStore.clearReplyContext;
-  const setReplyContext = telegramStore.setReplyContext;
   const getTokenPrompt = telegramStore.getTokenPrompt;
+  const setHasNewerMessages = telegramStore.setHasNewerMessages;
 
-  // Reactive state variables
   let token = $state(telegramStore.token);
-  let proxyBase = $state(telegramStore.proxyBase);
   let chats = $state(telegramStore.chats);
   let currentChatId = $state(telegramStore.currentChatId);
   let replyTo = $state(telegramStore.replyTo);
-  let toastQueue = telegramStore.toastQueue; // Direct reference to store state
+  let toastQueue = telegramStore.toastQueue;
   let botInfo = $state(telegramStore.botInfo);
   let isConnected = $state(telegramStore.isConnected);
   let showSidebar = $state(telegramStore.showSidebar);
   let showSettings = $state(telegramStore.showSettings);
+  let hasNewerMessages = $state(telegramStore.hasNewerMessages);
 
   let messagesContainer = $state<HTMLDivElement | null>(null);
+  let chatSearch = $state("");
+  let showMembersPanel = $state(false);
 
-  // Initialize token and bot on mount
   $effect(() => {
     if (!token) {
       try {
@@ -50,61 +46,136 @@
     }
   });
 
-  // Handle browser notifications for important toasts
   $effect(() => {
-    const recentToasts = toastQueue.slice(-3); // Only handle recent toasts
+    const recentToasts = toastQueue.slice(-3);
     recentToasts.forEach((toast) => {
-      // Show browser notification for important toast types
-      if (toast.type === 'error' || toast.type === 'warning' || toast.type === 'success') {
+      if (toast.type === "error" || toast.type === "warning" || toast.type === "success") {
         showNotification(toast.title, toast.body);
       }
     });
   });
 
-  // Get current chat and messages
   const currentChat: RichChat | undefined = $derived(
     currentChatId ? chats.get(currentChatId) : undefined
   );
-  const messagesForCurrentChat: RichMessage[] = $derived(
-    currentChat?.messages || []
+  const messagesForCurrentChat: RichMessage[] = $derived(currentChat?.messages || []);
+
+  function renderMessagePreview(message: RichMessage | undefined): string | null {
+    if (!message) return null;
+    if (message.type === "text") return message.text;
+    if ("caption" in message && message.caption) return message.caption;
+    if ("text" in message && (message as any).text) return (message as any).text;
+    return `[${message.type}]`;
+  }
+
+  const replyPreview = $derived(() => {
+    if (!replyTo || !currentChat) return null;
+    const target = currentChat.messages.find((msg) => msg.id === replyTo);
+    return renderMessagePreview(target);
+  });
+
+  function truncatePreview(text: string): string {
+    const trimmed = text.trim();
+    if (trimmed.length <= 80) return trimmed;
+    return `${trimmed.slice(0, 77)}…`;
+  }
+
+  const chatTiles = $derived(() => {
+    const normalizedSearch = chatSearch.trim().toLowerCase();
+    const list = Array.from(chats.values())
+      .sort((a, b) => b.lastDate - a.lastDate)
+      .map((chat) => ({
+        id: chat.id,
+        name: chat.title,
+        avatarText: chat.avatarText,
+        lastMessage: chat.lastText ? truncatePreview(chat.lastText) : "",
+        lastTimestamp: chat.lastDate,
+        unread: chat.unread,
+        hasNotification: chat.unread > 0,
+      }));
+
+    if (!normalizedSearch) {
+      return list;
+    }
+
+    return list.filter((chat) => {
+      const nameMatches = chat.name.toLowerCase().includes(normalizedSearch);
+      const idMatches = chat.id.toLowerCase().includes(normalizedSearch);
+      const lastMatches = chat.lastMessage?.toLowerCase().includes(normalizedSearch);
+      return nameMatches || idMatches || lastMatches;
+    });
+  });
+
+  const statusText = $derived(() => {
+    if (!token) return "Token required";
+    return isConnected ? "Connected" : "Disconnected";
+  });
+
+  const canShowMembers = $derived(() =>
+    currentChat ? ["group", "supergroup"].includes(currentChat.type) : false
   );
 
-  // Convert rich chats to simple chat format for ChatList component
-  const simpleChats = $derived(
-    Array.from(chats.values()).map((chat) => ({
-      id: chat.id,
-      name: chat.title,
-      unread: chat.unread,
-      hasNotification: chat.unread > 0,
-    }))
-  );
-
-  const sendMessage = (messageText: string) => {
-    if (!messageText.trim() || !currentChatId) return;
-
-    sendText(currentChatId, messageText, replyTo || undefined);
-    clearReplyContext();
-    scrollToBottom();
-  };
+  const activeChatMeta = $derived(() => {
+    if (!currentChat) return null;
+    return {
+      id: currentChat.id,
+      title: currentChat.title,
+      avatarText: currentChat.avatarText,
+      type: currentChat.type,
+    };
+  });
 
   const clearData = () => {
     if (token) {
       localStorage.removeItem(`telegram_${token}`);
-      // Clear the store state
       telegramStore.chats.clear();
       telegramStore.currentChatId = null;
+      setHasNewerMessages(false);
     }
   };
 
   const handleScroll = () => {
     if (!messagesContainer) return;
     const { scrollTop, scrollHeight, clientHeight } = messagesContainer;
-    // Show scroll button logic could be added here if needed
+    const distanceFromBottom = scrollHeight - (scrollTop + clientHeight);
+    if (distanceFromBottom < 120) {
+      setHasNewerMessages(false);
+    }
   };
 
   const scrollToBottom = () => {
     if (messagesContainer) {
       messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+  };
+
+  const handleSendMessage = (messageText: string) => {
+    if (!messageText.trim() || !currentChatId) return;
+
+    sendText(currentChatId, messageText, replyTo || undefined)
+      .then(() => {
+        clearReplyContext();
+        setHasNewerMessages(false);
+        requestAnimationFrame(() => scrollToBottom());
+      })
+      .catch(() => {
+        // Errors are surfaced via toasts in the store
+      });
+  };
+
+  const handleAttachment = () => {
+    enqueueToast("Attachments", "File uploads will be available soon.", "warning", 4000);
+  };
+
+  const handleSelectChat = (chatId: string) => {
+    selectChat(chatId);
+    markRead(chatId);
+    setHasNewerMessages(false);
+    setTimeout(() => {
+      scrollToBottom();
+    }, 0);
+    if (typeof window !== "undefined" && window.innerWidth < 768) {
+      telegramStore.showSidebar = false;
     }
   };
 
@@ -115,27 +186,94 @@
   const toggleSettings = () => {
     telegramStore.showSettings = !telegramStore.showSettings;
   };
+
+  const toggleMembersPanel = () => {
+    showMembersPanel = !showMembersPanel;
+  };
+
+  const jumpToLatest = () => {
+    scrollToBottom();
+    setHasNewerMessages(false);
+  };
+
+  $effect(() => {
+    messagesForCurrentChat.length;
+    if (!messagesContainer) return;
+    const { scrollTop, scrollHeight, clientHeight } = messagesContainer;
+    const distanceFromBottom = scrollHeight - (scrollTop + clientHeight);
+    if (distanceFromBottom < 80) {
+      requestAnimationFrame(() => {
+        scrollToBottom();
+        setHasNewerMessages(false);
+      });
+    }
+  });
 </script>
 
-<div class="flex flex-col h-screen max-h-screen max-w-screen overflow-hidden">
-  <Header {botInfo} {toggleSettings} {toggleSidebar} />
-
-  {#if telegramStore.showSettings}
-    <Settings {botInfo} {token} {clearData} />
+<div class="relative flex h-screen w-screen bg-slate-950 text-slate-100">
+  {#if showSidebar}
+    <div
+      class="fixed inset-0 z-30 bg-slate-950/70 backdrop-blur-sm transition-opacity duration-200 md:hidden"
+      role="presentation"
+      onclick={(event) => {
+        if (event.target === event.currentTarget) toggleSidebar();
+      }}
+    ></div>
   {/if}
 
-  <div class="flex flex-1 overflow-hidden">
+  <aside
+    class={`fixed inset-y-0 left-0 z-40 flex w-full max-w-xs transform flex-col overflow-hidden border-r border-slate-900/60 bg-slate-950 shadow-2xl transition-transform duration-200 md:static md:max-w-sm md:translate-x-0 md:shadow-none ${
+      showSidebar ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+    }`}
+  >
     <ChatList
-      chats={simpleChats}
+      chats={chatTiles}
       currentChat={currentChatId || ""}
-      selectChat={selectChat}
-      showSidebar={telegramStore.showSidebar}
-      toggleSidebar={() => (telegramStore.showSidebar = !telegramStore.showSidebar)}
+      selectChat={handleSelectChat}
+      showSidebar={showSidebar}
+      toggleSidebar={toggleSidebar}
+    >
+      <div slot="search" class="px-4 py-3">
+        <label class="sr-only" for="chat-search">Search chats</label>
+        <div class="relative">
+          <input
+            id="chat-search"
+            type="text"
+            placeholder="Search chats..."
+            bind:value={chatSearch}
+            class="w-full rounded-xl border border-slate-800 bg-slate-900/80 px-4 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          />
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 20 20"
+            fill="none"
+            stroke="currentColor"
+            class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="m19 19-4-4m1-5a6 6 0 1 1-12 0 6 6 0 0 1 12 0Z"
+            />
+          </svg>
+        </div>
+      </div>
+    </ChatList>
+  </aside>
+
+  <section class="flex flex-1 flex-col overflow-hidden">
+    <Header
+      {botInfo}
+      {statusText}
+      activeChat={activeChatMeta}
+      {toggleSettings}
+      {toggleSidebar}
+      onToggleMembers={toggleMembersPanel}
+      canShowMembers={canShowMembers}
     />
 
-    <div
-      class="flex-1 flex flex-col min-h-0 max-w-full md:max-w-[calc(100vw-16rem)]"
-    >
+    <div class="relative flex flex-1 flex-col overflow-hidden bg-slate-900">
       <MessageList
         messages={messagesForCurrentChat}
         setContainer={(container: HTMLDivElement) => {
@@ -145,10 +283,88 @@
         {scrollToBottom}
         {handleScroll}
       />
-      <MessageInput {sendMessage} />
+
+      <div class="border-t border-slate-800 bg-slate-900">
+        <MessageInput
+          sendMessage={handleSendMessage}
+          replyPreview={replyPreview}
+          clearReply={clearReplyContext}
+          disabled={!currentChatId || !isConnected}
+          onAttach={handleAttachment}
+        />
+      </div>
+
+      {#if hasNewerMessages && currentChatId}
+        <button
+          class="absolute bottom-28 right-6 flex items-center gap-2 rounded-full bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-lg transition hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-300"
+          onclick={jumpToLatest}
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            class="h-5 w-5"
+          >
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m5 10 7 7 7-7" />
+          </svg>
+          <span>New messages</span>
+        </button>
+      {/if}
     </div>
-  </div>
-  
-  <!-- Toast Container -->
+  </section>
+
+  {#if showSettings}
+    <div
+      class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 px-4 py-8"
+      role="dialog"
+      aria-modal="true"
+      onclick={(event) => {
+        if (event.target === event.currentTarget) toggleSettings();
+      }}
+    >
+      <div
+        class="relative w-full max-w-2xl overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-2xl"
+        onclick={(event) => event.stopPropagation()}
+      >
+        <button
+          class="absolute right-3 top-3 rounded-full bg-slate-800/80 p-2 text-slate-300 transition hover:bg-slate-700 hover:text-white"
+          onclick={toggleSettings}
+          aria-label="Close settings"
+        >
+          ✕
+        </button>
+        <Settings {botInfo} {token} {clearData} />
+      </div>
+    </div>
+  {/if}
+
+  {#if showMembersPanel}
+    <div
+      class="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/70 px-4 py-8"
+      role="dialog"
+      aria-modal="true"
+      onclick={(event) => {
+        if (event.target === event.currentTarget) showMembersPanel = false;
+      }}
+    >
+      <div
+        class="w-full max-w-lg rounded-2xl border border-slate-800 bg-slate-900 p-8 text-center shadow-xl"
+        onclick={(event) => event.stopPropagation()}
+      >
+        <h2 class="text-lg font-semibold text-white">Members panel</h2>
+        <p class="mt-3 text-sm text-slate-400">
+          Group member management will be available in an upcoming update.
+        </p>
+        <button
+          class="mt-6 inline-flex items-center justify-center rounded-full border border-slate-700 px-4 py-2 text-sm font-medium text-slate-200 transition hover:border-slate-500 hover:text-white"
+          onclick={() => (showMembersPanel = false)}
+        >
+          Close
+        </button>
+      </div>
+    </div>
+  {/if}
+
   <ToastContainer toasts={toastQueue} />
 </div>
