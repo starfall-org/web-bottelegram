@@ -96,7 +96,9 @@ export interface Toast {
   id: string;
   title: string;
   body: string;
+  type: 'info' | 'success' | 'warning' | 'error';
   timestamp: number;
+  duration?: number; // Auto-dismiss duration in ms, defaults to 5000
 }
 
 export interface BotData {
@@ -126,7 +128,9 @@ export interface TelegramActions {
   markRead: (chatId: string) => void;
   saveState: () => void;
   loadState: () => void;
-  enqueueToast: (title: string, body: string) => void;
+  enqueueToast: (title: string, body: string, type?: Toast['type'], duration?: number) => void;
+  dismissToast: (id: string) => void;
+  clearToasts: () => void;
   sendText: (chatId: string, text: string, replyTo?: number) => Promise<void>;
   sendChatAction: (chatId: string, action: string) => Promise<void>;
   deleteMessage: (chatId: string, messageId: number) => Promise<void>;

@@ -9,12 +9,15 @@
   import ChatList from "./components/ChatList.svelte";
   import MessageList from "./components/MessageList.svelte";
   import MessageInput from "./components/MessageInput.svelte";
+  import ToastContainer from "./components/ToastContainer.svelte";
 
   // Get store values
   const initializeBot = telegramStore.initializeBot;
   const selectChat = telegramStore.selectChat;
   const markRead = telegramStore.markRead;
   const enqueueToast = telegramStore.enqueueToast;
+  const dismissToast = telegramStore.dismissToast;
+  const clearToasts = telegramStore.clearToasts;
   const sendText = telegramStore.sendText;
   const clearReplyContext = telegramStore.clearReplyContext;
   const setReplyContext = telegramStore.setReplyContext;
@@ -26,7 +29,7 @@
   let chats = $state(telegramStore.chats);
   let currentChatId = $state(telegramStore.currentChatId);
   let replyTo = $state(telegramStore.replyTo);
-  let toastQueue = $state(telegramStore.toastQueue);
+  let toastQueue = telegramStore.toastQueue; // Direct reference to store state
   let botInfo = $state(telegramStore.botInfo);
   let isConnected = $state(telegramStore.isConnected);
   let showSidebar = $state(telegramStore.showSidebar);
@@ -47,13 +50,15 @@
     }
   });
 
-  // Handle notifications for incoming messages
+  // Handle browser notifications for important toasts
   $effect(() => {
-    toastQueue.forEach((toast) => {
-      showNotification(toast.title, toast.body);
+    const recentToasts = toastQueue.slice(-3); // Only handle recent toasts
+    recentToasts.forEach((toast) => {
+      // Show browser notification for important toast types
+      if (toast.type === 'error' || toast.type === 'warning' || toast.type === 'success') {
+        showNotification(toast.title, toast.body);
+      }
     });
-    // Clear processed toasts
-    toastQueue.length = 0;
   });
 
   // Get current chat and messages
@@ -143,4 +148,7 @@
       <MessageInput {sendMessage} />
     </div>
   </div>
+  
+  <!-- Toast Container -->
+  <ToastContainer toasts={toastQueue} />
 </div>

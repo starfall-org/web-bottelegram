@@ -176,6 +176,7 @@ Group: @contentdownload_group`)
     } catch (error) {
       console.error("Error initializing bot:", error);
       isConnected = false;
+      enqueueToast("Connection Error", "Failed to initialize bot. Please check your token.", "error");
     }
   };
 
@@ -321,8 +322,8 @@ Group: @contentdownload_group`)
 
       if (incoming && chatId !== currentChatId) {
         chat.unread++;
-        // Trigger browser notification (handled by App.svelte)
-        enqueueToast(chat.title, chat.lastText);
+        // Trigger toast notification for new messages
+        enqueueToast(chat.title, chat.lastText, 'info');
       }
 
       saveState();
@@ -375,14 +376,61 @@ Group: @contentdownload_group`)
     }
   };
 
-  const enqueueToast = (title: string, body: string) => {
+  // Audio feedback helper
+  let audioContext: AudioContext | null = null;
+  
+  const playNotificationSound = () => {
+    try {
+      if (!audioContext) {
+        audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      }
+      
+      // Create a simple beep sound
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      oscillator.frequency.value = 800;
+      oscillator.type = 'sine';
+      
+      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+      
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.1);
+    } catch (error) {
+      console.warn("Could not play notification sound:", error);
+    }
+  };
+
+  const enqueueToast = (title: string, body: string, type: Toast['type'] = 'info', duration?: number) => {
     const toast: Toast = {
-      id: Date.now().toString(),
+      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
       title,
       body,
+      type,
       timestamp: Date.now(),
+      duration: duration || (type === 'error' ? 8000 : 5000), // Errors stay longer
     };
     toastQueue.push(toast);
+    
+    // Play sound for success and new message toasts
+    if (type === 'success' || type === 'info') {
+      playNotificationSound();
+    }
+  };
+
+  const dismissToast = (id: string) => {
+    const index = toastQueue.findIndex(toast => toast.id === id);
+    if (index !== -1) {
+      toastQueue.splice(index, 1);
+    }
+  };
+
+  const clearToasts = () => {
+    toastQueue.length = 0;
   };
 
   const sendText = async (chatId: string, text: string, replyToMessageId?: number) => {
@@ -400,8 +448,12 @@ Group: @contentdownload_group`)
 
       // Process the sent message as outgoing
       await processIncomingMessage(chatId, sent, false);
+      
+      // Show success toast
+      enqueueToast("Message Sent", "Your message was delivered successfully", "success", 2000);
     } catch (error) {
       console.error("Error sending message:", error);
+      enqueueToast("Send Failed", "Failed to send message. Please try again.", "error");
       throw error;
     }
   };
@@ -424,8 +476,12 @@ Group: @contentdownload_group`)
         chat.messageIds.delete(messageId);
         saveState();
       }
+      
+      // Show success toast
+      enqueueToast("Message Deleted", "Message was deleted successfully", "success", 2000);
     } catch (error) {
       console.error("Error deleting message:", error);
+      enqueueToast("Delete Failed", "Failed to delete message. Please try again.", "error");
       throw error;
     }
   };
@@ -458,6 +514,8 @@ Group: @contentdownload_group`)
     saveState,
     loadState,
     enqueueToast,
+    dismissToast,
+    clearToasts,
     sendText,
     sendChatAction,
     deleteMessage,
