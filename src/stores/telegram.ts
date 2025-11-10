@@ -1,0 +1,491 @@
+import { Bot } from "grammy";
+import type {
+  TelegramState,
+  TelegramActions,
+  RichMessage,
+  RichChat,
+  Toast,
+  BotInfo,
+  BaseMessage,
+  TextMessage,
+  PhotoMessage,
+  VideoMessage,
+  AudioMessage,
+  VoiceMessage,
+  DocumentMessage,
+  StickerMessage,
+} from "../types/types";
+
+// Helper functions
+function initials(text: string): string {
+  const t = (text || "").trim();
+  if (!t) return "?";
+  const words = t.split(/\s+/).filter(Boolean);
+  const a = words[0]?.[0] || "";
+  const b = words[1]?.[0] || "";
+  return (a + b).toUpperCase() || a.toUpperCase() || "?";
+}
+
+function snippet(text: string): string {
+  return (text || "").replace(/\s+/g, " ").slice(0, 60);
+}
+
+function senderNameFromMsg(msg: any): string {
+  if (msg.from) {
+    const n = [msg.from.first_name, msg.from.last_name].filter(Boolean).join(" ");
+    return n || msg.from.username || "Người dùng";
+  }
+  if (msg.author_signature) return msg.author_signature;
+  return "Hệ thống";
+}
+
+// Create the telegram store
+function createTelegramStore() {
+  // Initialize state
+  let tokenValue = localStorage.getItem("token") || "";
+  let token = $state(tokenValue);
+  let proxyBase = $state(localStorage.getItem("proxyBase") || "");
+  let chats = $state(new Map<string, RichChat>());
+  let currentChatId = $state<string | null>(null);
+  let replyTo = $state<number | null>(null);
+  let cachedFileUrls = $state(new Map<string, string>());
+  let toastQueue = $state<Toast[]>([]);
+  let botInfo = $state<BotInfo | null>(null);
+  let isConnected = $state(false);
+  let showSidebar = $state(window.innerWidth > 768);
+  let showSettings = $state(false);
+
+  let bot: Bot | null = null;
+
+  // Token management
+  const setToken = (newToken: string) => {
+    token = newToken;
+    localStorage.setItem("token", newToken);
+    // Clear existing data when token changes
+    chats.clear();
+    currentChatId = null;
+    cachedFileUrls.clear();
+    loadState();
+    if (newToken) {
+      initializeBot();
+    }
+  };
+
+  const getTokenPrompt = () => {
+    const newToken = prompt("Enter your bot token:");
+    if (!newToken) {
+      throw new Error("Bot token is required");
+    }
+    setToken(newToken);
+    return newToken;
+  };
+
+  // Persistence functions
+  const saveState = () => {
+    if (!token) return;
+    const state = {
+      proxyBase,
+      chats: Array.from(chats.entries()).map(([k, v]) => [
+        k,
+        { ...v, messageIds: [...v.messageIds] },
+      ]),
+      currentChatId,
+      cachedFileUrls: Array.from(cachedFileUrls.entries()),
+    };
+    localStorage.setItem(`telegram_${token}`, JSON.stringify(state));
+  };
+
+  const loadState = () => {
+    if (!token) return;
+    const saved = localStorage.getItem(`telegram_${token}`);
+    if (!saved) return;
+
+    try {
+      const parsed = JSON.parse(saved);
+      proxyBase = parsed.proxyBase || "";
+      
+      // Restore chats
+      if (parsed.chats) {
+        const restoredChats = new Map<string, RichChat>();
+        for (const [id, chatData] of parsed.chats) {
+          const chat = chatData as any;
+          restoredChats.set(id, {
+            ...chat,
+            messageIds: new Set(chat.messageIds),
+          });
+        }
+        chats = restoredChats;
+      }
+
+      currentChatId = parsed.currentChatId || null;
+      
+      // Restore cached file URLs
+      if (parsed.cachedFileUrls) {
+        cachedFileUrls = new Map(parsed.cachedFileUrls);
+      }
+    } catch (error) {
+      console.error("Error loading state:", error);
+    }
+  };
+
+  // Bot initialization
+  const initializeBot = async () => {
+    if (!token) return;
+
+    try {
+      bot = new Bot(token);
+      
+      // Apply proxy if configured
+      if (proxyBase) {
+        bot.api.config.use(async (prev, method, payload, signal) => {
+          const url = `https://api.telegram.org/bot${token}/${method}`;
+          const proxyUrl = proxyBase.replace(/\/+$/, "") + "/" + url;
+          const response = await fetch(proxyUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload || {}),
+            signal: signal as AbortSignal | undefined,
+          });
+          return response.json();
+        });
+      }
+
+      // Get bot info
+      botInfo = await bot.api.getMe();
+      document.title = `${botInfo?.first_name} - Bottelegram` || "Bottelegram";
+
+      // Set up message handlers
+      bot.command("start", (ctx) =>
+        ctx.reply(`Welcome! This bot is powered by 
+https://bottelegram.web.app
+
+Channel: @contentdownload
+
+Group: @contentdownload_group`)
+      );
+
+      bot.on("message", async (ctx) => {
+        const msg = ctx.message;
+        if (!msg?.chat) return;
+
+        await processIncomingMessage(msg.chat.id.toString(), msg, true);
+      });
+
+      await bot.start();
+      isConnected = true;
+    } catch (error) {
+      console.error("Error initializing bot:", error);
+      isConnected = false;
+    }
+  };
+
+  // Process incoming messages
+  const processIncomingMessage = async (
+    chatId: string,
+    msg: any,
+    incoming: boolean
+  ) => {
+    // Ensure chat exists
+    if (!chats.has(chatId)) {
+      const chat = msg.chat;
+      const isPrivate = chat.type === "private";
+      const title = isPrivate
+        ? [msg.chat.first_name, msg.chat.last_name].filter(Boolean).join(" ") ||
+          msg.chat.username ||
+          "Người dùng"
+        : msg.chat.title || chat.type || "Chat";
+
+      chats.set(chatId, {
+        id: chatId,
+        type: chat.type,
+        title,
+        avatarText: initials(title),
+        messages: [],
+        messageIds: new Set(),
+        lastText: "",
+        lastDate: 0,
+        unread: 0,
+      });
+    }
+
+    const chat = chats.get(chatId)!;
+    const fromName = senderNameFromMsg(msg);
+
+    // Create base message
+    const base: BaseMessage = {
+      id: msg.message_id,
+      chatId,
+      side: incoming ? "left" : "right",
+      date: (msg.date || Math.floor(Date.now() / 1000)) * 1000,
+      fromName,
+      reply_to: msg.reply_to_message?.message_id,
+      reply_preview: msg.reply_to_message
+        ? snippet(
+            msg.reply_to_message.text || msg.reply_to_message.caption || ""
+          )
+        : undefined,
+    };
+
+    let richMessage: RichMessage;
+
+    // Normalize message based on type
+    if (msg.text) {
+      richMessage = { ...base, type: "text", text: msg.text } as TextMessage;
+    } else if (msg.photo) {
+      const photo = msg.photo[msg.photo.length - 1];
+      const mediaUrl = await getFileUrl(photo.file_id);
+      richMessage = {
+        ...base,
+        type: "photo",
+        mediaUrl,
+        caption: msg.caption || "",
+      } as PhotoMessage;
+    } else if (msg.video) {
+      const mediaUrl = await getFileUrl(msg.video.file_id);
+      richMessage = {
+        ...base,
+        type: "video",
+        mediaUrl,
+        caption: msg.caption || "",
+      } as VideoMessage;
+    } else if (msg.audio) {
+      const mediaUrl = await getFileUrl(msg.audio.file_id);
+      richMessage = {
+        ...base,
+        type: "audio",
+        mediaUrl,
+        caption: msg.caption || "",
+      } as AudioMessage;
+    } else if (msg.voice) {
+      const mediaUrl = await getFileUrl(msg.voice.file_id);
+      richMessage = {
+        ...base,
+        type: "voice",
+        mediaUrl,
+        caption: msg.caption || "",
+      } as VoiceMessage;
+    } else if (msg.document) {
+      const mediaUrl = await getFileUrl(msg.document.file_id);
+      richMessage = {
+        ...base,
+        type: "document",
+        mediaUrl,
+        caption: msg.caption || "",
+        fileName: msg.document.file_name || "Tệp",
+      } as DocumentMessage;
+    } else if (msg.sticker) {
+      const sticker = msg.sticker;
+      let stickerFormat: "webp" | "webm" | "tgs" = "tgs";
+      let mediaUrl = "";
+
+      if (sticker.is_video) {
+        stickerFormat = "webm";
+        mediaUrl = await getFileUrl(sticker.file_id);
+      } else if (!sticker.is_animated) {
+        stickerFormat = "webp";
+        mediaUrl = await getFileUrl(sticker.file_id);
+      }
+
+      richMessage = {
+        ...base,
+        type: "sticker",
+        mediaUrl,
+        stickerFormat,
+        emoji: sticker.emoji || "",
+      } as StickerMessage;
+    } else {
+      richMessage = {
+        ...base,
+        type: "text",
+        text: "[Không hiển thị loại nội dung này]",
+      } as TextMessage;
+    }
+
+    // Add message to chat
+    if (!chat.messageIds.has(richMessage.id)) {
+      chat.messageIds.add(richMessage.id);
+      chat.messages.push(richMessage);
+      // Set last text for chat preview
+      let lastText = "";
+      if (richMessage.type === "text") {
+        lastText = (richMessage as TextMessage).text;
+      } else if ("caption" in richMessage && richMessage.caption) {
+        lastText = richMessage.caption;
+      } else if ("text" in richMessage) {
+        lastText = (richMessage as any).text;
+      } else {
+        lastText = `[${richMessage.type}]`;
+      }
+      chat.lastText = lastText;
+      chat.lastDate = richMessage.date;
+
+      if (incoming && chatId !== currentChatId) {
+        chat.unread++;
+        // Trigger browser notification (handled by App.svelte)
+        enqueueToast(chat.title, chat.lastText);
+      }
+
+      saveState();
+    }
+  };
+
+  // API helper functions
+  const getFileUrl = async (fileId: string): Promise<string> => {
+    if (cachedFileUrls.has(fileId)) {
+      return cachedFileUrls.get(fileId)!;
+    }
+
+    if (!bot) throw new Error("Bot not initialized");
+
+    try {
+      const file = await bot.api.getFile(fileId);
+      const baseUrl = "https://api.telegram.org";
+      const url = `${baseUrl}/file/bot${token}/${file.file_path}`;
+      
+      if (proxyBase) {
+        const proxyUrl = proxyBase.replace(/\/+$/, "") + "/" + url;
+        cachedFileUrls.set(fileId, proxyUrl);
+      } else {
+        cachedFileUrls.set(fileId, url);
+      }
+      
+      saveState();
+      return cachedFileUrls.get(fileId)!;
+    } catch (error) {
+      console.error("Error getting file URL:", error);
+      throw error;
+    }
+  };
+
+  // Action functions
+  const selectChat = (chatId: string) => {
+    currentChatId = chatId;
+    const chat = chats.get(chatId);
+    if (chat) {
+      chat.unread = 0;
+      saveState();
+    }
+  };
+
+  const markRead = (chatId: string) => {
+    const chat = chats.get(chatId);
+    if (chat) {
+      chat.unread = 0;
+      saveState();
+    }
+  };
+
+  const enqueueToast = (title: string, body: string) => {
+    const toast: Toast = {
+      id: Date.now().toString(),
+      title,
+      body,
+      timestamp: Date.now(),
+    };
+    toastQueue.push(toast);
+  };
+
+  const sendText = async (chatId: string, text: string, replyToMessageId?: number) => {
+    if (!bot) throw new Error("Bot not initialized");
+
+    try {
+      const payload: any = { chat_id: chatId, text };
+      if (replyToMessageId) {
+        payload.reply_to_message_id = replyToMessageId;
+      }
+
+      const sent = await bot.api.sendMessage(chatId, text, {
+        reply_to_message_id: replyToMessageId,
+      });
+
+      // Process the sent message as outgoing
+      await processIncomingMessage(chatId, sent, false);
+    } catch (error) {
+      console.error("Error sending message:", error);
+      throw error;
+    }
+  };
+
+  const sendChatAction = async (chatId: string, action: string): Promise<void> => {
+    if (!bot) throw new Error("Bot not initialized");
+    await bot.api.sendChatAction(chatId, action as any);
+  };
+
+  const deleteMessage = async (chatId: string, messageId: number) => {
+    if (!bot) throw new Error("Bot not initialized");
+
+    try {
+      await bot.api.deleteMessage(chatId, messageId);
+      
+      // Remove from local state
+      const chat = chats.get(chatId);
+      if (chat) {
+        chat.messages = chat.messages.filter((m) => m.id !== messageId);
+        chat.messageIds.delete(messageId);
+        saveState();
+      }
+    } catch (error) {
+      console.error("Error deleting message:", error);
+      throw error;
+    }
+  };
+
+  const getChat = async (chatId: string) => {
+    if (!bot) throw new Error("Bot not initialized");
+    return bot.api.getChat(chatId);
+  };
+
+  const getChatAdministrators = async (chatId: string) => {
+    if (!bot) throw new Error("Bot not initialized");
+    return bot.api.getChatAdministrators(chatId);
+  };
+
+  const clearReplyContext = () => {
+    replyTo = null;
+  };
+
+  const setReplyContext = (messageId: number, preview: string) => {
+    replyTo = messageId;
+  };
+
+  // Initialize state on creation
+  loadState();
+
+  const actions: TelegramActions = {
+    initializeBot,
+    selectChat,
+    markRead,
+    saveState,
+    loadState,
+    enqueueToast,
+    sendText,
+    sendChatAction,
+    deleteMessage,
+    getChat,
+    getChatAdministrators,
+    getFileUrl,
+    clearReplyContext,
+    setReplyContext,
+    setToken,
+    getTokenPrompt,
+  };
+
+  return {
+    // State
+    token,
+    proxyBase,
+    chats,
+    currentChatId,
+    replyTo,
+    cachedFileUrls,
+    toastQueue,
+    botInfo,
+    isConnected,
+    showSidebar,
+    showSettings,
+    // Actions
+    ...actions,
+  };
+}
+
+export const telegramStore = createTelegramStore();

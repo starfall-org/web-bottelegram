@@ -1,18 +1,8 @@
 <script lang="ts">
-  import { Bot } from "grammy";
-  import type {
-    Message,
-    Messages,
-    Chat,
-    BotInfo,
-    BotData,
-  } from "./types/types";
-
-  import {
-    getTokenPrompt,
-    getBotData,
-    showNotification,
-  } from "./utils/botUtils";
+  import { onMount } from "svelte";
+  import type { RichChat, RichMessage } from "./types/types";
+  import { telegramStore } from "./stores/telegram";
+  import { showNotification } from "./utils/botUtils";
 
   import Header from "./components/Header.svelte";
   import Settings from "./components/Settings.svelte";
@@ -20,143 +10,91 @@
   import MessageList from "./components/MessageList.svelte";
   import MessageInput from "./components/MessageInput.svelte";
 
-  let token = $state(localStorage.getItem("token") || getTokenPrompt());
-  let showSettings = $state(false);
-  let showScrollButton = $state(false);
-  let botInfo = $state<BotInfo | null>(null);
-  let showSidebar = $state(window.innerWidth > 768);
+  // Get store values
+  const initializeBot = telegramStore.initializeBot;
+  const selectChat = telegramStore.selectChat;
+  const markRead = telegramStore.markRead;
+  const enqueueToast = telegramStore.enqueueToast;
+  const sendText = telegramStore.sendText;
+  const clearReplyContext = telegramStore.clearReplyContext;
+  const setReplyContext = telegramStore.setReplyContext;
+  const getTokenPrompt = telegramStore.getTokenPrompt;
 
-  const bot = new Bot(token);
+  // Reactive state variables
+  let token = $state(telegramStore.token);
+  let proxyBase = $state(telegramStore.proxyBase);
+  let chats = $state(telegramStore.chats);
+  let currentChatId = $state(telegramStore.currentChatId);
+  let replyTo = $state(telegramStore.replyTo);
+  let toastQueue = $state(telegramStore.toastQueue);
+  let botInfo = $state(telegramStore.botInfo);
+  let isConnected = $state(telegramStore.isConnected);
+  let showSidebar = $state(telegramStore.showSidebar);
+  let showSettings = $state(telegramStore.showSettings);
 
-  const saveBotData = () => {
-    const data: BotData = {
-      messages,
-      chats,
-      currentChat,
-    };
-    localStorage.setItem(`bot_${token}`, JSON.stringify(data));
-  };
+  let messagesContainer = $state<HTMLDivElement | null>(null);
 
-  const fetchBotInfo = async () => {
-    try {
-      botInfo = await bot.api.getMe();
-      document.title = botInfo?.first_name + " - Bottelegram" || "Bottelegram";
-    } catch (error) {
-      console.error("Error fetching bot info:", error);
-    }
-  };
-
-  const botData = getBotData(token);
-  let messages = $state(botData.messages);
-  let chats = $state<Chat[]>(botData.chats);
-  let currentChat = $state(botData.currentChat);
-  let messagesContainer: HTMLDivElement | null = $state();
-
+  // Initialize token and bot on mount
   $effect(() => {
-    fetchBotInfo();
-
-    bot.command("start", (ctx) =>
-      ctx.reply(`Welcome! This bot is powered by 
-      https://bottelegram.web.app
-
-    Channel: @contentdownload
-
-    Group: @contentdownload_group`)
-    );
-
-    bot.on("message", async (ctx) => {
-      localStorage.setItem("context", JSON.stringify(ctx));
-      let message = {
-        ...ctx.message,
-        notification: true, // Mark message as notification
-      };
-      const chatId = ctx.chat.id.toString();
-      const chatName = ctx.chat.title || ctx.chat.first_name || chatId;
-
-      if (!messages[chatId]) {
-        messages[chatId] = [];
+    if (!token) {
+      try {
+        getTokenPrompt();
+      } catch (error) {
+        console.error("Failed to get token:", error);
       }
-      messages[chatId] = [...messages[chatId], message];
-      saveBotData();
-
-      const existingChat = chats.find((chat) => chat.id === chatId);
-      if (!existingChat) {
-        chats = [
-          ...chats,
-          {
-            id: chatId,
-            name: chatName,
-            unread: chatId !== currentChat ? 1 : 0,
-            hasNotification: chatId !== currentChat, // Add notification flag
-          },
-        ];
-      } else if (chatId !== currentChat) {
-        chats = chats.map((chat) =>
-          chat.id === chatId
-            ? { ...chat, unread: (chat.unread || 0) + 1, hasNotification: true }
-            : chat
-        );
-      }
-      saveBotData();
-
-      if (!currentChat) {
-        currentChat = chatId;
-        saveBotData();
-      }
-
-      if (chatId !== currentChat) {
-        showNotification(chatName, message.text || "");
-      }
-    });
-
-    bot.start();
-
-    return () => {
-      bot.stop();
-    };
+    } else {
+      initializeBot();
+    }
   });
 
+  // Handle notifications for incoming messages
+  $effect(() => {
+    toastQueue.forEach((toast) => {
+      showNotification(toast.title, toast.body);
+    });
+    // Clear processed toasts
+    toastQueue.length = 0;
+  });
+
+  // Get current chat and messages
+  const currentChat: RichChat | undefined = $derived(
+    currentChatId ? chats.get(currentChatId) : undefined
+  );
+  const messagesForCurrentChat: RichMessage[] = $derived(
+    currentChat?.messages || []
+  );
+
+  // Convert rich chats to simple chat format for ChatList component
+  const simpleChats = $derived(
+    Array.from(chats.values()).map((chat) => ({
+      id: chat.id,
+      name: chat.title,
+      unread: chat.unread,
+      hasNotification: chat.unread > 0,
+    }))
+  );
+
   const sendMessage = (messageText: string) => {
-    if (!messageText.trim()) return;
+    if (!messageText.trim() || !currentChatId) return;
 
-    const myMessage = {
-      from: { first_name: "You" },
-      date: Math.floor(Date.now() / 1000),
-      text: messageText,
-      sent_by_me: true,
-      notification: false,
-    };
-
-    if (!messages[currentChat]) {
-      messages[currentChat] = [];
-    }
-    messages[currentChat] = [...messages[currentChat], myMessage];
-    saveBotData();
-
-    bot.api.sendMessage(currentChat, messageText);
-    messageText = "";
+    sendText(currentChatId, messageText, replyTo || undefined);
+    clearReplyContext();
     scrollToBottom();
   };
 
   const clearData = () => {
-    localStorage.removeItem(`bot_${token}`);
-    messages = {};
-    chats = [];
-    currentChat = "";
-  };
-
-  const selectChat = (chatId: string) => {
-    currentChat = chatId;
-    chats = chats.map((chat) =>
-      chat.id === chatId ? { ...chat, unread: 0, hasNotification: false } : chat
-    );
-    saveBotData();
+    if (token) {
+      localStorage.removeItem(`telegram_${token}`);
+      // Clear the store state
+      telegramStore.chats.clear();
+      telegramStore.currentChatId = null;
+    }
   };
 
   const handleScroll = () => {
     if (!messagesContainer) return;
     const { scrollTop, scrollHeight, clientHeight } = messagesContainer;
-    showScrollButton = scrollHeight - scrollTop - clientHeight > 100;
+    // Show scroll button logic could be added here if needed
   };
 
   const scrollToBottom = () => {
@@ -166,39 +104,39 @@
   };
 
   const toggleSidebar = () => {
-    showSidebar = !showSidebar;
+    telegramStore.showSidebar = !telegramStore.showSidebar;
   };
 
   const toggleSettings = () => {
-    showSettings = !showSettings;
+    telegramStore.showSettings = !telegramStore.showSettings;
   };
 </script>
 
 <div class="flex flex-col h-screen max-h-screen max-w-screen overflow-hidden">
   <Header {botInfo} {toggleSettings} {toggleSidebar} />
 
-  {#if showSettings}
+  {#if telegramStore.showSettings}
     <Settings {botInfo} {token} {clearData} />
   {/if}
 
   <div class="flex flex-1 overflow-hidden">
     <ChatList
-      {chats}
-      {currentChat}
-      {selectChat}
-      {showSidebar}
-      toggleSidebar={() => (showSidebar = !showSidebar)}
+      chats={simpleChats}
+      currentChat={currentChatId || ""}
+      selectChat={selectChat}
+      showSidebar={telegramStore.showSidebar}
+      toggleSidebar={() => (telegramStore.showSidebar = !telegramStore.showSidebar)}
     />
 
     <div
       class="flex-1 flex flex-col min-h-0 max-w-full md:max-w-[calc(100vw-16rem)]"
     >
       <MessageList
-        messages={messages[currentChat] || []}
+        messages={messagesForCurrentChat}
         setContainer={(container: HTMLDivElement) => {
           messagesContainer = container;
         }}
-        {showScrollButton}
+        showScrollButton={false}
         {scrollToBottom}
         {handleScroll}
       />
