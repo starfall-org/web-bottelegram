@@ -546,6 +546,89 @@ Group: @contentdownload_group`)
     return bot.api.getChat(chatId);
   };
 
+  const searchChat = async (query: string): Promise<string | null> => {
+    if (!bot) throw new Error("Bot not initialized");
+    
+    const trimmedQuery = query.trim();
+    if (!trimmedQuery) {
+      enqueueToast("Invalid Query", "Please enter a chat ID or @username", "warning");
+      return null;
+    }
+
+    try {
+      enqueueToast("Searching", `Searching for ${trimmedQuery}...`, "info", 3000);
+      
+      let chatId: string | number = trimmedQuery;
+      
+      // If starts with @, it's a username
+      if (trimmedQuery.startsWith("@")) {
+        chatId = trimmedQuery;
+      } else if (!isNaN(Number(trimmedQuery))) {
+        // If it's a number, use it as-is
+        chatId = trimmedQuery;
+      } else {
+        enqueueToast("Invalid Format", "Please enter a numeric ID or @username", "warning");
+        return null;
+      }
+
+      // Try to get chat info
+      const chatInfo = await bot.api.getChat(chatId);
+      
+      const chatIdStr = String(chatInfo.id);
+      
+      // Check if chat already exists
+      if (chats.has(chatIdStr)) {
+        enqueueToast("Already Added", chatInfo.title || "Chat already in sidebar", "info");
+        selectChat(chatIdStr);
+        saveState();
+        return chatIdStr;
+      }
+      
+      // Add new chat
+      const isPrivate = chatInfo.type === "private";
+      const title = isPrivate
+        ? [chatInfo.first_name, chatInfo.last_name]
+            .filter(Boolean)
+            .join(" ") ||
+          chatInfo.username ||
+          "User"
+        : chatInfo.title || chatInfo.type || "Chat";
+
+      chats.set(chatIdStr, {
+        id: chatIdStr,
+        type: chatInfo.type,
+        title,
+        avatarText: initials(title),
+        messages: [],
+        messageIds: new Set(),
+        lastText: "",
+        lastDate: 0,
+        unread: 0,
+      });
+
+      saveState();
+      enqueueToast("Found!", title, "success");
+      selectChat(chatIdStr);
+      
+      return chatIdStr;
+    } catch (error: any) {
+      const errorMsg = error?.message || "Unknown error";
+      const errorCode = error?.error_code || error?.code;
+      
+      if (errorCode === 400 || errorMsg.includes("400")) {
+        enqueueToast("Not Found", "Chat ID or @username not found", "error");
+      } else if (errorCode === 403 || errorMsg.includes("403")) {
+        enqueueToast("Access Denied", "Bot doesn't have access to this chat", "error");
+      } else if (errorMsg.includes("not found")) {
+        enqueueToast("Not Found", "Chat not found", "error");
+      } else {
+        enqueueToast("Search Failed", errorMsg, "error");
+      }
+      
+      return null;
+    }
+  };
+
   const getChatAdministrators = async (chatId: string) => {
     if (!bot) throw new Error("Bot not initialized");
     return bot.api.getChatAdministrators(chatId);
@@ -577,6 +660,7 @@ Group: @contentdownload_group`)
     sendChatAction,
     deleteMessage,
     getChat,
+    searchChat,
     getChatAdministrators,
     getFileUrl,
     clearReplyContext,

@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Chat } from "../types/types";
+  import ChatSearch from "./ChatSearch.svelte";
 
   let {
     chats,
@@ -7,12 +8,16 @@
     selectChat,
     showSidebar,
     toggleSidebar,
+    onSearch,
+    searchDisabled = false,
   }: {
     chats: Chat[];
     currentChat: string;
     selectChat: (id: string) => void;
     showSidebar: boolean;
     toggleSidebar: () => void;
+    onSearch?: (query: string) => Promise<void>;
+    searchDisabled?: boolean;
   } = $props();
 
   function formatTimestamp(timestamp?: number): string {
@@ -40,9 +45,13 @@
 
 <div class="flex h-full flex-col bg-slate-950">
   <div class="border-b border-slate-900/60">
-    <slot name="search">
-      <div class="px-4 py-3 text-sm text-slate-500">Search coming soon.</div>
-    </slot>
+    {#if onSearch}
+      <ChatSearch {onSearch} disabled={searchDisabled} />
+    {:else}
+      <slot name="search">
+        <div class="px-4 py-3 text-sm text-slate-500">Search coming soon.</div>
+      </slot>
+    {/if}
   </div>
 
   <div class="flex-1 overflow-y-auto">
