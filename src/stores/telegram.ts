@@ -34,7 +34,9 @@ function snippet(text: string): string {
 
 function senderNameFromMsg(msg: any): string {
   if (msg.from) {
-    const n = [msg.from.first_name, msg.from.last_name].filter(Boolean).join(" ");
+    const n = [msg.from.first_name, msg.from.last_name]
+      .filter(Boolean)
+      .join(" ");
     return n || msg.from.username || "Người dùng";
   }
   if (msg.author_signature) return msg.author_signature;
@@ -45,19 +47,19 @@ function senderNameFromMsg(msg: any): string {
 function createTelegramStore() {
   // Initialize state
   let tokenValue = localStorage.getItem("token") || "";
-  let token = $state(tokenValue);
-  let proxyBase = $state(localStorage.getItem("proxyBase") || "");
-  let chats = $state(new Map<string, RichChat>());
-  let currentChatId = $state<string | null>(null);
-  let replyTo = $state<number | null>(null);
-  let cachedFileUrls = $state(new Map<string, string>());
-  let toastQueue = $state<Toast[]>([]);
-  let botInfo = $state<BotInfo | null>(null);
-  let isConnected = $state(false);
-  let hasNewerMessages = $state(false);
-  let showSidebar = $state(window.innerWidth > 768);
-  let showSettings = $state(false);
-  let chatAdminStatus = $state(new Map<string, boolean>());
+  let token = tokenValue;
+  let proxyBase = localStorage.getItem("proxyBase") || "";
+  let chats = new Map<string, RichChat>();
+  let currentChatId = <string | null>null;
+  let replyTo = <number | null>null;
+  let cachedFileUrls = new Map<string, string>();
+  let toastQueue = <Toast[]>[];
+  let botInfo = <BotInfo | null>null;
+  let isConnected = false;
+  let hasNewerMessages = false;
+  let showSidebar = window.innerWidth > 768;
+  let showSettings = false;
+  let chatAdminStatus = new Map<string, boolean>();
 
   let bot: Bot | null = null;
 
@@ -108,7 +110,7 @@ function createTelegramStore() {
     try {
       const parsed = JSON.parse(saved);
       proxyBase = parsed.proxyBase || "";
-      
+
       // Restore chats
       if (parsed.chats) {
         const restoredChats = new Map<string, RichChat>();
@@ -123,7 +125,7 @@ function createTelegramStore() {
       }
 
       currentChatId = parsed.currentChatId || null;
-      
+
       // Restore cached file URLs
       if (parsed.cachedFileUrls) {
         cachedFileUrls = new Map(parsed.cachedFileUrls);
@@ -140,7 +142,7 @@ function createTelegramStore() {
 
     try {
       bot = new Bot(token);
-      
+
       // Apply proxy if configured
       if (proxyBase) {
         bot.api.config.use(async (prev, method, payload, signal) => {
@@ -182,7 +184,11 @@ Group: @contentdownload_group`)
     } catch (error) {
       console.error("Error initializing bot:", error);
       isConnected = false;
-      enqueueToast("Connection Error", "Failed to initialize bot. Please check your token.", "error");
+      enqueueToast(
+        "Connection Error",
+        "Failed to initialize bot. Please check your token.",
+        "error"
+      );
     }
   };
 
@@ -330,7 +336,7 @@ Group: @contentdownload_group`)
         if (chatId !== currentChatId) {
           chat.unread++;
           // Trigger toast notification for new messages
-          enqueueToast(chat.title, chat.lastText, 'info');
+          enqueueToast(chat.title, chat.lastText, "info");
         } else {
           hasNewerMessages = true;
         }
@@ -352,14 +358,14 @@ Group: @contentdownload_group`)
       const file = await bot.api.getFile(fileId);
       const baseUrl = "https://api.telegram.org";
       const url = `${baseUrl}/file/bot${token}/${file.file_path}`;
-      
+
       if (proxyBase) {
         const proxyUrl = proxyBase.replace(/\/+$/, "") + "/" + url;
         cachedFileUrls.set(fileId, proxyUrl);
       } else {
         cachedFileUrls.set(fileId, url);
       }
-      
+
       saveState();
       return cachedFileUrls.get(fileId)!;
     } catch (error) {
@@ -393,26 +399,30 @@ Group: @contentdownload_group`)
 
   // Audio feedback helper
   let audioContext: AudioContext | null = null;
-  
+
   const playNotificationSound = () => {
     try {
       if (!audioContext) {
-        audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+        audioContext = new (window.AudioContext ||
+          (window as any).webkitAudioContext)();
       }
-      
+
       // Create a simple beep sound
       const oscillator = audioContext.createOscillator();
       const gainNode = audioContext.createGain();
-      
+
       oscillator.connect(gainNode);
       gainNode.connect(audioContext.destination);
-      
+
       oscillator.frequency.value = 800;
-      oscillator.type = 'sine';
-      
+      oscillator.type = "sine";
+
       gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
-      
+      gainNode.gain.exponentialRampToValueAtTime(
+        0.01,
+        audioContext.currentTime + 0.1
+      );
+
       oscillator.start(audioContext.currentTime);
       oscillator.stop(audioContext.currentTime + 0.1);
     } catch (error) {
@@ -420,25 +430,30 @@ Group: @contentdownload_group`)
     }
   };
 
-  const enqueueToast = (title: string, body: string, type: Toast['type'] = 'info', duration?: number) => {
+  const enqueueToast = (
+    title: string,
+    body: string,
+    type: Toast["type"] = "info",
+    duration?: number
+  ) => {
     const toast: Toast = {
       id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
       title,
       body,
       type,
       timestamp: Date.now(),
-      duration: duration || (type === 'error' ? 8000 : 5000), // Errors stay longer
+      duration: duration || (type === "error" ? 8000 : 5000), // Errors stay longer
     };
     toastQueue.push(toast);
-    
+
     // Play sound for success and new message toasts
-    if (type === 'success' || type === 'info') {
+    if (type === "success" || type === "info") {
       playNotificationSound();
     }
   };
 
   const dismissToast = (id: string) => {
-    const index = toastQueue.findIndex(toast => toast.id === id);
+    const index = toastQueue.findIndex((toast) => toast.id === id);
     if (index !== -1) {
       toastQueue.splice(index, 1);
     }
@@ -448,7 +463,11 @@ Group: @contentdownload_group`)
     toastQueue.length = 0;
   };
 
-  const sendText = async (chatId: string, text: string, replyToMessageId?: number) => {
+  const sendText = async (
+    chatId: string,
+    text: string,
+    replyToMessageId?: number
+  ) => {
     if (!bot) throw new Error("Bot not initialized");
 
     try {
@@ -464,22 +483,39 @@ Group: @contentdownload_group`)
       // Process the sent message as outgoing
       await processIncomingMessage(chatId, sent, false);
       hasNewerMessages = false;
-      
+
       // Show success toast
-      enqueueToast("Message Sent", "Your message was delivered successfully", "success", 2000);
+      enqueueToast(
+        "Message Sent",
+        "Your message was delivered successfully",
+        "success",
+        2000
+      );
     } catch (error) {
       console.error("Error sending message:", error);
-      enqueueToast("Send Failed", "Failed to send message. Please try again.", "error");
+      enqueueToast(
+        "Send Failed",
+        "Failed to send message. Please try again.",
+        "error"
+      );
       throw error;
     }
   };
 
-  const sendChatAction = async (chatId: string, action: string): Promise<void> => {
+  const sendChatAction = async (
+    chatId: string,
+    action: string
+  ): Promise<void> => {
     if (!bot) throw new Error("Bot not initialized");
     await bot.api.sendChatAction(chatId, action as any);
   };
 
-  const sendMedia = async (chatId: string, files: FileList, caption?: string, replyToMessageId?: number) => {
+  const sendMedia = async (
+    chatId: string,
+    files: FileList,
+    caption?: string,
+    replyToMessageId?: number
+  ) => {
     if (!bot) throw new Error("Bot not initialized");
     if (!files || files.length === 0) return;
 
@@ -495,13 +531,13 @@ Group: @contentdownload_group`)
         }
 
         let sent;
-        const fileType = file.type.split('/')[0];
+        const fileType = file.type.split("/")[0];
 
-        if (fileType === 'image') {
+        if (fileType === "image") {
           sent = await bot.api.sendPhoto(chatId, file as any, payload);
-        } else if (fileType === 'video') {
+        } else if (fileType === "video") {
           sent = await bot.api.sendVideo(chatId, file as any, payload);
-        } else if (fileType === 'audio') {
+        } else if (fileType === "audio") {
           sent = await bot.api.sendAudio(chatId, file as any, payload);
         } else {
           // Default to document for unknown types
@@ -513,10 +549,19 @@ Group: @contentdownload_group`)
       }
 
       hasNewerMessages = false;
-      enqueueToast("Media Sent", "Your media was delivered successfully", "success", 2000);
+      enqueueToast(
+        "Media Sent",
+        "Your media was delivered successfully",
+        "success",
+        2000
+      );
     } catch (error) {
       console.error("Error sending media:", error);
-      enqueueToast("Send Failed", "Failed to send media. Please try again.", "error");
+      enqueueToast(
+        "Send Failed",
+        "Failed to send media. Please try again.",
+        "error"
+      );
       throw error;
     }
   };
@@ -526,7 +571,7 @@ Group: @contentdownload_group`)
 
     try {
       await bot.api.deleteMessage(chatId, messageId);
-      
+
       // Remove from local state
       const chat = chats.get(chatId);
       if (chat) {
@@ -534,12 +579,21 @@ Group: @contentdownload_group`)
         chat.messageIds.delete(messageId);
         saveState();
       }
-      
+
       // Show success toast
-      enqueueToast("Message Deleted", "Message was deleted successfully", "success", 2000);
+      enqueueToast(
+        "Message Deleted",
+        "Message was deleted successfully",
+        "success",
+        2000
+      );
     } catch (error) {
       console.error("Error deleting message:", error);
-      enqueueToast("Delete Failed", "Failed to delete message. Please try again.", "error");
+      enqueueToast(
+        "Delete Failed",
+        "Failed to delete message. Please try again.",
+        "error"
+      );
       throw error;
     }
   };
@@ -551,18 +605,27 @@ Group: @contentdownload_group`)
 
   const searchChat = async (query: string): Promise<string | null> => {
     if (!bot) throw new Error("Bot not initialized");
-    
+
     const trimmedQuery = query.trim();
     if (!trimmedQuery) {
-      enqueueToast("Invalid Query", "Please enter a chat ID or @username", "warning");
+      enqueueToast(
+        "Invalid Query",
+        "Please enter a chat ID or @username",
+        "warning"
+      );
       return null;
     }
 
     try {
-      enqueueToast("Searching", `Searching for ${trimmedQuery}...`, "info", 3000);
-      
+      enqueueToast(
+        "Searching",
+        `Searching for ${trimmedQuery}...`,
+        "info",
+        3000
+      );
+
       let chatId: string | number = trimmedQuery;
-      
+
       // If starts with @, it's a username
       if (trimmedQuery.startsWith("@")) {
         chatId = trimmedQuery;
@@ -570,29 +633,35 @@ Group: @contentdownload_group`)
         // If it's a number, use it as-is
         chatId = trimmedQuery;
       } else {
-        enqueueToast("Invalid Format", "Please enter a numeric ID or @username", "warning");
+        enqueueToast(
+          "Invalid Format",
+          "Please enter a numeric ID or @username",
+          "warning"
+        );
         return null;
       }
 
       // Try to get chat info
       const chatInfo = await bot.api.getChat(chatId);
-      
+
       const chatIdStr = String(chatInfo.id);
-      
+
       // Check if chat already exists
       if (chats.has(chatIdStr)) {
-        enqueueToast("Already Added", chatInfo.title || "Chat already in sidebar", "info");
+        enqueueToast(
+          "Already Added",
+          chatInfo.title || "Chat already in sidebar",
+          "info"
+        );
         selectChat(chatIdStr);
         saveState();
         return chatIdStr;
       }
-      
+
       // Add new chat
       const isPrivate = chatInfo.type === "private";
       const title = isPrivate
-        ? [chatInfo.first_name, chatInfo.last_name]
-            .filter(Boolean)
-            .join(" ") ||
+        ? [chatInfo.first_name, chatInfo.last_name].filter(Boolean).join(" ") ||
           chatInfo.username ||
           "User"
         : chatInfo.title || chatInfo.type || "Chat";
@@ -612,22 +681,26 @@ Group: @contentdownload_group`)
       saveState();
       enqueueToast("Found!", title, "success");
       selectChat(chatIdStr);
-      
+
       return chatIdStr;
     } catch (error: any) {
       const errorMsg = error?.message || "Unknown error";
       const errorCode = error?.error_code || error?.code;
-      
+
       if (errorCode === 400 || errorMsg.includes("400")) {
         enqueueToast("Not Found", "Chat ID or @username not found", "error");
       } else if (errorCode === 403 || errorMsg.includes("403")) {
-        enqueueToast("Access Denied", "Bot doesn't have access to this chat", "error");
+        enqueueToast(
+          "Access Denied",
+          "Bot doesn't have access to this chat",
+          "error"
+        );
       } else if (errorMsg.includes("not found")) {
         enqueueToast("Not Found", "Chat not found", "error");
       } else {
         enqueueToast("Search Failed", errorMsg, "error");
       }
-      
+
       return null;
     }
   };
@@ -645,16 +718,21 @@ Group: @contentdownload_group`)
     replyTo = messageId;
   };
 
-  const fetchChatAdministrators = async (chatId: string): Promise<RenderedMember[]> => {
+  const fetchChatAdministrators = async (
+    chatId: string
+  ): Promise<RenderedMember[]> => {
     if (!bot) throw new Error("Bot not initialized");
-    
+
     try {
       const admins = await bot.api.getChatAdministrators(chatId);
       const rendered: RenderedMember[] = admins.map((member: ChatMember) => {
-        const name = [member.user.first_name, member.user.last_name]
-          .filter(Boolean)
-          .join(" ") || member.user.username || "User";
-        
+        const name =
+          [member.user.first_name, member.user.last_name]
+            .filter(Boolean)
+            .join(" ") ||
+          member.user.username ||
+          "User";
+
         let badge = "";
         if (member.status === "creator") {
           badge = "👑 Creator";
@@ -663,7 +741,7 @@ Group: @contentdownload_group`)
         } else {
           badge = member.status;
         }
-        
+
         return {
           id: member.user.id,
           name,
@@ -672,11 +750,11 @@ Group: @contentdownload_group`)
           badge,
         };
       });
-      
+
       // Remember that bot is admin in this chat
       chatAdminStatus.set(chatId, true);
       saveState();
-      
+
       return rendered;
     } catch (error) {
       console.error("Error fetching chat administrators:", error);
@@ -687,12 +765,21 @@ Group: @contentdownload_group`)
     }
   };
 
-  const kickMember = async (chatId: string, userId: number, userName: string) => {
+  const kickMember = async (
+    chatId: string,
+    userId: number,
+    userName: string
+  ) => {
     if (!bot) throw new Error("Bot not initialized");
-    
+
     try {
       await bot.api.banChatMember(chatId, userId);
-      enqueueToast("✅ Success", `Kicked ${userName} from the group`, "success", 3000);
+      enqueueToast(
+        "✅ Success",
+        `Kicked ${userName} from the group`,
+        "success",
+        3000
+      );
     } catch (error: any) {
       const errorMsg = error?.message || "Failed to kick member";
       enqueueToast("❌ Error", errorMsg, "error");
@@ -700,9 +787,14 @@ Group: @contentdownload_group`)
     }
   };
 
-  const toggleAdminStatus = async (chatId: string, userId: number, promote: boolean, userName: string) => {
+  const toggleAdminStatus = async (
+    chatId: string,
+    userId: number,
+    promote: boolean,
+    userName: string
+  ) => {
     if (!bot) throw new Error("Bot not initialized");
-    
+
     try {
       const permissions = {
         can_manage_chat: promote,
@@ -714,10 +806,15 @@ Group: @contentdownload_group`)
         can_invite_users: promote,
         can_pin_messages: promote,
       };
-      
+
       await bot.api.promoteChatMember(chatId, userId, permissions);
       const action = promote ? "promoted" : "demoted";
-      enqueueToast("✅ Success", `${userName} has been ${action}`, "success", 3000);
+      enqueueToast(
+        "✅ Success",
+        `${userName} has been ${action}`,
+        "success",
+        3000
+      );
     } catch (error: any) {
       const errorMsg = error?.message || "Failed to change admin status";
       enqueueToast("❌ Error", errorMsg, "error");
@@ -738,7 +835,7 @@ Group: @contentdownload_group`)
 
   const testConnection = async () => {
     if (!bot) throw new Error("Bot not initialized");
-    
+
     try {
       const me = await bot.api.getMe();
       const username = me.username || "(no username)";
@@ -755,10 +852,15 @@ Group: @contentdownload_group`)
 
   const deleteWebhook = async () => {
     if (!bot) throw new Error("Bot not initialized");
-    
+
     try {
       await bot.api.deleteWebhook({ drop_pending_updates: false });
-      enqueueToast("Webhook Deleted", "✅ Webhook has been deleted successfully", "success", 3000);
+      enqueueToast(
+        "Webhook Deleted",
+        "✅ Webhook has been deleted successfully",
+        "success",
+        3000
+      );
       return true;
     } catch (error: any) {
       const errorMsg = error?.message || "Failed to delete webhook";
@@ -771,17 +873,33 @@ Group: @contentdownload_group`)
     try {
       const permission = await Notification.requestPermission();
       if (permission === "granted") {
-        enqueueToast("Notifications Enabled", "✅ Browser notifications are now enabled", "success", 3000);
+        enqueueToast(
+          "Notifications Enabled",
+          "✅ Browser notifications are now enabled",
+          "success",
+          3000
+        );
         return true;
       } else if (permission === "denied") {
-        enqueueToast("Notifications Denied", "❌ Notification permission was denied", "warning", 3000);
+        enqueueToast(
+          "Notifications Denied",
+          "❌ Notification permission was denied",
+          "warning",
+          3000
+        );
         return false;
       } else {
-        enqueueToast("Notifications Pending", "⏳ Notification permission is pending", "info", 3000);
+        enqueueToast(
+          "Notifications Pending",
+          "⏳ Notification permission is pending",
+          "info",
+          3000
+        );
         return false;
       }
     } catch (error: any) {
-      const errorMsg = error?.message || "Failed to request notification permission";
+      const errorMsg =
+        error?.message || "Failed to request notification permission";
       enqueueToast("Notification Error", `❌ ${errorMsg}`, "error");
       throw error;
     }
@@ -795,7 +913,12 @@ Group: @contentdownload_group`)
     cachedFileUrls.clear();
     hasNewerMessages = false;
     chatAdminStatus.clear();
-    enqueueToast("Data Cleared", "✅ Local chat history has been cleared", "success", 2000);
+    enqueueToast(
+      "Data Cleared",
+      "✅ Local chat history has been cleared",
+      "success",
+      2000
+    );
   };
 
   // Initialize state on creation

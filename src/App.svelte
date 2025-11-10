@@ -61,7 +61,11 @@
   $effect(() => {
     const recentToasts = toastQueue.slice(-3);
     recentToasts.forEach((toast) => {
-      if (toast.type === "error" || toast.type === "warning" || toast.type === "success") {
+      if (
+        toast.type === "error" ||
+        toast.type === "warning" ||
+        toast.type === "success"
+      ) {
         showNotification(toast.title, toast.body);
       }
     });
@@ -70,13 +74,18 @@
   const currentChat: RichChat | undefined = $derived(
     currentChatId ? chats.get(currentChatId) : undefined
   );
-  const messagesForCurrentChat: RichMessage[] = $derived(currentChat?.messages || []);
+  const messagesForCurrentChat: RichMessage[] = $derived(
+    currentChat?.messages || []
+  );
 
-  function renderMessagePreview(message: RichMessage | undefined): string | null {
+  function renderMessagePreview(
+    message: RichMessage | undefined
+  ): string | null {
     if (!message) return null;
     if (message.type === "text") return message.text;
     if ("caption" in message && message.caption) return message.caption;
-    if ("text" in message && (message as any).text) return (message as any).text;
+    if ("text" in message && (message as any).text)
+      return (message as any).text;
     return `[${message.type}]`;
   }
 
@@ -256,8 +265,8 @@
       chats={chatTiles}
       currentChat={currentChatId || ""}
       selectChat={handleSelectChat}
-      showSidebar={showSidebar}
-      toggleSidebar={toggleSidebar}
+      {showSidebar}
+      {toggleSidebar}
       onSearch={handleSearchChat}
       searchDisabled={!isConnected}
     />
@@ -271,7 +280,7 @@
       {toggleSettings}
       {toggleSidebar}
       onToggleMembers={toggleMembersPanel}
-      canShowMembers={canShowMembers}
+      {canShowMembers}
     />
 
     <div class="relative flex flex-1 flex-col overflow-hidden bg-slate-900">
@@ -289,7 +298,7 @@
       <div class="border-t border-slate-800 bg-slate-900">
         <MessageInput
           sendMessage={handleSendMessage}
-          replyPreview={replyPreview}
+          {replyPreview}
           clearReply={clearReplyContext}
           disabled={!currentChatId || !isConnected}
           onAttach={handleAttachment}
@@ -308,7 +317,12 @@
             stroke="currentColor"
             class="h-5 w-5"
           >
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m5 10 7 7 7-7" />
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="m5 10 7 7 7-7"
+            />
           </svg>
           <span>New messages</span>
         </button>
@@ -321,13 +335,9 @@
       class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 px-4 py-8"
       role="dialog"
       aria-modal="true"
-      onclick={(event) => {
-        if (event.target === event.currentTarget) toggleSettings();
-      }}
     >
       <div
         class="relative w-full max-w-2xl overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-2xl"
-        onclick={(event) => event.stopPropagation()}
       >
         <button
           class="absolute right-3 top-3 rounded-full bg-slate-800/80 p-2 text-slate-300 transition hover:bg-slate-700 hover:text-white"
