@@ -288,7 +288,7 @@ textarea {
 }
 
 .sidebar-close {
-  display: grid;
+  display: none;
 }
 
 .messages {
@@ -1127,6 +1127,10 @@ textarea {
 
   .menu-toggle {
     display: block;
+  }
+
+  .sidebar-close {
+    display: grid;
   }
 
   .composer {

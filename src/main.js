@@ -128,7 +128,7 @@ function setupEventListeners() {
   });
 
   els.sidebarCloseBtn?.addEventListener('click', () => {
-    els.sidebarEl.classList.add('hidden-mobile');
+    els.sidebarEl.classList.toggle('hidden-mobile');
   });
 
   // Messages
