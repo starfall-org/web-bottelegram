@@ -1,7 +1,6 @@
 <script lang="ts">
   import type { RichChat, RichMessage } from "./types/types";
   import { telegramStore } from "./stores/telegram";
-  import { showNotification } from "./utils/botUtils";
 
   import Header from "./components/Header.svelte";
   import Settings from "./components/Settings.svelte";
@@ -70,19 +69,6 @@
     } else {
       initializeBot();
     }
-  });
-
-  $effect(() => {
-    const recentToasts = toastQueue.slice(-3);
-    recentToasts.forEach((toast) => {
-      if (
-        toast.type === "error" ||
-        toast.type === "warning" ||
-        toast.type === "success"
-      ) {
-        showNotification(toast.title, toast.body);
-      }
-    });
   });
 
   const currentChat: RichChat | undefined = $derived(

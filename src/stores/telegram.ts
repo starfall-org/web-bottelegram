@@ -45,23 +45,22 @@ function senderNameFromMsg(msg: any): string {
   return "Hệ thống";
 }
 
-// Create the telegram store
+// Create the telegram store using Svelte 5 reactivity
 function createTelegramStore() {
-  // Initialize state
-  let tokenValue = localStorage.getItem("token") || "";
-  let token = tokenValue;
-  let proxyBase = localStorage.getItem("proxyBase") || "";
-  let chats = new Map<string, RichChat>();
-  let currentChatId = <number | null>null;
-  let replyTo = <number | null>null;
-  let cachedFileUrls = new Map<string, string>();
-  let toastQueue = <Toast[]>[];
-  let botInfo = <BotInfo | null>null;
-  let isConnected = false;
-  let hasNewerMessages = false;
-  let showSidebar = window.innerWidth > 768;
-  let showSettings = false;
-  let chatAdminStatus = new Map<number, boolean>();
+  // Initialize reactive state
+  let token = $state(localStorage.getItem("token") || "");
+  let proxyBase = $state(localStorage.getItem("proxyBase") || "");
+  let chats = $state(new Map<string, RichChat>());
+  let currentChatId = $state<number | null>(null);
+  let replyTo = $state<number | null>(null);
+  let cachedFileUrls = $state(new Map<string, string>());
+  let toastQueue = $state<Toast[]>([]);
+  let botInfo = $state<BotInfo | null>(null);
+  let isConnected = $state(false);
+  let hasNewerMessages = $state(false);
+  let showSidebar = $state(window.innerWidth > 768);
+  let showSettings = $state(false);
+  let chatAdminStatus = $state(new Map<number, boolean>());
 
   let bot: Bot | null = null;
 
@@ -74,6 +73,7 @@ function createTelegramStore() {
     currentChatId = null;
     cachedFileUrls.clear();
     hasNewerMessages = false;
+    chatAdminStatus.clear();
     loadState();
     if (newToken) {
       initializeBot();
@@ -143,6 +143,15 @@ function createTelegramStore() {
     if (!token) return;
 
     try {
+      // Stop existing bot if any
+      if (bot) {
+        try {
+          await bot.stop();
+        } catch (error) {
+          console.warn("Error stopping previous bot instance:", error);
+        }
+      }
+
       bot = new Bot(token);
 
       // Apply proxy if configured
@@ -193,6 +202,7 @@ function createTelegramStore() {
     } catch (error) {
       console.error("Error initializing bot:", error);
       isConnected = false;
+      bot = null;
       enqueueToast(
         "Connection Error",
         "Failed to initialize bot. Please check your token.",
@@ -458,6 +468,21 @@ function createTelegramStore() {
     // Play sound for success and new message toasts
     if (type === "success" || type === "info") {
       playNotificationSound();
+    }
+    
+    // Show browser notification for important toasts
+    if (type === "error" || type === "warning" || type === "success") {
+      if (typeof window !== "undefined" && "Notification" in window) {
+        if (Notification.permission === "granted") {
+          new Notification(title, { body });
+        } else if (Notification.permission !== "denied") {
+          Notification.requestPermission().then((permission) => {
+            if (permission === "granted") {
+              new Notification(title, { body });
+            }
+          });
+        }
+      }
     }
   };
 
@@ -836,7 +861,6 @@ function createTelegramStore() {
     saveState();
     // Reinitialize bot with new proxy if token exists
     if (token) {
-      bot = null;
       initializeBot();
     }
   };
@@ -965,20 +989,25 @@ function createTelegramStore() {
   };
 
   return {
-    // State
-    token,
-    proxyBase,
-    chats,
-    currentChatId,
-    replyTo,
-    cachedFileUrls,
-    toastQueue,
-    botInfo,
-    isConnected,
-    hasNewerMessages,
-    showSidebar,
-    showSettings,
-    chatAdminStatus,
+    // Reactive state getters
+    get token() { return token; },
+    get proxyBase() { return proxyBase; },
+    get chats() { return chats; },
+    get currentChatId() { return currentChatId; },
+    get replyTo() { return replyTo; },
+    get cachedFileUrls() { return cachedFileUrls; },
+    get toastQueue() { return toastQueue; },
+    get botInfo() { return botInfo; },
+    get isConnected() { return isConnected; },
+    get hasNewerMessages() { return hasNewerMessages; },
+    get showSidebar() { return showSidebar; },
+    get showSettings() { return showSettings; },
+    get chatAdminStatus() { return chatAdminStatus; },
+    
+    // State setters
+    set showSidebar(value: boolean) { showSidebar = value; },
+    set showSettings(value: boolean) { showSettings = value; },
+    
     // Actions
     ...actions,
   };

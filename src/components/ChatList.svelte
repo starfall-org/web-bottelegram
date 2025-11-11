@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { render } from "svelte/server";
   import type { Chat } from "../types/types";
   import ChatSearch from "./ChatSearch.svelte";
 
