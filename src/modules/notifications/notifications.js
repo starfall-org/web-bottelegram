@@ -4,6 +4,36 @@
 
 import { playBeep, snippet } from '../utils/helpers.js';
 
+let swRegistration = null;
+let swRegistrationPromise = null;
+
+function canUseNotifications() {
+  return typeof window !== 'undefined' && 'Notification' in window;
+}
+
+async function ensureServiceWorker() {
+  if (!('serviceWorker' in navigator)) {
+    return null;
+  }
+
+  if (swRegistration) {
+    return swRegistration;
+  }
+
+  if (!swRegistrationPromise) {
+    swRegistrationPromise = navigator.serviceWorker.register('/sw.js').then((registration) => {
+      swRegistration = registration;
+      return registration;
+    }).catch((err) => {
+      console.warn('Service worker registration failed:', err);
+      swRegistration = null;
+      return null;
+    });
+  }
+
+  return swRegistrationPromise;
+}
+
 export function toastsShow(title, body, toastsEl) {
   if (!toastsEl) return;
 
@@ -25,20 +55,54 @@ export function toastsShow(title, body, toastsEl) {
   setTimeout(() => t.remove(), 4000);
 }
 
-export function notifyNewMessage(chat, message, toastsEl) {
+export async function notifyNewMessage(chat, message, toastsEl, options = {}) {
   const body = chat.lastText || snippet(message.text || message.caption || '[' + (message.type || 'tin nhắn') + ']');
   toastsShow(chat.title, body, toastsEl);
-  playBeep();
+  if (options.playSound !== false) {
+    playBeep();
+  }
 
-  if (Notification.permission === 'granted') {
+  if (!canUseNotifications()) {
+    return;
+  }
+
+  if (options.push !== false && document.hidden && Notification.permission === 'granted') {
     try {
-      new Notification(chat.title, { body });
-    } catch {}
+      const notificationOptions = {
+        body,
+        tag: `chat-${chat.id}`,
+        data: {
+          chatId: chat.id,
+          url: window?.location?.href || ''
+        }
+      };
+
+      const registration = await ensureServiceWorker();
+      if (registration && registration.showNotification) {
+        registration.showNotification(chat.title, notificationOptions);
+      } else {
+        new Notification(chat.title, notificationOptions);
+      }
+    } catch (err) {
+      console.warn('Không thể hiển thị thông báo đẩy:', err);
+    }
   }
 }
 
-export function requestNotifications() {
-  return Notification.requestPermission();
+export async function requestNotifications() {
+  if (!canUseNotifications()) {
+    throw new Error('Trình duyệt không hỗ trợ Web Notifications');
+  }
+  const permission = await Notification.requestPermission();
+  if (permission === 'granted') {
+    await ensureServiceWorker();
+  }
+  return permission;
+}
+
+export async function initNotifications() {
+  if (!canUseNotifications()) return null;
+  return ensureServiceWorker();
 }
 
 export async function showMessage(title, body) {

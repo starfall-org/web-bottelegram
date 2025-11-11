@@ -95,11 +95,15 @@ export async function getChatAdministrators(chatId) {
   return botPost('getChatAdministrators', { chat_id: chatId });
 }
 
-export async function banChatMember(chatId, userId) {
-  return botPost('banChatMember', {
+export async function banChatMember(chatId, userId, untilDate) {
+  const body = {
     chat_id: chatId,
     user_id: userId
-  });
+  };
+  if (untilDate) {
+    body.until_date = untilDate;
+  }
+  return botPost('banChatMember', body);
 }
 
 export async function promoteChatMember(chatId, userId, permissions = {}) {
@@ -113,10 +117,61 @@ export async function promoteChatMember(chatId, userId, permissions = {}) {
     can_promote_members: permissions.can_promote_members || false,
     can_change_info: permissions.can_change_info !== false,
     can_invite_users: permissions.can_invite_users !== false,
-    can_pin_messages: permissions.can_pin_messages !== false
+    can_pin_messages: permissions.can_pin_messages !== false,
+    is_anonymous: permissions.is_anonymous || false
   });
+}
+
+export async function restrictChatMember(chatId, userId, permissions = {}, untilDate) {
+  const body = {
+    chat_id: chatId,
+    user_id: userId,
+    permissions
+  };
+  if (untilDate) {
+    body.until_date = untilDate;
+  }
+  return botPost('restrictChatMember', body);
+}
+
+export async function getChatMember(chatId, userId) {
+  return botPost('getChatMember', { chat_id: chatId, user_id: userId });
+}
+
+export async function setChatTitle(chatId, title) {
+  return botPost('setChatTitle', { chat_id: chatId, title });
+}
+
+export async function setChatDescription(chatId, description) {
+  return botPost('setChatDescription', { chat_id: chatId, description });
+}
+
+export async function setChatPhoto(chatId, file) {
+  const formData = new FormData();
+  formData.append('chat_id', chatId);
+  formData.append('photo', file);
+  return botForm('setChatPhoto', formData);
 }
 
 export async function deleteWebhook(dropPendingUpdates = false) {
   return botPost('deleteWebhook', { drop_pending_updates: dropPendingUpdates });
+}
+
+export async function getMyCommands(scope, languageCode) {
+  const body = {};
+  if (scope) body.scope = scope;
+  if (languageCode) body.language_code = languageCode;
+  return botPost('getMyCommands', body);
+}
+
+export async function getMyDescription(languageCode) {
+  const body = {};
+  if (languageCode) body.language_code = languageCode;
+  return botPost('getMyDescription', body);
+}
+
+export async function getMyShortDescription(languageCode) {
+  const body = {};
+  if (languageCode) body.language_code = languageCode;
+  return botPost('getMyShortDescription', body);
 }
