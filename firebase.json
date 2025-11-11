@@ -1,8 +1,0 @@
-{
-  "hosting": {
-    "site": "bottelegram",
-    "public": "dist",
-    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"]
-  }
-}
-
