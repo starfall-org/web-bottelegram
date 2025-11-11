@@ -127,6 +127,10 @@ function setupEventListeners() {
     els.sidebarEl.classList.toggle('hidden-mobile');
   });
 
+  els.sidebarCloseBtn?.addEventListener('click', () => {
+    els.sidebarEl.classList.add('hidden-mobile');
+  });
+
   // Messages
   els.messagesEl.addEventListener('click', handleMessageClick);
   els.newMsgBtn.addEventListener('click', () => {
@@ -209,6 +213,9 @@ function setupEventListeners() {
   els.saveGroupBtn?.addEventListener('click', saveGroupInfo);
   els.membersListEl?.addEventListener('click', handleMemberListClick);
 
+  // Sidebar controls
+  els.chatListEl?.addEventListener('contextmenu', handleChatListContextMenu);
+
   // Member modal
   els.closeMemberModalBtn?.addEventListener('click', closeMemberModal);
   els.memberModalEl?.addEventListener('click', (e) => {
@@ -219,7 +226,17 @@ function setupEventListeners() {
   els.memberPromoteBtn?.addEventListener('click', () => changeMemberRole('admin'));
   els.memberModeratorBtn?.addEventListener('click', () => changeMemberRole('moderator'));
   els.memberDemoteBtn?.addEventListener('click', () => changeMemberRole('member'));
+  els.memberRestrictBtn?.addEventListener('click', openRestrictModal);
   els.memberKickBtn?.addEventListener('click', kickMemberFromModal);
+
+  // Restrict modal
+  els.closeRestrictModalBtn?.addEventListener('click', closeRestrictModal);
+  els.restrictModalEl?.addEventListener('click', (e) => {
+    if (e.target === els.restrictModalEl) {
+      closeRestrictModal();
+    }
+  });
+  els.applyRestrictBtn?.addEventListener('click', applyRestrictPermissions);
 }
 
 /**
@@ -859,16 +876,37 @@ async function getFileUrl(fileId) {
 }
 
 /**
- * Handle message click (for reply)
+ * Handle message click (for reply or member action)
  */
 function handleMessageClick(e) {
   if (e.target.closest('.msg-action-btn')) return;
+
+  if (e.target.closest('.msg-sender-name')) {
+    const senderEl = e.target.closest('.msg-sender-name');
+    const userId = parseInt(senderEl.dataset.userId, 10);
+    if (userId && canManageMembers()) {
+      showMemberModal(userId);
+      return;
+    }
+  }
+
   const msgEl = e.target.closest('.message');
   if (!msgEl) return;
 
   const msgId = msgEl.dataset.msgId;
   const prev = msgEl.innerText.slice(0, 30).replace('/ /g', ' ');
   setReplyContext(msgId, prev);
+}
+
+/**
+ * Check if bot can manage members
+ */
+function canManageMembers() {
+  if (!appState.activeChatId) return false;
+  const chat = appState.getChat(appState.activeChatId);
+  if (!chat || (chat.type !== 'group' && chat.type !== 'supergroup')) return false;
+  const permissions = appState.getChatPermissions(appState.activeChatId);
+  return permissions.canRestrictMembers || permissions.canPromoteMembers;
 }
 
 /**
@@ -936,7 +974,10 @@ async function sendMessage() {
       appState.getOrCreateChat(chatId);
       if (appState.addMessageToChat(chatId, message)) {
         const permissions = appState.getChatPermissions(chatId);
-        render.renderMessage(message, els.messagesEl, deleteMessage, { canDeleteOthers: permissions.canDeleteMessages });
+        render.renderMessage(message, els.messagesEl, deleteMessage, {
+          canDeleteOthers: permissions.canDeleteMessages,
+          canManageMembers: canManageMembers()
+        });
         if (preferences.autoScroll && stickToBottom) {
           scrollToBottom(els.messagesEl);
           els.newMsgBtn.style.display = 'none';
@@ -1029,7 +1070,10 @@ async function sendFile(file) {
       appState.getOrCreateChat(chatId);
       if (appState.addMessageToChat(chatId, message)) {
         const permissions = appState.getChatPermissions(chatId);
-        render.renderMessage(message, els.messagesEl, deleteMessage, { canDeleteOthers: permissions.canDeleteMessages });
+        render.renderMessage(message, els.messagesEl, deleteMessage, {
+          canDeleteOthers: permissions.canDeleteMessages,
+          canManageMembers: canManageMembers()
+        });
         if (preferences.autoScroll && stickToBottom) {
           scrollToBottom(els.messagesEl);
           els.newMsgBtn.style.display = 'none';
@@ -1131,12 +1175,174 @@ async function openChatFromInput() {
 }
 
 /**
- * Show members dialog
+ * Open members dialog
  */
-async function showMembersDialog() {
+function openMembersDialog() {
+  if (!appState.activeChatId) return;
+  const chat = appState.getChat(appState.activeChatId);
+  if (!chat || (chat.type !== 'group' && chat.type !== 'supergroup')) return;
+
+  els.membersOverlayEl.classList.remove('hidden');
+  switchMembersTab(activeMembersTab);
+  refreshMembersList(false);
+}
+
+/**
+ * Close members dialog
+ */
+function closeMembersDialog() {
+  els.membersOverlayEl.classList.add('hidden');
+}
+
+/**
+ * Switch members tab
+ */
+function switchMembersTab(tab) {
+  activeMembersTab = tab;
+
+  if (tab === 'members') {
+    els.membersTabBtn?.classList.add('active');
+    els.groupTabBtn?.classList.remove('active');
+    els.membersTabPanel?.classList.add('active');
+    els.groupSettingsTab?.classList.remove('active');
+  } else {
+    els.membersTabBtn?.classList.remove('active');
+    els.groupTabBtn?.classList.add('active');
+    els.membersTabPanel?.classList.remove('active');
+    els.groupSettingsTab?.classList.add('active');
+    loadGroupSettings();
+  }
+}
+
+/**
+ * Load group settings
+ */
+function loadGroupSettings() {
+  const chat = appState.getChat(appState.activeChatId);
+  if (!chat) return;
+
+  if (els.groupNameInputEl) els.groupNameInputEl.value = chat.title || '';
+  if (els.groupDescriptionInputEl) els.groupDescriptionInputEl.value = chat.description || '';
+}
+
+/**
+ * Save group info
+ */
+async function saveGroupInfo() {
   if (!appState.activeChatId) return;
 
-  const chat = appState.getChat(appState.activeChatId);
+  const title = els.groupNameInputEl?.value.trim();
+  const description = els.groupDescriptionInputEl?.value.trim();
+  const photoFile = els.groupPhotoInputEl?.files[0];
+
+  try {
+    if (title) {
+      const res = await admin.updateGroupTitle(appState.activeChatId, title);
+      if (res.ok) {
+        const chat = appState.getChat(appState.activeChatId);
+        if (chat) {
+          chat.title = title;
+          renderUI();
+        }
+        notifications.toastsShow('✅ Thành công', 'Đã cập nhật tên nhóm', els.toastsEl);
+      }
+    }
+
+    if (description) {
+      const res = await admin.updateGroupDescription(appState.activeChatId, description);
+      if (res.ok) {
+        const chat = appState.getChat(appState.activeChatId);
+        if (chat) chat.description = description;
+        notifications.toastsShow('✅ Thành công', 'Đã cập nhật mô tả', els.toastsEl);
+      }
+    }
+
+    if (photoFile) {
+      const res = await admin.updateGroupPhoto(appState.activeChatId, photoFile);
+      if (res.ok) {
+        notifications.toastsShow('✅ Thành công', 'Đã cập nhật ảnh đại diện', els.toastsEl);
+      }
+    }
+  } catch (e) {
+    notifications.toastsShow('❌ Lỗi', e.message, els.toastsEl);
+  }
+}
+
+/**
+ * Refresh members list
+ */
+async function refreshMembersList(showToast = true) {
+  if (!appState.activeChatId) return;
+
+  try {
+    const admins = await admin.fetchAdministrators(appState.activeChatId);
+    const chat = appState.getChat(appState.activeChatId);
+
+    admins.forEach(m => {
+      appState.upsertMember(appState.activeChatId, {
+        id: m.user.id,
+        first_name: m.user.first_name,
+        last_name: m.user.last_name,
+        username: m.user.username,
+        isBot: m.user.is_bot,
+        status: m.status,
+        isAdmin: m.status === 'administrator',
+        isCreator: m.status === 'creator',
+        raw: m
+      });
+    });
+
+    renderMembersList();
+
+    const memberCount = appState.getChatMembersArray(appState.activeChatId).length;
+    if (els.groupInfoEl) {
+      els.groupInfoEl.textContent = `Tổng: ${memberCount} thành viên`;
+    }
+
+    if (showToast) {
+      notifications.toastsShow('✅ Thành công', 'Đã tải lại danh sách', els.toastsEl);
+    }
+  } catch (e) {
+    if (els.membersHintEl) {
+      els.membersHintEl.textContent = 'Lỗi: ' + e.message;
+    }
+    if (showToast) {
+      notifications.toastsShow('❌ Lỗi', e.message, els.toastsEl);
+    }
+  }
+}
+
+/**
+ * Render members list
+ */
+function renderMembersList() {
+  if (!els.membersListEl) return;
+  els.membersListEl.innerHTML = '';
+
+  const members = appState.getChatMembersArray(appState.activeChatId);
+
+  members.forEach(member => {
+    const item = document.createElement('div');
+    item.className = 'member-item';
+    item.dataset.userId = member.id;
+
+    const avatar = document.createElement('div');
+    avatar.className = 'member-avatar';
+    avatar.textContent = member.avatarText || '?';
+
+    const info = document.createElement('div');
+    info.className = 'member-info';
+
+    const name = document.createElement('div');
+    name.className = 'member-name';
+    name.textContent = member.displayName || 'Người dùng';
+
+    const status = document.createElement('div');
+    status.className = 'member-status';
+    status.textContent = admin.roleLabel(member.status);
+
+    info.appendChild(name);
+    info.appendChild(status);
 
   await admin.showMembers(
     appState.activeChatId,
