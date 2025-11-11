@@ -59,6 +59,7 @@ export interface DocumentMessage extends BaseMessage {
 }
 
 export interface StickerMessage extends BaseMessage {
+  id: number;
   type: "sticker";
   mediaUrl: string;
   stickerFormat: "webp" | "webm" | "tgs";
