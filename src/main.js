@@ -10,7 +10,7 @@ import * as render from './modules/ui/render.js';
 import * as dom from './modules/ui/dom.js';
 import * as notifications from './modules/notifications/notifications.js';
 import * as admin from './modules/admin/admin.js';
-import { fmtTime, initials, snippet, senderNameFromMsg, scrollToBottom, isAtBottom, formatDateTime } from './modules/utils/helpers.js';
+import { fmtTime, initials, snippet, senderNameFromMsg, senderUsernameFromMsg, scrollToBottom, isAtBottom, formatDateTime } from './modules/utils/helpers.js';
 
 // Get DOM elements
 let els = null;
@@ -18,6 +18,8 @@ let els = null;
 // Setup polling
 let pollTimer = null;
 let actionTimer = null;
+let isPolling = false;
+let pollQueue = [];
 
 const DEFAULT_PREFERENCES = {
   autoScroll: true,
@@ -144,6 +146,39 @@ function setupEventListeners() {
   els.inputEl.addEventListener('focus', startChatAction);
   els.inputEl.addEventListener('blur', stopChatAction);
 
+  // Sticker panel
+  els.stickerBtn.addEventListener('click', toggleStickerPanel);
+  els.closeStickerBtn.addEventListener('click', closeStickerPanel);
+
+  // User actions menu
+  els.closeUserActionsBtn.addEventListener('click', closeUserActionsMenu);
+  els.copyIdBtn.addEventListener('click', () => performUserAction('copyId'));
+  els.copyUsernameBtn.addEventListener('click', () => performUserAction('copyUsername'));
+  els.kickUserBtn.addEventListener('click', () => performUserAction('kick'));
+  els.promoteUserBtn.addEventListener('click', () => performUserAction('promote'));
+  els.moderateUserBtn.addEventListener('click', () => performUserAction('moderate'));
+  els.demoteUserBtn.addEventListener('click', () => performUserAction('demote'));
+  els.restrictUserBtn.addEventListener('click', () => performUserAction('restrict'));
+
+  // Close user actions menu when clicking outside
+  document.addEventListener('click', (e) => {
+    if (els.userActionsMenu && !els.userActionsMenu.classList.contains('hidden')) {
+      const isClickInsideMenu = els.userActionsMenu.contains(e.target);
+      const isClickOnSender = e.target.classList.contains('sender-name');
+      
+      if (!isClickInsideMenu && !isClickOnSender) {
+        closeUserActionsMenu();
+      }
+    }
+  });
+
+  // Close user actions menu with Escape key
+  document.addEventListener('keydown', (e) => {
+    if ((e.key === 'Escape' || e.key === 'Esc') && els.userActionsMenu && !els.userActionsMenu.classList.contains('hidden')) {
+      closeUserActionsMenu();
+    }
+  });
+
   // Attachments
   els.attachBtn.addEventListener('click', () => {
     if (!appState.activeChatId) {
@@ -216,9 +251,10 @@ function renderUI() {
     render.updateChatHeader(chat, els.headerTitleEl, els.activeAvatarEl);
     render.updateMembersButton(chat, els.membersBtnEl);
     const permissions = appState.getChatPermissions(chat.id);
-    render.renderChatMessages(chat, els.messagesEl, deleteMessage, {
+    render.renderChatMessages(chat, els.messagesEl, deleteMessage, { 
       canDeleteOthers: permissions.canDeleteMessages,
-      canManageMembers: canManageMembers()
+      isGroupChat: chat.type === 'group' || chat.type === 'supergroup',
+      onUserClick: handleUserClick
     });
     if (preferences.autoScroll) {
       scrollToBottom(els.messagesEl);
@@ -563,8 +599,8 @@ function updateBotInfo() {
  */
 function startPolling() {
   clearInterval(pollTimer);
-  pollOnce().catch(() => {});
-  pollTimer = setInterval(() => pollOnce().catch(() => {}), 2500);
+  isPolling = true;
+  pollOnceSequential();
   els.statusEl.textContent = 'Đang nhận cập nhật...';
 }
 
@@ -574,6 +610,34 @@ function startPolling() {
 function stopPolling() {
   clearInterval(pollTimer);
   pollTimer = null;
+  isPolling = false;
+  pollQueue = [];
+}
+
+/**
+ * Sequential polling with delay
+ */
+async function pollOnceSequential() {
+  if (!isPolling) return;
+  
+  try {
+    await pollOnce();
+    
+    // Wait 1 second before next poll
+    setTimeout(() => {
+      if (isPolling) {
+        pollOnceSequential();
+      }
+    }, 1000);
+  } catch (e) {
+    console.error('Polling error:', e);
+    // Wait 2 seconds on error before retrying
+    setTimeout(() => {
+      if (isPolling) {
+        pollOnceSequential();
+      }
+    }, 2000);
+  }
 }
 
 /**
@@ -604,6 +668,7 @@ async function pollOnce() {
     els.statusEl.textContent = 'Đang nhận cập nhật...';
   } catch (e) {
     els.statusEl.textContent = 'CORS hoặc mạng lỗi khi getUpdates';
+    throw e;
   }
 }
 
@@ -675,8 +740,9 @@ async function processMessage(msg) {
     id: msg.message_id,
     side: isFromBot ? 'right' : 'left',
     date: timestampMs,
-    fromName: senderNameFromMsg(msg),
     fromId: msg.from ? msg.from.id : null,
+    fromName: senderNameFromMsg(msg),
+    fromUsername: senderUsernameFromMsg(msg),
     reply_to: msg.reply_to_message && msg.reply_to_message.message_id,
     reply_preview: msg.reply_to_message && snippet(msg.reply_to_message.text || msg.reply_to_message.caption || '')
   };
@@ -714,6 +780,19 @@ async function processMessage(msg) {
       url = await getFileUrl(st.file_id);
     }
 
+    // Save sticker to collection
+    const stickerData = {
+      file_id: st.file_id,
+      url: url,
+      emoji: st.emoji || '',
+      is_animated: st.is_animated,
+      is_video: st.is_video,
+      set_name: st.set_name,
+      width: st.width,
+      height: st.height
+    };
+    storage.saveSticker(appState.token, stickerData);
+
     message = { ...baseMessage, type: 'sticker', mediaUrl: url, stickerFormat: fmt, emoji: st.emoji || '' };
   } else {
     message = { ...baseMessage, type: 'text', text: '[Không hiển thị loại nội dung này]' };
@@ -722,10 +801,15 @@ async function processMessage(msg) {
   if (appState.addMessageToChat(chatId, message)) {
     if (isActiveChat) {
       const permissions = appState.getChatPermissions(chatId);
-      render.renderMessage(message, els.messagesEl, deleteMessage, {
+      const chat = appState.getChat(chatId);
+      const isGroupChat = chat && (chat.type === 'group' || chat.type === 'supergroup');
+      
+      render.renderMessage(message, els.messagesEl, deleteMessage, { 
         canDeleteOthers: permissions.canDeleteMessages,
-        canManageMembers: canManageMembers()
+        isGroupChat,
+        onUserClick: handleUserClick
       });
+      
       if (preferences.autoScroll && shouldStickToBottom) {
         scrollToBottom(els.messagesEl);
         els.newMsgBtn.style.display = 'none';
@@ -736,11 +820,12 @@ async function processMessage(msg) {
       chat.unread = (chat.unread || 0) + 1;
       notifications.notifyNewMessage(chat, message, els.toastsEl, {
         playSound: preferences.sound,
-        push: preferences.push
+        push: preferences.push,
+        scrollToMessage: window.scrollToMessage
       });
     }
 
-    render.renderChatList(appState.chats, appState.activeChatId, els.emptyNoticeEl, els.chatListEl, openChat);
+    render.renderChatList(appState.chats, appState.activeChatId, els.emptyNoticeEl, els.chatListEl, openChat, deleteChat);
     if (isActiveChat) {
       render.updateMembersButton(chat, els.membersBtnEl);
     }
@@ -1022,9 +1107,10 @@ async function deleteMessage(messageId) {
       appState.removeMessageFromChat(chatId, messageId);
       const chat = appState.getChat(chatId);
       const permissions = appState.getChatPermissions(chatId);
-      render.renderChatMessages(chat, els.messagesEl, deleteMessage, {
+      render.renderChatMessages(chat, els.messagesEl, deleteMessage, { 
         canDeleteOthers: permissions.canDeleteMessages,
-        canManageMembers: canManageMembers()
+        isGroupChat: chat.type === 'group' || chat.type === 'supergroup',
+        onUserClick: handleUserClick
       });
       render.renderChatList(appState.chats, appState.activeChatId, els.emptyNoticeEl, els.chatListEl, openChat);
       storage.saveChatHistory(appState.token, appState.chats);
@@ -1258,212 +1344,17 @@ function renderMembersList() {
     info.appendChild(name);
     info.appendChild(status);
 
-    item.appendChild(avatar);
-    item.appendChild(info);
-
-    els.membersListEl.appendChild(item);
-  });
-}
-
-/**
- * Handle member list click
- */
-function handleMemberListClick(e) {
-  const item = e.target.closest('.member-item');
-  if (!item) return;
-
-  const userId = parseInt(item.dataset.userId, 10);
-  if (!userId) return;
-
-  showMemberModal(userId);
-}
-
-/**
- * Show member modal
- */
-async function showMemberModal(userId) {
-  const member = appState.getChatMember(appState.activeChatId, userId);
-  if (!member) return;
-
-  currentMemberId = userId;
-
-  if (els.memberModalAvatarEl) els.memberModalAvatarEl.textContent = member.avatarText || '?';
-  if (els.memberModalNameEl) els.memberModalNameEl.textContent = member.displayName || 'Người dùng';
-  if (els.memberModalUsernameEl) els.memberModalUsernameEl.textContent = member.username ? '@' + member.username : '—';
-  if (els.memberModalIdEl) els.memberModalIdEl.textContent = 'ID: ' + member.id;
-  if (els.memberModalStatusEl) els.memberModalStatusEl.textContent = admin.roleLabel(member.status);
-  if (els.memberModalJoinedEl) {
-    els.memberModalJoinedEl.textContent = member.joinedDate
-      ? 'Tham gia: ' + new Date(member.joinedDate).toLocaleDateString('vi-VN')
-      : '—';
-  }
-
-  const permissions = appState.getChatPermissions(appState.activeChatId);
-  const canManage = permissions.canPromoteMembers || permissions.canRestrictMembers;
-
-  if (els.memberPromoteBtn) els.memberPromoteBtn.style.display = canManage && !member.isCreator ? 'block' : 'none';
-  if (els.memberModeratorBtn) els.memberModeratorBtn.style.display = canManage && !member.isCreator ? 'block' : 'none';
-  if (els.memberDemoteBtn) els.memberDemoteBtn.style.display = canManage && !member.isCreator ? 'block' : 'none';
-  if (els.memberRestrictBtn) els.memberRestrictBtn.style.display = canManage && !member.isCreator ? 'block' : 'none';
-  if (els.memberKickBtn) els.memberKickBtn.style.display = canManage && !member.isCreator ? 'block' : 'none';
-
-  els.memberModalEl?.classList.remove('hidden');
-}
-
-/**
- * Close member modal
- */
-function closeMemberModal() {
-  els.memberModalEl?.classList.add('hidden');
-  currentMemberId = null;
-}
-
-/**
- * Change member role
- */
-async function changeMemberRole(role) {
-  if (!currentMemberId || !appState.activeChatId) return;
-
-  const member = appState.getChatMember(appState.activeChatId, currentMemberId);
-  if (!member) return;
-
-  try {
-    const res = await admin.applyRole(appState.activeChatId, currentMemberId, role);
-    if (res.ok) {
-      member.status = role === 'admin' ? 'administrator' : role;
-      member.isAdmin = role === 'admin' || role === 'administrator';
-      notifications.toastsShow('✅ Thành công', `Đã thay đổi vai trò`, els.toastsEl);
-      closeMemberModal();
-      refreshMembersList(false);
-    } else {
-      notifications.toastsShow('❌ Lỗi', res.description || 'Không thể thay đổi vai trò', els.toastsEl);
-    }
-  } catch (e) {
-    notifications.toastsShow('❌ Lỗi', e.message, els.toastsEl);
-  }
-}
-
-/**
- * Kick member from modal
- */
-async function kickMemberFromModal() {
-  if (!currentMemberId || !appState.activeChatId) return;
-
-  const member = appState.getChatMember(appState.activeChatId, currentMemberId);
-  if (!member) return;
-
-  if (!confirm(`Kick ${member.displayName} khỏi nhóm?`)) return;
-
-  try {
-    const res = await admin.kickMember(appState.activeChatId, currentMemberId);
-    if (res.ok) {
-      appState.removeMember(appState.activeChatId, currentMemberId);
-      notifications.toastsShow('✅ Thành công', `Đã kick ${member.displayName}`, els.toastsEl);
-      closeMemberModal();
-      refreshMembersList(false);
-    } else {
-      notifications.toastsShow('❌ Lỗi', res.description || 'Không thể kick thành viên', els.toastsEl);
-    }
-  } catch (e) {
-    notifications.toastsShow('❌ Lỗi', e.message, els.toastsEl);
-  }
-}
-
-/**
- * Open restrict modal
- */
-function openRestrictModal() {
-  if (!currentMemberId) return;
-
-  if (els.permSendMessagesEl) els.permSendMessagesEl.checked = true;
-  if (els.permSendMediaEl) els.permSendMediaEl.checked = true;
-  if (els.permSendPollsEl) els.permSendPollsEl.checked = true;
-  if (els.permSendOtherEl) els.permSendOtherEl.checked = true;
-  if (els.permAddWebPageEl) els.permAddWebPageEl.checked = true;
-  if (els.permChangeInfoEl) els.permChangeInfoEl.checked = false;
-  if (els.permInviteUsersEl) els.permInviteUsersEl.checked = true;
-  if (els.permPinMessagesEl) els.permPinMessagesEl.checked = false;
-
-  els.memberModalEl?.classList.add('hidden');
-  els.restrictModalEl?.classList.remove('hidden');
-}
-
-/**
- * Close restrict modal
- */
-function closeRestrictModal() {
-  els.restrictModalEl?.classList.add('hidden');
-  els.memberModalEl?.classList.remove('hidden');
-}
-
-/**
- * Apply restrict permissions
- */
-async function applyRestrictPermissions() {
-  if (!currentMemberId || !appState.activeChatId) return;
-
-  const permissions = {
-    can_send_messages: els.permSendMessagesEl?.checked ?? true,
-    can_send_audios: els.permSendMediaEl?.checked ?? true,
-    can_send_documents: els.permSendMediaEl?.checked ?? true,
-    can_send_photos: els.permSendMediaEl?.checked ?? true,
-    can_send_videos: els.permSendMediaEl?.checked ?? true,
-    can_send_video_notes: els.permSendMediaEl?.checked ?? true,
-    can_send_voice_notes: els.permSendMediaEl?.checked ?? true,
-    can_send_polls: els.permSendPollsEl?.checked ?? true,
-    can_send_other_messages: els.permSendOtherEl?.checked ?? true,
-    can_add_web_page_previews: els.permAddWebPageEl?.checked ?? true,
-    can_change_info: els.permChangeInfoEl?.checked ?? false,
-    can_invite_users: els.permInviteUsersEl?.checked ?? true,
-    can_pin_messages: els.permPinMessagesEl?.checked ?? false,
-    can_manage_topics: false
-  };
-
-  try {
-    const res = await botAPI.restrictChatMember(appState.activeChatId, currentMemberId, permissions);
-    if (res.ok) {
-      notifications.toastsShow('✅ Thành công', 'Đã áp dụng hạn chế', els.toastsEl);
-      closeRestrictModal();
-      closeMemberModal();
-      refreshMembersList(false);
-    } else {
-      notifications.toastsShow('❌ Lỗi', res.description || 'Không thể áp dụng hạn chế', els.toastsEl);
-    }
-  } catch (e) {
-    notifications.toastsShow('❌ Lỗi', e.message, els.toastsEl);
-  }
-}
-
-/**
- * Handle chat list context menu
- */
-function handleChatListContextMenu(e) {
-  const item = e.target.closest('.chat-item');
-  if (!item) return;
-
-  e.preventDefault();
-
-  const chatId = item.dataset.chatId;
-  if (!chatId) return;
-
-  if (confirm('Xóa cuộc trò chuyện này và toàn bộ lịch sử?')) {
-    deleteChat(chatId);
-  }
-}
-
-/**
- * Delete chat
- */
-function deleteChat(chatId) {
-  appState.removeChat(chatId);
-
-  if (appState.activeChatId === chatId) {
-    appState.setActiveChatId(null);
-  }
-
-  storage.saveChatHistory(appState.token, appState.chats);
-  renderUI();
-  notifications.toastsShow('✅ Đã xóa', 'Cuộc trò chuyện đã được xóa', els.toastsEl);
+  await admin.showMembers(
+    appState.activeChatId,
+    chat,
+    els.membersOverlayEl,
+    els.groupInfoEl,
+    els.membersListEl,
+    els.membersHintEl,
+    els.toastsEl,
+    (userId, userName) => admin.kickMemberWithConfirm(appState.activeChatId, userId, userName, els.toastsEl, showMembersDialog),
+    (userId, promote, userName) => admin.toggleAdmin(appState.activeChatId, userId, promote, userName, els.toastsEl, showMembersDialog)
+  );
 }
 
 /**
@@ -1483,6 +1374,251 @@ function stopChatAction() {
   clearInterval(actionTimer);
   actionTimer = null;
 }
+
+/**
+ * Delete chat
+ */
+async function deleteChat(chatId) {
+  if (!chatId) return;
+  
+  // Remove from app state
+  appState.removeChat(chatId);
+  
+  // Save to storage
+  storage.saveChatHistory(appState.token, appState.chats);
+  
+  // If this was the active chat, clear it
+  if (appState.activeChatId === chatId) {
+    appState.setActiveChatId(null);
+    render.clearMessagesView(els.messagesEl);
+    render.updateChatHeader(null, els.headerTitleEl, els.activeAvatarEl);
+    els.inputEl.disabled = true;
+  }
+  
+  // Re-render chat list
+  render.renderChatList(appState.chats, appState.activeChatId, els.emptyNoticeEl, els.chatListEl, openChat, deleteChat);
+  
+  notifications.toastsShow('Thành công', 'Đã xóa chat', els.toastsEl);
+}
+
+/**
+ * Handle user click in group chat
+ */
+function handleUserClick(userId, userName, userUsername = null) {
+  if (!userId || !appState.activeChatId) return;
+  
+  const chat = appState.getChat(appState.activeChatId);
+  if (!chat || (chat.type !== 'group' && chat.type !== 'supergroup')) return;
+  
+  // Store current user info for actions
+  window.currentUserAction = {
+    userId,
+    userName,
+    userUsername,
+    chatId: appState.activeChatId
+  };
+  
+  // Show user actions menu
+  showUserActionsMenu(userName, userUsername, userId);
+}
+
+/**
+ * Show user actions menu
+ */
+function showUserActionsMenu(userName, userUsername = null, userId = null) {
+  const userInfo = [];
+  userInfo.push(`<strong>${userName}</strong>`);
+  if (userUsername) {
+    userInfo.push(`@${userUsername}`);
+  }
+  if (userId) {
+    userInfo.push(`ID: ${userId}`);
+  }
+  
+  els.userActionsTitle.innerHTML = userInfo.join(' • ');
+  els.userActionsMenu.classList.remove('hidden');
+}
+
+/**
+ * Close user actions menu
+ */
+function closeUserActionsMenu() {
+  els.userActionsMenu.classList.add('hidden');
+  window.currentUserAction = null;
+}
+
+/**
+ * Perform user action
+ */
+async function performUserAction(action) {
+  if (!window.currentUserAction) return;
+  
+  const { userId, userName, userUsername, chatId } = window.currentUserAction;
+  
+  try {
+    switch (action) {
+      case 'copyId':
+        if (userId) {
+          navigator.clipboard.writeText(userId.toString()).then(() => {
+            notifications.toastsShow('Thành công', `Đã copy ID: ${userId}`, els.toastsEl);
+          }).catch(() => {
+            notifications.toastsShow('Lỗi', 'Không thể copy ID', els.toastsEl);
+          });
+        }
+        break;
+        
+      case 'copyUsername':
+        if (userUsername) {
+          const usernameToCopy = userUsername.startsWith('@') ? userUsername : `@${userUsername}`;
+          navigator.clipboard.writeText(usernameToCopy).then(() => {
+            notifications.toastsShow('Thành công', `Đã copy username: ${usernameToCopy}`, els.toastsEl);
+          }).catch(() => {
+            notifications.toastsShow('Lỗi', 'Không thể copy username', els.toastsEl);
+          });
+        } else {
+          notifications.toastsShow('Thông báo', 'Người dùng không có username', els.toastsEl);
+        }
+        break;
+        
+      case 'kick':
+        if (confirm(`Kick ${userName} khỏi nhóm?`)) {
+          await admin.kickMember(chatId, userId);
+          notifications.toastsShow('Thành công', `Đã kick ${userName}`, els.toastsEl);
+        }
+        break;
+        
+      case 'promote':
+        await admin.applyRole(chatId, userId, 'admin');
+        notifications.toastsShow('Thành công', `Đã thăng ${userName} làm admin`, els.toastsEl);
+        break;
+        
+      case 'moderate':
+        await admin.applyRole(chatId, userId, 'moderator');
+        notifications.toastsShow('Thành công', `Đã thăng ${userName} làm moderator`, els.toastsEl);
+        break;
+        
+      case 'demote':
+        await admin.applyRole(chatId, userId, 'member');
+        notifications.toastsShow('Thành công', `Đã hạ ${userName} thành thành viên`, els.toastsEl);
+        break;
+        
+      case 'restrict':
+        // This would need a more complex UI for specific restrictions
+        notifications.toastsShow('Thông báo', 'Tính năng hạn chế quyền đang phát triển', els.toastsEl);
+        break;
+    }
+  } catch (error) {
+    notifications.toastsShow('Lỗi', `Không thực hiện tác vụ: ${error.message}`, els.toastsEl);
+  }
+  
+  closeUserActionsMenu();
+}
+
+/**
+ * Toggle sticker panel
+ */
+function toggleStickerPanel() {
+  if (els.stickerPanel.classList.contains('hidden')) {
+    showStickerPanel();
+  } else {
+    closeStickerPanel();
+  }
+}
+
+/**
+ * Show sticker panel
+ */
+function showStickerPanel() {
+  els.stickerPanel.classList.remove('hidden');
+  
+  // Load stickers
+  const stickers = storage.loadStickers(appState.token);
+  
+  // Ensure stickers have URLs
+  const stickersWithUrls = Promise.all(
+    stickers.map(async (sticker) => {
+      if (!sticker.url && sticker.file_id) {
+        try {
+          const info = await botAPI.getFile(sticker.file_id);
+          if (info.ok) {
+            sticker.url = botAPI.fullFileUrl(info.result.file_path);
+          }
+        } catch (e) {
+          console.warn('Failed to get sticker URL:', e);
+        }
+      }
+      return sticker;
+    })
+  );
+  
+  stickersWithUrls.then((resolvedStickers) => {
+    render.renderStickerPanel(resolvedStickers, els.stickerList, handleStickerClick);
+  });
+}
+
+/**
+ * Close sticker panel
+ */
+function closeStickerPanel() {
+  els.stickerPanel.classList.add('hidden');
+}
+
+/**
+ * Handle sticker click
+ */
+async function handleStickerClick(sticker) {
+  if (!appState.activeChatId) {
+    notifications.toastsShow('Lỗi', 'Chọn chat trước', els.toastsEl);
+    return;
+  }
+  
+  try {
+    await botAPI.sendSticker(appState.activeChatId, sticker.file_id);
+    closeStickerPanel();
+    
+    // Add sticker to sent messages (optimistic UI)
+    const message = {
+      id: Date.now(), // Temporary ID
+      side: 'right',
+      date: Date.now(),
+      fromName: appState.bot.name || 'Bot',
+      type: 'sticker',
+      mediaUrl: sticker.url,
+      stickerFormat: sticker.is_animated ? 'tgs' : (sticker.is_video ? 'webm' : 'webp'),
+      emoji: sticker.emoji || ''
+    };
+    
+    appState.addMessageToChat(appState.activeChatId, message);
+    render.renderMessage(message, els.messagesEl, deleteMessage, { 
+      canDeleteOthers: false,
+      isGroupChat: false
+    });
+    scrollToBottom(els.messagesEl);
+    
+  } catch (error) {
+    notifications.toastsShow('Lỗi', `Không gửi sticker: ${error.message}`, els.toastsEl);
+  }
+}
+
+/**
+ * Scroll to message function for notifications
+ */
+window.scrollToMessage = function(chatId, messageId) {
+  if (appState.activeChatId !== chatId) {
+    openChat(chatId);
+  }
+  
+  setTimeout(() => {
+    const messageEl = document.querySelector(`[data-msg-id="${messageId}"]`);
+    if (messageEl) {
+      messageEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      messageEl.style.animation = 'pulse 1s ease-in-out';
+      setTimeout(() => {
+        messageEl.style.animation = '';
+      }, 1000);
+    }
+  }, 500);
+};
 
 /**
  * Start application

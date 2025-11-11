@@ -54,9 +54,19 @@
           <span id="cancelReply" class="cancel-reply" role="button" aria-label="Hủy trả lời">✕</span>
         </div>
         <button id="attachBtn" class="icon-btn" title="Đính kèm" aria-label="Đính kèm">📎</button>
+        <button id="stickerBtn" class="icon-btn" title="Sticker" aria-label="Sticker">😀</button>
         <input id="input" type="text" placeholder="Nhập tin nhắn..." disabled />
         <button id="sendBtn" class="icon-btn primary" title="Gửi" aria-label="Gửi">➤</button>
         <input id="fileInput" type="file" style="display:none" />
+      </div>
+      
+      <!-- Sticker Panel -->
+      <div id="stickerPanel" class="sticker-panel hidden">
+        <div class="sticker-panel-header">
+          <span>Sticker</span>
+          <button id="closeStickerBtn" class="icon-btn" title="Đóng">✕</button>
+        </div>
+        <div id="stickerList" class="sticker-list"></div>
       </div>
     </main>
   </div>
@@ -207,53 +217,20 @@
     </div>
   </div>
 
-  <!-- Restrict Permissions Modal -->
-  <div id="restrictModal" class="overlay hidden">
-    <div class="dialog dialog-medium restrict-modal">
-      <div class="dialog-header">
-        <h3>Hạn chế quyền thành viên</h3>
-        <button id="closeRestrictModalBtn" class="icon-btn" title="Đóng" aria-label="Đóng">✕</button>
-      </div>
-      <div class="restrict-modal-body">
-        <p class="restrict-hint">Chọn các quyền cho phép:</p>
-        <div class="permissions-grid">
-          <label class="option-item">
-            <input type="checkbox" id="permSendMessages" checked />
-            <span>Gửi tin nhắn</span>
-          </label>
-          <label class="option-item">
-            <input type="checkbox" id="permSendMedia" checked />
-            <span>Gửi ảnh/video</span>
-          </label>
-          <label class="option-item">
-            <input type="checkbox" id="permSendPolls" checked />
-            <span>Gửi poll</span>
-          </label>
-          <label class="option-item">
-            <input type="checkbox" id="permSendOther" checked />
-            <span>Gửi sticker/GIF</span>
-          </label>
-          <label class="option-item">
-            <input type="checkbox" id="permAddWebPage" checked />
-            <span>Thêm link preview</span>
-          </label>
-          <label class="option-item">
-            <input type="checkbox" id="permChangeInfo" />
-            <span>Đổi thông tin nhóm</span>
-          </label>
-          <label class="option-item">
-            <input type="checkbox" id="permInviteUsers" checked />
-            <span>Mời người dùng</span>
-          </label>
-          <label class="option-item">
-            <input type="checkbox" id="permPinMessages" />
-            <span>Ghim tin nhắn</span>
-          </label>
-        </div>
-      </div>
-      <div class="restrict-modal-actions">
-        <button id="applyRestrictBtn" class="btn success full">Áp dụng</button>
-      </div>
+  <!-- User Actions Menu -->
+  <div id="userActionsMenu" class="user-actions-menu hidden">
+    <div class="user-actions-header">
+      <span id="userActionsTitle">Tác vụ với người dùng</span>
+      <button id="closeUserActionsBtn" class="icon-btn" title="Đóng">✕</button>
+    </div>
+    <div class="user-actions-list">
+      <button id="copyIdBtn" class="btn secondary" data-action="copyId">📋 Copy ID</button>
+      <button id="copyUsernameBtn" class="btn secondary" data-action="copyUsername">📋 Copy username</button>
+      <button id="kickUserBtn" class="btn danger" data-action="kick">🚫 Kick người dùng</button>
+      <button id="promoteUserBtn" class="btn secondary" data-action="promote">⭐ Thăng admin</button>
+      <button id="moderateUserBtn" class="btn secondary" data-action="moderate">🛡️ Thăng moderator</button>
+      <button id="demoteUserBtn" class="btn secondary" data-action="demote">👤 Hạ thành viên</button>
+      <button id="restrictUserBtn" class="btn warning" data-action="restrict">🔒 Hạn chế quyền</button>
     </div>
   </div>
 

@@ -14,10 +14,28 @@ export const newMsgBtn = () => document.getElementById('newMsgBtn');
 export const inputEl = () => document.getElementById('input');
 export const sendBtn = () => document.getElementById('sendBtn');
 export const attachBtn = () => document.getElementById('attachBtn');
+export const stickerBtn = () => document.getElementById('stickerBtn');
 export const fileInputEl = () => document.getElementById('fileInput');
 export const replyContext = () => document.getElementById('replyContext');
 export const replyText = () => document.getElementById('replyText');
 export const cancelReply = () => document.getElementById('cancelReply');
+
+// Sticker Panel
+export const stickerPanel = () => document.getElementById('stickerPanel');
+export const closeStickerBtn = () => document.getElementById('closeStickerBtn');
+export const stickerList = () => document.getElementById('stickerList');
+
+// User Actions
+export const userActionsMenu = () => document.getElementById('userActionsMenu');
+export const userActionsTitle = () => document.getElementById('userActionsTitle');
+export const closeUserActionsBtn = () => document.getElementById('closeUserActionsBtn');
+export const copyIdBtn = () => document.getElementById('copyIdBtn');
+export const copyUsernameBtn = () => document.getElementById('copyUsernameBtn');
+export const kickUserBtn = () => document.getElementById('kickUserBtn');
+export const promoteUserBtn = () => document.getElementById('promoteUserBtn');
+export const moderateUserBtn = () => document.getElementById('moderateUserBtn');
+export const demoteUserBtn = () => document.getElementById('demoteUserBtn');
+export const restrictUserBtn = () => document.getElementById('restrictUserBtn');
 
 // Header
 export const statusEl = () => document.getElementById('status');
@@ -198,6 +216,20 @@ export function getCachedElements() {
     prefAutoScrollEl: prefAutoScrollEl(),
     prefSoundEl: prefSoundEl(),
     prefPushEl: prefPushEl(),
-    toastsEl: toastsEl()
+    toastsEl: toastsEl(),
+    stickerBtn: stickerBtn(),
+    stickerPanel: stickerPanel(),
+    closeStickerBtn: closeStickerBtn(),
+    stickerList: stickerList(),
+    userActionsMenu: userActionsMenu(),
+    userActionsTitle: userActionsTitle(),
+    closeUserActionsBtn: closeUserActionsBtn(),
+    copyIdBtn: copyIdBtn(),
+    copyUsernameBtn: copyUsernameBtn(),
+    kickUserBtn: kickUserBtn(),
+    promoteUserBtn: promoteUserBtn(),
+    moderateUserBtn: moderateUserBtn(),
+    demoteUserBtn: demoteUserBtn(),
+    restrictUserBtn: restrictUserBtn()
   };
 }
