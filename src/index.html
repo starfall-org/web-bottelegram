@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <title>Telegram Bot Web UI (Multi-chat + Media + Notification)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+</head>
+<body>
+  <div class="app">
+    <aside id="sidebar" class="sidebar">
+      <div class="sidebar-header">
+        <div class="app-title">Telegram Bot</div>
+        <button id="settingsBtn" class="btn secondary">Cài đặt</button>
+      </div>
+      <div class="search">
+        <div class="search-wrapper">
+          <input id="searchInput" type="text" placeholder="Tìm chat ID hoặc @username" />
+          <button id="searchBtn" class="search-btn">🔍</button>
+        </div>
+      </div>
+      <div id="chatList" class="chat-list">
+        <div id="emptyNotice" class="chat-empty">
+          Chưa có cuộc trò chuyện. Khi có tin nhắn đến, mục sẽ hiện ở đây.
+        </div>
+      </div>
+    </aside>
+
+    <main class="chat">
+      <div class="chat-header">
+        <div class="header-left">
+          <button id="menuToggle" class="icon-btn menu-toggle">☰</button>
+          <div id="activeAvatar" class="avatar" style="display:none;">?</div>
+          <div>
+            <div id="headerTitle" class="header-title">Chưa chọn cuộc trò chuyện</div>
+            <div id="status" class="status">Chưa kết nối</div>
+          </div>
+        </div>
+        <div class="header-actions">
+          <button id="membersBtn" class="icon-btn" title="Quản lý thành viên" style="display:none;">👥</button>
+          <div id="botInfo" class="status"></div>
+        </div>
+      </div>
+
+      <div id="messages" class="messages"></div>
+      <button id="newMsgBtn">↓ Xem tin mới</button>
+
+      <div class="composer">
+        <div id="replyContext" class="reply-context hidden">
+          Đang trả lời: <span id="replyText"></span>
+          <span id="cancelReply" class="cancel-reply">✕</span>
+        </div>
+        <button id="attachBtn" class="btn secondary">📎</button>
+        <input id="input" type="text" placeholder="Nhập tin nhắn..." disabled />
+        <button id="sendBtn" class="btn" disabled>Gửi</button>
+        <input id="fileInput" type="file" style="display:none" />
+      </div>
+    </main>
+  </div>
+
+  <!-- Settings Overlay -->
+  <div id="overlay" class="overlay hidden">
+    <div class="dialog">
+      <h3>Cài đặt kết nối</h3>
+      <p>
+        Nhập Bot Token (từ BotFather). Danh sách cuộc trò chuyện sẽ tự xuất hiện
+        khi bot nhận tin nhắn mới. Token được lưu tại localStorage — chỉ dùng để thử nghiệm cá nhân.
+      </p>
+      <input id="tokenInput" type="password" placeholder="Bot Token (botXXXXXXXX:YYYYYYYYYYYYYYYY)" />
+      <div class="row">
+        <input id="proxyInput" type="text" placeholder="CORS proxy prefix (tuỳ chọn, vd: https://cors.isomorphic-git.org/)" />
+        <button id="testBtn" class="btn secondary">Kiểm tra</button>
+      </div>
+      <div class="row">
+        <button id="deleteWebhookBtn" class="btn danger">Xóa webhook</button>
+        <button id="notifBtn" class="btn secondary">Bật thông báo</button>
+      </div>
+      <div class="actions">
+        <div class="hint" id="settingsHint">
+          Nếu nhận lỗi 409 khi polling, hãy xóa webhook. Nếu bị CORS, thêm proxy prefix.
+        </div>
+        <div>
+          <button id="saveBtn" class="btn">Lưu & Kết nối</button>
+          <button id="cancelBtn" class="btn secondary">Đóng</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Members Dialog -->
+  <div id="membersOverlay" class="overlay hidden">
+    <div class="dialog">
+      <h3>Quản lý thành viên</h3>
+      <p id="groupInfo">Đang tải...</p>
+      <div id="membersList" class="members-list"></div>
+      <div class="actions">
+        <div class="hint" id="membersHint"></div>
+        <button id="closeMembersBtn" class="btn secondary">Đóng</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toasts -->
+  <div id="toasts" class="toasts"></div>
+
+  <script type="module" src="/main.js"></script>
+</body>
+</html>
