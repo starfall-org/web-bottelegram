@@ -13,8 +13,8 @@
     searchDisabled = false,
   }: {
     chats: Chat[];
-    currentChat: string;
-    selectChat: (id: string) => void;
+    currentChat: number|null;
+    selectChat: (id: number) => void;
     showSidebar: boolean;
     toggleSidebar: () => void;
     onSearch?: (query: string) => Promise<void>;
@@ -36,7 +36,7 @@
     return date.toLocaleDateString();
   }
 
-  const handleSelect = (chatId: string) => {
+  const handleSelect = (chatId: number) => {
     selectChat(chatId);
     if (
       typeof window !== "undefined" &&

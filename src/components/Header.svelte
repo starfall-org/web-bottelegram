@@ -3,7 +3,7 @@
   import { Menu, Settings2, Users } from "lucide-svelte";
 
   type ActiveChatMeta = {
-    id: string;
+    id: number;
     title: string;
     avatarText?: string;
     type: string;
@@ -26,10 +26,9 @@
     onToggleMembers: () => void;
     canShowMembers: boolean;
   } = $props();
-
-  const displayTitle = $derived(activeChat?.title ?? "Select a chat");
-  const displayInitials = $derived(activeChat?.avatarText ?? "?");
-  const botDescription = $derived(
+  let displayTitle = $state(activeChat?.title ?? "");
+  let displayInitials = $state(activeChat?.avatarText ?? "?");
+  let botDescription = $state(
     (botInfo?.username ? `@${botInfo.username}` : botInfo?.first_name) +
       ` • ID ${botInfo?.id || "0"}`
   );

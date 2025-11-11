@@ -80,7 +80,7 @@ export interface Messages {
 }
 
 export interface Chat {
-  id: string;
+  id: number;
   name: string;
   avatarText?: string;
   lastMessage?: string;
@@ -216,14 +216,14 @@ export interface TelegramActions {
   setReplyContext: (messageId: number, preview: string) => void;
   setToken: (token: string) => void;
   getTokenPrompt: () => string;
-  fetchChatAdministrators: (chatId: string) => Promise<RenderedMember[]>;
+  fetchChatAdministrators: (chatId: number) => Promise<RenderedMember[]>;
   kickMember: (
-    chatId: string,
+    chatId: number,
     userId: number,
     userName: string
   ) => Promise<void>;
   toggleAdminStatus: (
-    chatId: string,
+    chatId: number,
     userId: number,
     promote: boolean,
     userName: string

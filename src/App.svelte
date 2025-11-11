@@ -36,12 +36,26 @@
   let chats = $state(telegramStore.chats);
   let currentChatId = $state(telegramStore.currentChatId);
   let replyTo = $state(telegramStore.replyTo);
-  let toastQueue = telegramStore.toastQueue;
+  let toastQueue = $state(telegramStore.toastQueue);
   let botInfo = $state(telegramStore.botInfo);
   let isConnected = $state(telegramStore.isConnected);
   let showSidebar = $state(telegramStore.showSidebar);
   let showSettings = $state(telegramStore.showSettings);
   let hasNewerMessages = $state(telegramStore.hasNewerMessages);
+
+  $effect(() => {
+    token = telegramStore.token;
+    proxyBase = telegramStore.proxyBase;
+    chats = telegramStore.chats;
+    currentChatId = telegramStore.currentChatId;
+    replyTo = telegramStore.replyTo;
+    toastQueue = telegramStore.toastQueue;
+    botInfo = telegramStore.botInfo;
+    isConnected = telegramStore.isConnected;
+    showSidebar = telegramStore.showSidebar;
+    showSettings = telegramStore.showSettings;
+    hasNewerMessages = telegramStore.hasNewerMessages;
+  });
 
   let messagesContainer = $state<HTMLDivElement | null>(null);
   let showMembersPanel = $state(false);
@@ -72,7 +86,7 @@
   });
 
   const currentChat: RichChat | undefined = $derived(
-    currentChatId ? chats.get(currentChatId) : undefined
+    currentChatId ? chats.get(currentChatId.toString()) : undefined
   );
   const messagesForCurrentChat: RichMessage[] = $derived(
     currentChat?.messages || []
@@ -198,7 +212,7 @@
       });
   };
 
-  const handleSelectChat = (chatId: string) => {
+  const handleSelectChat = (chatId: number) => {
     selectChat(chatId);
     markRead(chatId);
     setHasNewerMessages(false);
@@ -220,6 +234,7 @@
 
   const toggleSettings = () => {
     telegramStore.showSettings = !telegramStore.showSettings;
+    showSettings = !showSettings;
   };
 
   const toggleMembersPanel = () => {
@@ -263,7 +278,7 @@
   >
     <ChatList
       chats={chatTiles}
-      currentChat={currentChatId || ""}
+      currentChat={currentChatId}
       selectChat={handleSelectChat}
       {showSidebar}
       {toggleSidebar}

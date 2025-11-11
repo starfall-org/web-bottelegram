@@ -1,4 +1,5 @@
 import { Bot } from "grammy";
+import { writable } from "svelte/store";
 import type {
   TelegramState,
   TelegramActions,
@@ -60,7 +61,7 @@ function createTelegramStore() {
   let hasNewerMessages = false;
   let showSidebar = window.innerWidth > 768;
   let showSettings = false;
-  let chatAdminStatus = new Map<string, boolean>();
+  let chatAdminStatus = new Map<number, boolean>();
 
   let bot: Bot | null = null;
 
@@ -726,7 +727,7 @@ function createTelegramStore() {
   };
 
   const fetchChatAdministrators = async (
-    chatId: string
+    chatId: number
   ): Promise<RenderedMember[]> => {
     if (!bot) throw new Error("Bot not initialized");
 
@@ -773,7 +774,7 @@ function createTelegramStore() {
   };
 
   const kickMember = async (
-    chatId: string,
+    chatId: number,
     userId: number,
     userName: string
   ) => {
@@ -795,7 +796,7 @@ function createTelegramStore() {
   };
 
   const toggleAdminStatus = async (
-    chatId: string,
+    chatId: number,
     userId: number,
     promote: boolean,
     userName: string
