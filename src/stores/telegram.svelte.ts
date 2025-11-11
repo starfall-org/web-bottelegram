@@ -133,11 +133,6 @@ function createTelegramStore() {
         cachedFileUrls = new Map(parsed.cachedFileUrls);
       }
       hasNewerMessages = false;
-      
-      // Initialize bot if token exists but bot is not initialized
-      if (token && !bot) {
-        initializeBot();
-      }
     } catch (error) {
       console.error("Error loading state:", error);
     }
@@ -994,20 +989,24 @@ function createTelegramStore() {
   };
 
   return {
-    // Reactive state (expose $state directly for Svelte 5 reactivity)
-    token,
-    proxyBase,
-    chats,
-    currentChatId,
-    replyTo,
-    cachedFileUrls,
-    toastQueue,
-    botInfo,
-    isConnected,
-    hasNewerMessages,
-    showSidebar,
-    showSettings,
-    chatAdminStatus,
+    // Reactive state getters
+    get token() { return token; },
+    get proxyBase() { return proxyBase; },
+    get chats() { return chats; },
+    get currentChatId() { return currentChatId; },
+    get replyTo() { return replyTo; },
+    get cachedFileUrls() { return cachedFileUrls; },
+    get toastQueue() { return toastQueue; },
+    get botInfo() { return botInfo; },
+    get isConnected() { return isConnected; },
+    get hasNewerMessages() { return hasNewerMessages; },
+    get showSidebar() { return showSidebar; },
+    get showSettings() { return showSettings; },
+    get chatAdminStatus() { return chatAdminStatus; },
+    
+    // State setters
+    set showSidebar(value: boolean) { showSidebar = value; },
+    set showSettings(value: boolean) { showSettings = value; },
     
     // Actions
     ...actions,

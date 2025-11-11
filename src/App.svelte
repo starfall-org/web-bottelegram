@@ -10,46 +10,51 @@
   import MembersOverlay from "./components/MembersOverlay.svelte";
   import ToastContainer from "./components/ToastContainer.svelte";
 
-  // Use proper Svelte 5 reactivity - access store state directly
-  const store = telegramStore;
-  
-  // Destructure reactive state
-  const {
-    token,
-    proxyBase,
-    chats,
-    currentChatId,
-    replyTo,
-    toastQueue,
-    botInfo,
-    isConnected,
-    showSidebar,
-    showSettings,
-    hasNewerMessages
-  } = store;
-  
-  // Destructure actions
-  const {
-    initializeBot,
-    selectChat,
-    markRead,
-    enqueueToast,
-    sendText,
-    sendMedia,
-    deleteMessage,
-    clearReplyContext,
-    getTokenPrompt,
-    setHasNewerMessages,
-    searchChat,
-    fetchChatAdministrators,
-    kickMember,
-    toggleAdminStatus,
-    testConnection,
-    deleteWebhook,
-    requestNotifications,
-    setProxyBase,
-    clearChatHistoryForToken
-  } = store;
+  const initializeBot = telegramStore.initializeBot;
+  const selectChat = telegramStore.selectChat;
+  const markRead = telegramStore.markRead;
+  const enqueueToast = telegramStore.enqueueToast;
+  const sendText = telegramStore.sendText;
+  const sendMedia = telegramStore.sendMedia;
+  const deleteMessage = telegramStore.deleteMessage;
+  const clearReplyContext = telegramStore.clearReplyContext;
+  const getTokenPrompt = telegramStore.getTokenPrompt;
+  const setHasNewerMessages = telegramStore.setHasNewerMessages;
+  const searchChat = telegramStore.searchChat;
+  const fetchChatAdministrators = telegramStore.fetchChatAdministrators;
+  const kickMember = telegramStore.kickMember;
+  const toggleAdminStatus = telegramStore.toggleAdminStatus;
+  const testConnection = telegramStore.testConnection;
+  const deleteWebhook = telegramStore.deleteWebhook;
+  const requestNotifications = telegramStore.requestNotifications;
+  const setProxyBase = telegramStore.setProxyBase;
+  const clearChatHistoryForToken = telegramStore.clearChatHistoryForToken;
+
+  let token = $state(telegramStore.token);
+  let proxyBase = $state(telegramStore.proxyBase);
+  let chats = $state(telegramStore.chats);
+  let currentChatId = $state(telegramStore.currentChatId);
+  let replyTo = $state(telegramStore.replyTo);
+  let toastQueue = $state(telegramStore.toastQueue);
+  let botInfo = $state(telegramStore.botInfo);
+  let isConnected = $state(telegramStore.isConnected);
+  let showSidebar = $state(telegramStore.showSidebar);
+  let showSettings = $state(telegramStore.showSettings);
+  let hasNewerMessages = $state(telegramStore.hasNewerMessages);
+
+  $effect(() => {
+    token = telegramStore.token;
+    proxyBase = telegramStore.proxyBase;
+    chats = telegramStore.chats;
+    currentChatId = telegramStore.currentChatId;
+    replyTo = telegramStore.replyTo;
+    toastQueue = telegramStore.toastQueue;
+    botInfo = telegramStore.botInfo;
+    isConnected = telegramStore.isConnected;
+    showSidebar = telegramStore.showSidebar;
+    showSettings = telegramStore.showSettings;
+    hasNewerMessages = telegramStore.hasNewerMessages;
+  });
 
   let messagesContainer = $state<HTMLDivElement | null>(null);
   let showMembersPanel = $state(false);
@@ -66,10 +71,10 @@
     }
   });
 
-  const currentChat = $derived(
+  const currentChat: RichChat | undefined = $derived(
     currentChatId ? chats.get(currentChatId.toString()) : undefined
   );
-  const messagesForCurrentChat = $derived(
+  const messagesForCurrentChat: RichMessage[] = $derived(
     currentChat?.messages || []
   );
 
@@ -130,7 +135,12 @@
   });
 
   const clearData = () => {
-    clearChatHistoryForToken();
+    if (token) {
+      localStorage.removeItem(`telegram_${token}`);
+      telegramStore.chats.clear();
+      telegramStore.currentChatId = null;
+      setHasNewerMessages(false);
+    }
   };
 
   const handleScroll = () => {
@@ -196,7 +206,7 @@
       scrollToBottom();
     }, 0);
     if (typeof window !== "undefined" && window.innerWidth < 768) {
-      store.showSidebar = false;
+      telegramStore.showSidebar = false;
     }
   };
 
@@ -205,11 +215,12 @@
   };
 
   const toggleSidebar = () => {
-    store.showSidebar = !store.showSidebar;
+    telegramStore.showSidebar = !telegramStore.showSidebar;
   };
 
   const toggleSettings = () => {
-    store.showSettings = !store.showSettings;
+    telegramStore.showSettings = !telegramStore.showSettings;
+    showSettings = !showSettings;
   };
 
   const toggleMembersPanel = () => {
