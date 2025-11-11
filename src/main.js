@@ -10,7 +10,7 @@ import * as render from './modules/ui/render.js';
 import * as dom from './modules/ui/dom.js';
 import * as notifications from './modules/notifications/notifications.js';
 import * as admin from './modules/admin/admin.js';
-import { fmtTime, initials, snippet, senderNameFromMsg, scrollToBottom, isAtBottom, formatDateTime } from './modules/utils/helpers.js';
+import { fmtTime, initials, snippet, senderNameFromMsg, senderUsernameFromMsg, scrollToBottom, isAtBottom, formatDateTime } from './modules/utils/helpers.js';
 
 // Get DOM elements
 let els = null;
@@ -148,11 +148,32 @@ function setupEventListeners() {
 
   // User actions menu
   els.closeUserActionsBtn.addEventListener('click', closeUserActionsMenu);
+  els.copyIdBtn.addEventListener('click', () => performUserAction('copyId'));
+  els.copyUsernameBtn.addEventListener('click', () => performUserAction('copyUsername'));
   els.kickUserBtn.addEventListener('click', () => performUserAction('kick'));
   els.promoteUserBtn.addEventListener('click', () => performUserAction('promote'));
   els.moderateUserBtn.addEventListener('click', () => performUserAction('moderate'));
   els.demoteUserBtn.addEventListener('click', () => performUserAction('demote'));
   els.restrictUserBtn.addEventListener('click', () => performUserAction('restrict'));
+
+  // Close user actions menu when clicking outside
+  document.addEventListener('click', (e) => {
+    if (els.userActionsMenu && !els.userActionsMenu.classList.contains('hidden')) {
+      const isClickInsideMenu = els.userActionsMenu.contains(e.target);
+      const isClickOnSender = e.target.classList.contains('sender-name');
+      
+      if (!isClickInsideMenu && !isClickOnSender) {
+        closeUserActionsMenu();
+      }
+    }
+  });
+
+  // Close user actions menu with Escape key
+  document.addEventListener('keydown', (e) => {
+    if ((e.key === 'Escape' || e.key === 'Esc') && els.userActionsMenu && !els.userActionsMenu.classList.contains('hidden')) {
+      closeUserActionsMenu();
+    }
+  });
 
   // Attachments
   els.attachBtn.addEventListener('click', () => {
@@ -213,7 +234,11 @@ function renderUI() {
     render.updateChatHeader(chat, els.headerTitleEl, els.activeAvatarEl);
     render.updateMembersButton(chat, els.membersBtnEl);
     const permissions = appState.getChatPermissions(chat.id);
-    render.renderChatMessages(chat, els.messagesEl, deleteMessage, { canDeleteOthers: permissions.canDeleteMessages });
+    render.renderChatMessages(chat, els.messagesEl, deleteMessage, { 
+      canDeleteOthers: permissions.canDeleteMessages,
+      isGroupChat: chat.type === 'group' || chat.type === 'supergroup',
+      onUserClick: handleUserClick
+    });
     if (preferences.autoScroll) {
       scrollToBottom(els.messagesEl);
     }
@@ -700,6 +725,7 @@ async function processMessage(msg) {
     date: timestampMs,
     fromId: msg.from ? msg.from.id : null,
     fromName: senderNameFromMsg(msg),
+    fromUsername: senderUsernameFromMsg(msg),
     reply_to: msg.reply_to_message && msg.reply_to_message.message_id,
     reply_preview: msg.reply_to_message && snippet(msg.reply_to_message.text || msg.reply_to_message.caption || '')
   };
@@ -1037,7 +1063,11 @@ async function deleteMessage(messageId) {
       appState.removeMessageFromChat(chatId, messageId);
       const chat = appState.getChat(chatId);
       const permissions = appState.getChatPermissions(chatId);
-      render.renderChatMessages(chat, els.messagesEl, deleteMessage, { canDeleteOthers: permissions.canDeleteMessages });
+      render.renderChatMessages(chat, els.messagesEl, deleteMessage, { 
+        canDeleteOthers: permissions.canDeleteMessages,
+        isGroupChat: chat.type === 'group' || chat.type === 'supergroup',
+        onUserClick: handleUserClick
+      });
       render.renderChatList(appState.chats, appState.activeChatId, els.emptyNoticeEl, els.chatListEl, openChat);
       storage.saveChatHistory(appState.token, appState.chats);
       notifications.toastsShow('✅ Thành công', 'Đã xóa tin nhắn', els.toastsEl);
@@ -1168,7 +1198,7 @@ async function deleteChat(chatId) {
 /**
  * Handle user click in group chat
  */
-function handleUserClick(userId, userName) {
+function handleUserClick(userId, userName, userUsername = null) {
   if (!userId || !appState.activeChatId) return;
   
   const chat = appState.getChat(appState.activeChatId);
@@ -1178,18 +1208,28 @@ function handleUserClick(userId, userName) {
   window.currentUserAction = {
     userId,
     userName,
+    userUsername,
     chatId: appState.activeChatId
   };
   
   // Show user actions menu
-  showUserActionsMenu(userName);
+  showUserActionsMenu(userName, userUsername, userId);
 }
 
 /**
  * Show user actions menu
  */
-function showUserActionsMenu(userName) {
-  els.userActionsTitle.textContent = `Tác vụ với ${userName}`;
+function showUserActionsMenu(userName, userUsername = null, userId = null) {
+  const userInfo = [];
+  userInfo.push(`<strong>${userName}</strong>`);
+  if (userUsername) {
+    userInfo.push(`@${userUsername}`);
+  }
+  if (userId) {
+    userInfo.push(`ID: ${userId}`);
+  }
+  
+  els.userActionsTitle.innerHTML = userInfo.join(' • ');
   els.userActionsMenu.classList.remove('hidden');
 }
 
@@ -1207,10 +1247,33 @@ function closeUserActionsMenu() {
 async function performUserAction(action) {
   if (!window.currentUserAction) return;
   
-  const { userId, userName, chatId } = window.currentUserAction;
+  const { userId, userName, userUsername, chatId } = window.currentUserAction;
   
   try {
     switch (action) {
+      case 'copyId':
+        if (userId) {
+          navigator.clipboard.writeText(userId.toString()).then(() => {
+            notifications.toastsShow('Thành công', `Đã copy ID: ${userId}`, els.toastsEl);
+          }).catch(() => {
+            notifications.toastsShow('Lỗi', 'Không thể copy ID', els.toastsEl);
+          });
+        }
+        break;
+        
+      case 'copyUsername':
+        if (userUsername) {
+          const usernameToCopy = userUsername.startsWith('@') ? userUsername : `@${userUsername}`;
+          navigator.clipboard.writeText(usernameToCopy).then(() => {
+            notifications.toastsShow('Thành công', `Đã copy username: ${usernameToCopy}`, els.toastsEl);
+          }).catch(() => {
+            notifications.toastsShow('Lỗi', 'Không thể copy username', els.toastsEl);
+          });
+        } else {
+          notifications.toastsShow('Thông báo', 'Người dùng không có username', els.toastsEl);
+        }
+        break;
+        
       case 'kick':
         if (confirm(`Kick ${userName} khỏi nhóm?`)) {
           await admin.kickMember(chatId, userId);

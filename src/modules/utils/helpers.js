@@ -29,6 +29,13 @@ export function senderNameFromMsg(msg) {
   return 'Hệ thống';
 }
 
+export function senderUsernameFromMsg(msg) {
+  if (msg.from && msg.from.username) {
+    return msg.from.username;
+  }
+  return null;
+}
+
 /**
  * Play notification beep
  */
