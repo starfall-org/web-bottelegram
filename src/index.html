@@ -5,17 +5,20 @@
   <title>Telegram Bot Web UI (Multi-chat + Media + Notification)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
 </head>
-<body>
+<body data-theme="dark">
   <div class="app">
     <aside id="sidebar" class="sidebar">
       <div class="sidebar-header">
         <div class="app-title">Telegram Bot</div>
-        <button id="settingsBtn" class="btn secondary">Cài đặt</button>
+        <div class="sidebar-actions">
+          <button id="themeToggleBtn" class="icon-btn" title="Đổi giao diện" aria-label="Đổi giao diện">🌓</button>
+          <button id="settingsBtn" class="icon-btn" title="Cài đặt" aria-label="Cài đặt">⚙️</button>
+        </div>
       </div>
-      <div class="search">
-        <div class="search-wrapper">
-          <input id="searchInput" type="text" placeholder="Tìm chat ID hoặc @username" />
-          <button id="searchBtn" class="search-btn">🔍</button>
+      <div class="open-chat">
+        <div class="open-chat-wrapper">
+          <input id="openChatInput" type="text" placeholder="Nhập chat ID hoặc @username" />
+          <button id="openChatBtn" class="icon-btn primary" title="Mở chat" aria-label="Mở chat">➤</button>
         </div>
       </div>
       <div id="chatList" class="chat-list">
@@ -28,7 +31,7 @@
     <main class="chat">
       <div class="chat-header">
         <div class="header-left">
-          <button id="menuToggle" class="icon-btn menu-toggle">☰</button>
+          <button id="menuToggle" class="icon-btn menu-toggle" aria-label="Mở danh sách chat">☰</button>
           <div id="activeAvatar" class="avatar" style="display:none;">?</div>
           <div>
             <div id="headerTitle" class="header-title">Chưa chọn cuộc trò chuyện</div>
@@ -36,22 +39,22 @@
           </div>
         </div>
         <div class="header-actions">
-          <button id="membersBtn" class="icon-btn" title="Quản lý thành viên" style="display:none;">👥</button>
           <div id="botInfo" class="status"></div>
+          <button id="membersBtn" class="icon-btn" title="Quản lý thành viên" aria-label="Quản lý thành viên" style="display:none;">👥</button>
         </div>
       </div>
 
       <div id="messages" class="messages"></div>
-      <button id="newMsgBtn">↓ Xem tin mới</button>
+      <button id="newMsgBtn" class="floating-btn">↓ Tin mới</button>
 
       <div class="composer">
         <div id="replyContext" class="reply-context hidden">
           Đang trả lời: <span id="replyText"></span>
-          <span id="cancelReply" class="cancel-reply">✕</span>
+          <span id="cancelReply" class="cancel-reply" role="button" aria-label="Hủy trả lời">✕</span>
         </div>
-        <button id="attachBtn" class="btn secondary">📎</button>
+        <button id="attachBtn" class="icon-btn" title="Đính kèm" aria-label="Đính kèm">📎</button>
         <input id="input" type="text" placeholder="Nhập tin nhắn..." disabled />
-        <button id="sendBtn" class="btn" disabled>Gửi</button>
+        <button id="sendBtn" class="icon-btn primary" title="Gửi" aria-label="Gửi">➤</button>
         <input id="fileInput" type="file" style="display:none" />
       </div>
     </main>
@@ -59,42 +62,145 @@
 
   <!-- Settings Overlay -->
   <div id="overlay" class="overlay hidden">
-    <div class="dialog">
-      <h3>Cài đặt kết nối</h3>
-      <p>
-        Nhập Bot Token (từ BotFather). Danh sách cuộc trò chuyện sẽ tự xuất hiện
-        khi bot nhận tin nhắn mới. Token được lưu tại localStorage — chỉ dùng để thử nghiệm cá nhân.
-      </p>
-      <input id="tokenInput" type="password" placeholder="Bot Token (botXXXXXXXX:YYYYYYYYYYYYYYYY)" />
-      <div class="row">
-        <input id="proxyInput" type="text" placeholder="CORS proxy prefix (tuỳ chọn, vd: https://cors.isomorphic-git.org/)" />
-        <button id="testBtn" class="btn secondary">Kiểm tra</button>
+    <div class="dialog dialog-large">
+      <div class="dialog-header">
+        <h3>Trung tâm cài đặt</h3>
+        <button id="cancelBtn" class="icon-btn" title="Đóng" aria-label="Đóng">✕</button>
       </div>
-      <div class="row">
-        <button id="deleteWebhookBtn" class="btn danger">Xóa webhook</button>
-        <button id="notifBtn" class="btn secondary">Bật thông báo</button>
-      </div>
-      <div class="actions">
+
+      <div class="dialog-group">
+        <h4>Kết nối bot</h4>
+        <input id="tokenInput" type="password" placeholder="Bot Token (botXXXXXXXX:YYYYYYYYYYYYYYYY)" />
+        <div class="row">
+          <input id="proxyInput" type="text" placeholder="CORS proxy prefix (tuỳ chọn, vd: https://cors.isomorphic-git.org/)" />
+          <button id="testBtn" class="btn secondary">Kiểm tra</button>
+        </div>
+        <div class="row wrap">
+          <button id="deleteWebhookBtn" class="btn danger">Xóa webhook</button>
+          <button id="notifBtn" class="btn secondary">Bật thông báo</button>
+          <button id="saveBtn" class="btn success">Lưu &amp; Kết nối</button>
+        </div>
         <div class="hint" id="settingsHint">
           Nếu nhận lỗi 409 khi polling, hãy xóa webhook. Nếu bị CORS, thêm proxy prefix.
         </div>
-        <div>
-          <button id="saveBtn" class="btn">Lưu & Kết nối</button>
-          <button id="cancelBtn" class="btn secondary">Đóng</button>
+      </div>
+
+      <div class="dialog-group">
+        <h4>Giao diện</h4>
+        <div class="theme-selector">
+          <button id="themeOptionLight" class="theme-option" data-theme="light">
+            <span class="icon">🌞</span>
+            <span>Sáng</span>
+          </button>
+          <button id="themeOptionDark" class="theme-option" data-theme="dark">
+            <span class="icon">🌚</span>
+            <span>Tối</span>
+          </button>
+          <button id="themeOptionSystem" class="theme-option" data-theme="system">
+            <span class="icon">🖥️</span>
+            <span>Hệ thống</span>
+          </button>
         </div>
+      </div>
+
+      <div class="dialog-group">
+        <h4>Thông tin bot</h4>
+        <div class="bot-details">
+          <div><span class="label">Tên:</span> <span id="botDetailName">—</span></div>
+          <div><span class="label">Username:</span> <span id="botDetailUsername">—</span></div>
+          <div><span class="label">Bot ID:</span> <span id="botDetailId">—</span></div>
+          <div><span class="label">Mô tả:</span> <span id="botDetailDescription">—</span></div>
+          <div><span class="label">Mô tả ngắn:</span> <span id="botDetailShortDescription">—</span></div>
+        </div>
+        <div class="bot-section">
+          <div class="section-title">Danh sách lệnh</div>
+          <ul id="botCommandsList" class="tag-list"></ul>
+        </div>
+        <div class="bot-section">
+          <div class="section-title">Tính năng hỗ trợ</div>
+          <ul id="botFeatureList" class="tag-list"></ul>
+        </div>
+      </div>
+
+      <div class="dialog-group">
+        <h4>Tùy chọn</h4>
+        <label class="option-item">
+          <input id="prefAutoScroll" type="checkbox" checked />
+          <span>Tự động cuộn đến tin mới</span>
+        </label>
+        <label class="option-item">
+          <input id="prefSound" type="checkbox" checked />
+          <span>Âm báo thông báo</span>
+        </label>
+        <label class="option-item">
+          <input id="prefPush" type="checkbox" checked />
+          <span>Thông báo đẩy khi tab không hoạt động</span>
+        </label>
       </div>
     </div>
   </div>
 
   <!-- Members Dialog -->
   <div id="membersOverlay" class="overlay hidden">
-    <div class="dialog">
-      <h3>Quản lý thành viên</h3>
-      <p id="groupInfo">Đang tải...</p>
-      <div id="membersList" class="members-list"></div>
+    <div class="dialog dialog-large members-dialog" id="membersDialog">
+      <div class="dialog-header">
+        <h3>Quản lý nhóm</h3>
+        <button id="closeMembersBtn" class="icon-btn" title="Đóng" aria-label="Đóng">✕</button>
+      </div>
+      <div class="dialog-tabs">
+        <button id="membersTabBtn" class="dialog-tab active" data-tab="members">Thành viên</button>
+        <button id="groupTabBtn" class="dialog-tab" data-tab="group">Thông tin nhóm</button>
+      </div>
+      <div id="membersTab" class="tab-panel active">
+        <p id="groupInfo" class="group-summary">Đang tải...</p>
+        <div id="membersList" class="members-list"></div>
+      </div>
+      <div id="groupSettingsTab" class="tab-panel">
+        <label class="option-item column">
+          <span>Tên nhóm</span>
+          <input id="groupNameInput" type="text" />
+        </label>
+        <label class="option-item column">
+          <span>Mô tả</span>
+          <textarea id="groupDescriptionInput" rows="3"></textarea>
+        </label>
+        <label class="option-item column">
+          <span>Ảnh đại diện</span>
+          <input id="groupPhotoInput" type="file" accept="image/*" />
+        </label>
+        <button id="saveGroupBtn" class="btn success full">Lưu thay đổi</button>
+      </div>
       <div class="actions">
         <div class="hint" id="membersHint"></div>
-        <button id="closeMembersBtn" class="btn secondary">Đóng</button>
+        <div class="action-buttons">
+          <button id="refreshMembersBtn" class="btn secondary">↻ Tải lại</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Member Detail Modal -->
+  <div id="memberModal" class="overlay hidden">
+    <div class="dialog dialog-medium member-modal">
+      <div class="dialog-header">
+        <h3>Thông tin thành viên</h3>
+        <button id="closeMemberModalBtn" class="icon-btn" title="Đóng" aria-label="Đóng">✕</button>
+      </div>
+      <div class="member-modal-body">
+        <div id="memberModalAvatar" class="member-avatar">?</div>
+        <div class="member-modal-info">
+          <div id="memberModalName" class="member-name">—</div>
+          <div id="memberModalUsername" class="member-username">—</div>
+          <div id="memberModalId" class="member-id">—</div>
+          <div id="memberModalStatus" class="member-status">—</div>
+          <div id="memberModalJoined" class="member-joined">—</div>
+        </div>
+      </div>
+      <div class="member-modal-actions">
+        <button id="memberPromoteBtn" class="btn secondary" data-role="admin">⭐ Thăng admin</button>
+        <button id="memberModeratorBtn" class="btn secondary" data-role="moderator">🛡️ Moderator</button>
+        <button id="memberDemoteBtn" class="btn secondary" data-role="member">👤 Thành viên</button>
+        <button id="memberKickBtn" class="btn danger">🚫 Kick</button>
       </div>
     </div>
   </div>

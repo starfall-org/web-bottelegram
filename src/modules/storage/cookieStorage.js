@@ -5,6 +5,7 @@
 const CHAT_HISTORY_PREFIX = 'tg_bot_chat_';
 const BOT_INFO_PREFIX = 'tg_bot_info_';
 const UPDATE_ID_KEY = 'tg_last_update_id';
+const THEME_PREF_KEY = 'tg_theme_preference';
 const COOKIE_MAX_AGE = 30 * 24 * 60 * 60; // 30 days
 
 /**
@@ -99,13 +100,28 @@ export function saveChatHistory(token, chatData) {
   if (!profileId) return false;
 
   const cookieName = CHAT_HISTORY_PREFIX + profileId;
-  const arr = Array.from(chatData.entries()).map(([k, v]) => [
-    k,
-    {
-      ...v,
-      messageIds: Array.from(v.messageIds || [])
+  const arr = Array.from(chatData.entries()).map(([k, v]) => {
+    let membersSource;
+    if (v.members instanceof Map) {
+      membersSource = v.members;
+    } else if (Array.isArray(v.members)) {
+      membersSource = new Map(v.members);
+    } else if (v.members && typeof v.members === 'object') {
+      membersSource = new Map(Object.entries(v.members));
+    } else {
+      membersSource = new Map();
     }
-  ]);
+    const membersEntries = Array.from(membersSource.entries());
+    return [
+      k,
+      {
+        ...v,
+        messageIds: Array.from(v.messageIds || []),
+        members: membersEntries,
+        permissions: { ...(v.permissions || {}) }
+      }
+    ];
+  });
 
   try {
     const encoded = sanitizeValue(arr);
@@ -134,9 +150,18 @@ export function loadChatHistory(token) {
 
   const chats = new Map();
   for (const [k, v] of data) {
+    let members = new Map();
+    if (Array.isArray(v.members)) {
+      members = new Map(v.members.map(([id, info]) => [String(id), info]));
+    } else if (v.members && typeof v.members === 'object') {
+      members = new Map(Object.entries(v.members).map(([id, info]) => [String(id), info]));
+    }
+
     chats.set(k, {
       ...v,
-      messageIds: new Set(v.messageIds || [])
+      messageIds: new Set(v.messageIds || []),
+      members,
+      permissions: { ...(v.permissions || {}) }
     });
   }
   return chats;
@@ -250,4 +275,23 @@ export function getAllBotProfiles() {
   }
 
   return profiles;
+}
+
+/**
+ * Save theme preference
+ */
+export function saveThemePreference(theme) {
+  if (!theme) {
+    deleteCookie(THEME_PREF_KEY);
+    return;
+  }
+  setCookie(THEME_PREF_KEY, encodeURIComponent(theme));
+}
+
+/**
+ * Load theme preference
+ */
+export function loadThemePreference() {
+  const val = getCookie(THEME_PREF_KEY);
+  return val ? decodeURIComponent(val) : null;
 }

@@ -8,16 +8,18 @@ import * as appState from '../state/appState.js';
 /**
  * Render a single message
  */
-export function renderMessage(message, messagesEl, onDeleteClick) {
+export function renderMessage(message, messagesEl, onDeleteClick, options = {}) {
+  const isOwn = message.side === 'right';
+  const canDelete = isOwn || options.canDeleteOthers;
+
   const item = document.createElement('div');
-  item.className = 'message ' + (message.side === 'right' ? 'right' : 'left') + (message.reply_to ? ' reply' : '');
+  item.className = 'message ' + (isOwn ? 'right' : 'left') + (message.reply_to ? ' reply' : '');
   item.dataset.msgId = message.id;
 
-  // Message actions
-  const actions = document.createElement('div');
-  actions.className = 'msg-actions';
+  if (canDelete) {
+    const actions = document.createElement('div');
+    actions.className = 'msg-actions';
 
-  if (message.side === 'right') {
     const delBtn = document.createElement('button');
     delBtn.className = 'msg-action-btn';
     delBtn.textContent = '🗑️';
@@ -27,8 +29,8 @@ export function renderMessage(message, messagesEl, onDeleteClick) {
       if (onDeleteClick) onDeleteClick(message.id);
     });
     actions.appendChild(delBtn);
+    item.appendChild(actions);
   }
-  item.appendChild(actions);
 
   // Reply preview
   if (message.reply_preview) {
@@ -202,12 +204,12 @@ export function renderChatList(chats, activeChatId, emptyNoticeEl, chatListEl, o
 /**
  * Render all messages for current chat
  */
-export function renderChatMessages(chat, messagesEl, onDeleteClick) {
+export function renderChatMessages(chat, messagesEl, onDeleteClick, options = {}) {
   messagesEl.innerHTML = '';
   if (!chat || !chat.messages) return;
 
   for (const m of chat.messages) {
-    renderMessage(m, messagesEl, onDeleteClick);
+    renderMessage(m, messagesEl, onDeleteClick, options);
   }
 }
 
