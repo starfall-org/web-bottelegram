@@ -186,13 +186,13 @@ function renderSticker(container, message) {
  * Render chat list
  */
 export function renderChatList(chats, activeChatId, emptyNoticeEl, chatListEl, onChatClick) {
-  chatListEl.innerHTML = '';
-
   const items = Array.from(chats.values()).sort((a, b) => (b.lastDate || 0) - (a.lastDate || 0));
+
+  const existingItems = chatListEl.querySelectorAll('.chat-item');
+  existingItems.forEach(item => item.remove());
 
   if (!items.length) {
     if (emptyNoticeEl) {
-      chatListEl.appendChild(emptyNoticeEl);
       emptyNoticeEl.style.display = 'block';
     }
     return;

@@ -186,10 +186,12 @@ textarea {
 .chat-item .info .name {
   font-weight: 600;
   font-size: 0.95rem;
-  line-height: 1.2;
+  line-height: 1.3;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  word-break: break-word;
 }
 
 .chat-item .info .last {
@@ -282,6 +284,10 @@ textarea {
 }
 
 .menu-toggle {
+  display: none;
+}
+
+.sidebar-close {
   display: none;
 }
 
@@ -881,6 +887,10 @@ textarea {
 
   .menu-toggle {
     display: block;
+  }
+
+  .sidebar-close {
+    display: grid;
   }
 
   .composer {

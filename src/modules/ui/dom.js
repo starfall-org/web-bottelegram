@@ -29,6 +29,7 @@ export const themeToggleBtn = () => document.getElementById('themeToggleBtn');
 // Sidebar
 export const sidebarEl = () => document.getElementById('sidebar');
 export const menuToggleEl = () => document.getElementById('menuToggle');
+export const sidebarCloseBtn = () => document.getElementById('sidebarCloseBtn');
 
 // Open chat
 export const openChatInputEl = () => document.getElementById('openChatInput');
@@ -132,6 +133,7 @@ export function getCachedElements() {
     themeToggleBtn: themeToggleBtn(),
     sidebarEl: sidebarEl(),
     menuToggleEl: menuToggleEl(),
+    sidebarCloseBtn: sidebarCloseBtn(),
     openChatInputEl: openChatInputEl(),
     openChatBtnEl: openChatBtnEl(),
     membersBtnEl: membersBtnEl(),

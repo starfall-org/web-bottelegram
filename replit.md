@@ -15,6 +15,11 @@ A modern, modular single-page Telegram bot client built with Vanilla JavaScript 
   - HMR configured with WSS protocol and clientPort 443 for Replit's proxy
 - Set up development workflow (`npm run dev`)
 - Updated .gitignore for Replit-specific files
+- **UI/UX Improvements**:
+  - Fixed chat list rendering to display immediately on page load
+  - Updated chat name display to wrap long names (up to 2 lines) instead of truncating
+  - Added close button (X) to sidebar header for mobile devices
+  - Improved sidebar mobile experience with dedicated close action
 
 ## Project Architecture
 

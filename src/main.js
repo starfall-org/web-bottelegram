@@ -125,6 +125,10 @@ function setupEventListeners() {
     els.sidebarEl.classList.toggle('hidden-mobile');
   });
 
+  els.sidebarCloseBtn?.addEventListener('click', () => {
+    els.sidebarEl.classList.add('hidden-mobile');
+  });
+
   // Messages
   els.messagesEl.addEventListener('click', handleMessageClick);
   els.newMsgBtn.addEventListener('click', () => {
