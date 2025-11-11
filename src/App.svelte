@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { RichChat, RichMessage } from "./types/types";
-  import { telegramStore } from "./stores/telegram";
+  import { telegramStore } from "./stores/telegram.svelte";
 
   import Header from "./components/Header.svelte";
   import Settings from "./components/Settings.svelte";
