@@ -113,7 +113,7 @@ export function renderMessage(message, messagesEl, onDeleteClick, options = {}) 
     fromNameSpan.style.textDecoration = 'underline';
     fromNameSpan.addEventListener('click', (e) => {
       e.stopPropagation();
-      options.onUserClick(message.fromId, message.fromName);
+      options.onUserClick(message.fromId, message.fromName, message.fromUsername);
     });
   }
   

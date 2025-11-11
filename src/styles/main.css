@@ -526,6 +526,16 @@ textarea {
   display: none;
 }
 
+/* General hidden class */
+.hidden {
+  display: none !important;
+}
+
+/* User Actions Menu */
+.user-actions-menu.hidden {
+  display: none;
+}
+
 .dialog {
   width: 90%;
   max-width: 520px;

@@ -29,6 +29,8 @@ export const stickerList = () => document.getElementById('stickerList');
 export const userActionsMenu = () => document.getElementById('userActionsMenu');
 export const userActionsTitle = () => document.getElementById('userActionsTitle');
 export const closeUserActionsBtn = () => document.getElementById('closeUserActionsBtn');
+export const copyIdBtn = () => document.getElementById('copyIdBtn');
+export const copyUsernameBtn = () => document.getElementById('copyUsernameBtn');
 export const kickUserBtn = () => document.getElementById('kickUserBtn');
 export const promoteUserBtn = () => document.getElementById('promoteUserBtn');
 export const moderateUserBtn = () => document.getElementById('moderateUserBtn');
@@ -194,6 +196,8 @@ export function getCachedElements() {
     userActionsMenu: userActionsMenu(),
     userActionsTitle: userActionsTitle(),
     closeUserActionsBtn: closeUserActionsBtn(),
+    copyIdBtn: copyIdBtn(),
+    copyUsernameBtn: copyUsernameBtn(),
     kickUserBtn: kickUserBtn(),
     promoteUserBtn: promoteUserBtn(),
     moderateUserBtn: moderateUserBtn(),
