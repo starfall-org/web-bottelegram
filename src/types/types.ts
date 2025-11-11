@@ -172,7 +172,7 @@ export interface TelegramState {
   token: string;
   proxyBase: string;
   chats: Map<string, RichChat>;
-  currentChatId: string | null;
+  currentChatId: number | null;
   replyTo: number | null;
   cachedFileUrls: Map<string, string>;
   toastQueue: Toast[];
@@ -181,7 +181,7 @@ export interface TelegramState {
   hasNewerMessages: boolean;
   showSidebar: boolean;
   showSettings: boolean;
-  chatAdminStatus: Map<string, boolean>;
+  chatAdminStatus: Map<number, boolean>;
 }
 
 export interface TelegramActions {
