@@ -292,7 +292,7 @@ textarea {
 }
 
 .sidebar-close {
-  display: none;
+  display: none !important;
 }
 
 .messages {
@@ -1134,7 +1134,7 @@ textarea {
   }
 
   .sidebar-close {
-    display: grid;
+    display: grid !important;
   }
 
   .composer {

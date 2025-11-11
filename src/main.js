@@ -52,6 +52,10 @@ function init() {
   applyPreferencesToUI();
   notifications.initNotifications().catch(() => {});
 
+  // Hide sidebar close button on desktop
+  updateSidebarCloseButton();
+  window.addEventListener('resize', updateSidebarCloseButton);
+
   // Migrate from localStorage if needed
   storage.migrateFromLocalStorage();
 
@@ -1619,6 +1623,20 @@ window.scrollToMessage = function(chatId, messageId) {
     }
   }, 500);
 };
+
+/**
+ * Update sidebar close button visibility based on screen size
+ */
+function updateSidebarCloseButton() {
+  if (!els || !els.sidebarCloseBtn) return;
+  
+  const isMobile = window.innerWidth <= 840;
+  if (isMobile) {
+    els.sidebarCloseBtn.style.display = 'grid';
+  } else {
+    els.sidebarCloseBtn.style.display = 'none';
+  }
+}
 
 /**
  * Start application
