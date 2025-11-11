@@ -174,6 +174,9 @@ function setupEventListeners() {
   els.saveGroupBtn?.addEventListener('click', saveGroupInfo);
   els.membersListEl?.addEventListener('click', handleMemberListClick);
 
+  // Sidebar controls
+  els.chatListEl?.addEventListener('contextmenu', handleChatListContextMenu);
+
   // Member modal
   els.closeMemberModalBtn?.addEventListener('click', closeMemberModal);
   els.memberModalEl?.addEventListener('click', (e) => {
@@ -184,7 +187,17 @@ function setupEventListeners() {
   els.memberPromoteBtn?.addEventListener('click', () => changeMemberRole('admin'));
   els.memberModeratorBtn?.addEventListener('click', () => changeMemberRole('moderator'));
   els.memberDemoteBtn?.addEventListener('click', () => changeMemberRole('member'));
+  els.memberRestrictBtn?.addEventListener('click', openRestrictModal);
   els.memberKickBtn?.addEventListener('click', kickMemberFromModal);
+
+  // Restrict modal
+  els.closeRestrictModalBtn?.addEventListener('click', closeRestrictModal);
+  els.restrictModalEl?.addEventListener('click', (e) => {
+    if (e.target === els.restrictModalEl) {
+      closeRestrictModal();
+    }
+  });
+  els.applyRestrictBtn?.addEventListener('click', applyRestrictPermissions);
 }
 
 /**
@@ -199,7 +212,10 @@ function renderUI() {
     render.updateChatHeader(chat, els.headerTitleEl, els.activeAvatarEl);
     render.updateMembersButton(chat, els.membersBtnEl);
     const permissions = appState.getChatPermissions(chat.id);
-    render.renderChatMessages(chat, els.messagesEl, deleteMessage, { canDeleteOthers: permissions.canDeleteMessages });
+    render.renderChatMessages(chat, els.messagesEl, deleteMessage, {
+      canDeleteOthers: permissions.canDeleteMessages,
+      canManageMembers: canManageMembers()
+    });
     if (preferences.autoScroll) {
       scrollToBottom(els.messagesEl);
     }
@@ -656,6 +672,7 @@ async function processMessage(msg) {
     side: isFromBot ? 'right' : 'left',
     date: timestampMs,
     fromName: senderNameFromMsg(msg),
+    fromId: msg.from ? msg.from.id : null,
     reply_to: msg.reply_to_message && msg.reply_to_message.message_id,
     reply_preview: msg.reply_to_message && snippet(msg.reply_to_message.text || msg.reply_to_message.caption || '')
   };
@@ -701,7 +718,10 @@ async function processMessage(msg) {
   if (appState.addMessageToChat(chatId, message)) {
     if (isActiveChat) {
       const permissions = appState.getChatPermissions(chatId);
-      render.renderMessage(message, els.messagesEl, deleteMessage, { canDeleteOthers: permissions.canDeleteMessages });
+      render.renderMessage(message, els.messagesEl, deleteMessage, {
+        canDeleteOthers: permissions.canDeleteMessages,
+        canManageMembers: canManageMembers()
+      });
       if (preferences.autoScroll && shouldStickToBottom) {
         scrollToBottom(els.messagesEl);
         els.newMsgBtn.style.display = 'none';
@@ -767,16 +787,37 @@ async function getFileUrl(fileId) {
 }
 
 /**
- * Handle message click (for reply)
+ * Handle message click (for reply or member action)
  */
 function handleMessageClick(e) {
   if (e.target.closest('.msg-action-btn')) return;
+
+  if (e.target.closest('.msg-sender-name')) {
+    const senderEl = e.target.closest('.msg-sender-name');
+    const userId = parseInt(senderEl.dataset.userId, 10);
+    if (userId && canManageMembers()) {
+      showMemberModal(userId);
+      return;
+    }
+  }
+
   const msgEl = e.target.closest('.message');
   if (!msgEl) return;
 
   const msgId = msgEl.dataset.msgId;
   const prev = msgEl.innerText.slice(0, 30).replace('/ /g', ' ');
   setReplyContext(msgId, prev);
+}
+
+/**
+ * Check if bot can manage members
+ */
+function canManageMembers() {
+  if (!appState.activeChatId) return false;
+  const chat = appState.getChat(appState.activeChatId);
+  if (!chat || (chat.type !== 'group' && chat.type !== 'supergroup')) return false;
+  const permissions = appState.getChatPermissions(appState.activeChatId);
+  return permissions.canRestrictMembers || permissions.canPromoteMembers;
 }
 
 /**
@@ -844,7 +885,10 @@ async function sendMessage() {
       appState.getOrCreateChat(chatId);
       if (appState.addMessageToChat(chatId, message)) {
         const permissions = appState.getChatPermissions(chatId);
-        render.renderMessage(message, els.messagesEl, deleteMessage, { canDeleteOthers: permissions.canDeleteMessages });
+        render.renderMessage(message, els.messagesEl, deleteMessage, {
+          canDeleteOthers: permissions.canDeleteMessages,
+          canManageMembers: canManageMembers()
+        });
         if (preferences.autoScroll && stickToBottom) {
           scrollToBottom(els.messagesEl);
           els.newMsgBtn.style.display = 'none';
@@ -937,7 +981,10 @@ async function sendFile(file) {
       appState.getOrCreateChat(chatId);
       if (appState.addMessageToChat(chatId, message)) {
         const permissions = appState.getChatPermissions(chatId);
-        render.renderMessage(message, els.messagesEl, deleteMessage, { canDeleteOthers: permissions.canDeleteMessages });
+        render.renderMessage(message, els.messagesEl, deleteMessage, {
+          canDeleteOthers: permissions.canDeleteMessages,
+          canManageMembers: canManageMembers()
+        });
         if (preferences.autoScroll && stickToBottom) {
           scrollToBottom(els.messagesEl);
           els.newMsgBtn.style.display = 'none';
@@ -971,7 +1018,10 @@ async function deleteMessage(messageId) {
       appState.removeMessageFromChat(chatId, messageId);
       const chat = appState.getChat(chatId);
       const permissions = appState.getChatPermissions(chatId);
-      render.renderChatMessages(chat, els.messagesEl, deleteMessage, { canDeleteOthers: permissions.canDeleteMessages });
+      render.renderChatMessages(chat, els.messagesEl, deleteMessage, {
+        canDeleteOthers: permissions.canDeleteMessages,
+        canManageMembers: canManageMembers()
+      });
       render.renderChatList(appState.chats, appState.activeChatId, els.emptyNoticeEl, els.chatListEl, openChat);
       storage.saveChatHistory(appState.token, appState.chats);
       notifications.toastsShow('✅ Thành công', 'Đã xóa tin nhắn', els.toastsEl);
@@ -1035,24 +1085,381 @@ async function openChatFromInput() {
 }
 
 /**
- * Show members dialog
+ * Open members dialog
  */
-async function showMembersDialog() {
+function openMembersDialog() {
+  if (!appState.activeChatId) return;
+  const chat = appState.getChat(appState.activeChatId);
+  if (!chat || (chat.type !== 'group' && chat.type !== 'supergroup')) return;
+
+  els.membersOverlayEl.classList.remove('hidden');
+  switchMembersTab(activeMembersTab);
+  refreshMembersList(false);
+}
+
+/**
+ * Close members dialog
+ */
+function closeMembersDialog() {
+  els.membersOverlayEl.classList.add('hidden');
+}
+
+/**
+ * Switch members tab
+ */
+function switchMembersTab(tab) {
+  activeMembersTab = tab;
+
+  if (tab === 'members') {
+    els.membersTabBtn?.classList.add('active');
+    els.groupTabBtn?.classList.remove('active');
+    els.membersTabPanel?.classList.add('active');
+    els.groupSettingsTab?.classList.remove('active');
+  } else {
+    els.membersTabBtn?.classList.remove('active');
+    els.groupTabBtn?.classList.add('active');
+    els.membersTabPanel?.classList.remove('active');
+    els.groupSettingsTab?.classList.add('active');
+    loadGroupSettings();
+  }
+}
+
+/**
+ * Load group settings
+ */
+function loadGroupSettings() {
+  const chat = appState.getChat(appState.activeChatId);
+  if (!chat) return;
+
+  if (els.groupNameInputEl) els.groupNameInputEl.value = chat.title || '';
+  if (els.groupDescriptionInputEl) els.groupDescriptionInputEl.value = chat.description || '';
+}
+
+/**
+ * Save group info
+ */
+async function saveGroupInfo() {
   if (!appState.activeChatId) return;
 
-  const chat = appState.getChat(appState.activeChatId);
+  const title = els.groupNameInputEl?.value.trim();
+  const description = els.groupDescriptionInputEl?.value.trim();
+  const photoFile = els.groupPhotoInputEl?.files[0];
 
-  await admin.showMembers(
-    appState.activeChatId,
-    chat,
-    els.membersOverlayEl,
-    els.groupInfoEl,
-    els.membersListEl,
-    els.membersHintEl,
-    els.toastsEl,
-    (userId, userName) => admin.kickMember(appState.activeChatId, userId, userName, els.toastsEl, showMembersDialog),
-    (userId, promote, userName) => admin.toggleAdmin(appState.activeChatId, userId, promote, userName, els.toastsEl, showMembersDialog)
-  );
+  try {
+    if (title) {
+      const res = await admin.updateGroupTitle(appState.activeChatId, title);
+      if (res.ok) {
+        const chat = appState.getChat(appState.activeChatId);
+        if (chat) {
+          chat.title = title;
+          renderUI();
+        }
+        notifications.toastsShow('✅ Thành công', 'Đã cập nhật tên nhóm', els.toastsEl);
+      }
+    }
+
+    if (description) {
+      const res = await admin.updateGroupDescription(appState.activeChatId, description);
+      if (res.ok) {
+        const chat = appState.getChat(appState.activeChatId);
+        if (chat) chat.description = description;
+        notifications.toastsShow('✅ Thành công', 'Đã cập nhật mô tả', els.toastsEl);
+      }
+    }
+
+    if (photoFile) {
+      const res = await admin.updateGroupPhoto(appState.activeChatId, photoFile);
+      if (res.ok) {
+        notifications.toastsShow('✅ Thành công', 'Đã cập nhật ảnh đại diện', els.toastsEl);
+      }
+    }
+  } catch (e) {
+    notifications.toastsShow('❌ Lỗi', e.message, els.toastsEl);
+  }
+}
+
+/**
+ * Refresh members list
+ */
+async function refreshMembersList(showToast = true) {
+  if (!appState.activeChatId) return;
+
+  try {
+    const admins = await admin.fetchAdministrators(appState.activeChatId);
+    const chat = appState.getChat(appState.activeChatId);
+
+    admins.forEach(m => {
+      appState.upsertMember(appState.activeChatId, {
+        id: m.user.id,
+        first_name: m.user.first_name,
+        last_name: m.user.last_name,
+        username: m.user.username,
+        isBot: m.user.is_bot,
+        status: m.status,
+        isAdmin: m.status === 'administrator',
+        isCreator: m.status === 'creator',
+        raw: m
+      });
+    });
+
+    renderMembersList();
+
+    const memberCount = appState.getChatMembersArray(appState.activeChatId).length;
+    if (els.groupInfoEl) {
+      els.groupInfoEl.textContent = `Tổng: ${memberCount} thành viên`;
+    }
+
+    if (showToast) {
+      notifications.toastsShow('✅ Thành công', 'Đã tải lại danh sách', els.toastsEl);
+    }
+  } catch (e) {
+    if (els.membersHintEl) {
+      els.membersHintEl.textContent = 'Lỗi: ' + e.message;
+    }
+    if (showToast) {
+      notifications.toastsShow('❌ Lỗi', e.message, els.toastsEl);
+    }
+  }
+}
+
+/**
+ * Render members list
+ */
+function renderMembersList() {
+  if (!els.membersListEl) return;
+  els.membersListEl.innerHTML = '';
+
+  const members = appState.getChatMembersArray(appState.activeChatId);
+
+  members.forEach(member => {
+    const item = document.createElement('div');
+    item.className = 'member-item';
+    item.dataset.userId = member.id;
+
+    const avatar = document.createElement('div');
+    avatar.className = 'member-avatar';
+    avatar.textContent = member.avatarText || '?';
+
+    const info = document.createElement('div');
+    info.className = 'member-info';
+
+    const name = document.createElement('div');
+    name.className = 'member-name';
+    name.textContent = member.displayName || 'Người dùng';
+
+    const status = document.createElement('div');
+    status.className = 'member-status';
+    status.textContent = admin.roleLabel(member.status);
+
+    info.appendChild(name);
+    info.appendChild(status);
+
+    item.appendChild(avatar);
+    item.appendChild(info);
+
+    els.membersListEl.appendChild(item);
+  });
+}
+
+/**
+ * Handle member list click
+ */
+function handleMemberListClick(e) {
+  const item = e.target.closest('.member-item');
+  if (!item) return;
+
+  const userId = parseInt(item.dataset.userId, 10);
+  if (!userId) return;
+
+  showMemberModal(userId);
+}
+
+/**
+ * Show member modal
+ */
+async function showMemberModal(userId) {
+  const member = appState.getChatMember(appState.activeChatId, userId);
+  if (!member) return;
+
+  currentMemberId = userId;
+
+  if (els.memberModalAvatarEl) els.memberModalAvatarEl.textContent = member.avatarText || '?';
+  if (els.memberModalNameEl) els.memberModalNameEl.textContent = member.displayName || 'Người dùng';
+  if (els.memberModalUsernameEl) els.memberModalUsernameEl.textContent = member.username ? '@' + member.username : '—';
+  if (els.memberModalIdEl) els.memberModalIdEl.textContent = 'ID: ' + member.id;
+  if (els.memberModalStatusEl) els.memberModalStatusEl.textContent = admin.roleLabel(member.status);
+  if (els.memberModalJoinedEl) {
+    els.memberModalJoinedEl.textContent = member.joinedDate
+      ? 'Tham gia: ' + new Date(member.joinedDate).toLocaleDateString('vi-VN')
+      : '—';
+  }
+
+  const permissions = appState.getChatPermissions(appState.activeChatId);
+  const canManage = permissions.canPromoteMembers || permissions.canRestrictMembers;
+
+  if (els.memberPromoteBtn) els.memberPromoteBtn.style.display = canManage && !member.isCreator ? 'block' : 'none';
+  if (els.memberModeratorBtn) els.memberModeratorBtn.style.display = canManage && !member.isCreator ? 'block' : 'none';
+  if (els.memberDemoteBtn) els.memberDemoteBtn.style.display = canManage && !member.isCreator ? 'block' : 'none';
+  if (els.memberRestrictBtn) els.memberRestrictBtn.style.display = canManage && !member.isCreator ? 'block' : 'none';
+  if (els.memberKickBtn) els.memberKickBtn.style.display = canManage && !member.isCreator ? 'block' : 'none';
+
+  els.memberModalEl?.classList.remove('hidden');
+}
+
+/**
+ * Close member modal
+ */
+function closeMemberModal() {
+  els.memberModalEl?.classList.add('hidden');
+  currentMemberId = null;
+}
+
+/**
+ * Change member role
+ */
+async function changeMemberRole(role) {
+  if (!currentMemberId || !appState.activeChatId) return;
+
+  const member = appState.getChatMember(appState.activeChatId, currentMemberId);
+  if (!member) return;
+
+  try {
+    const res = await admin.applyRole(appState.activeChatId, currentMemberId, role);
+    if (res.ok) {
+      member.status = role === 'admin' ? 'administrator' : role;
+      member.isAdmin = role === 'admin' || role === 'administrator';
+      notifications.toastsShow('✅ Thành công', `Đã thay đổi vai trò`, els.toastsEl);
+      closeMemberModal();
+      refreshMembersList(false);
+    } else {
+      notifications.toastsShow('❌ Lỗi', res.description || 'Không thể thay đổi vai trò', els.toastsEl);
+    }
+  } catch (e) {
+    notifications.toastsShow('❌ Lỗi', e.message, els.toastsEl);
+  }
+}
+
+/**
+ * Kick member from modal
+ */
+async function kickMemberFromModal() {
+  if (!currentMemberId || !appState.activeChatId) return;
+
+  const member = appState.getChatMember(appState.activeChatId, currentMemberId);
+  if (!member) return;
+
+  if (!confirm(`Kick ${member.displayName} khỏi nhóm?`)) return;
+
+  try {
+    const res = await admin.kickMember(appState.activeChatId, currentMemberId);
+    if (res.ok) {
+      appState.removeMember(appState.activeChatId, currentMemberId);
+      notifications.toastsShow('✅ Thành công', `Đã kick ${member.displayName}`, els.toastsEl);
+      closeMemberModal();
+      refreshMembersList(false);
+    } else {
+      notifications.toastsShow('❌ Lỗi', res.description || 'Không thể kick thành viên', els.toastsEl);
+    }
+  } catch (e) {
+    notifications.toastsShow('❌ Lỗi', e.message, els.toastsEl);
+  }
+}
+
+/**
+ * Open restrict modal
+ */
+function openRestrictModal() {
+  if (!currentMemberId) return;
+
+  if (els.permSendMessagesEl) els.permSendMessagesEl.checked = true;
+  if (els.permSendMediaEl) els.permSendMediaEl.checked = true;
+  if (els.permSendPollsEl) els.permSendPollsEl.checked = true;
+  if (els.permSendOtherEl) els.permSendOtherEl.checked = true;
+  if (els.permAddWebPageEl) els.permAddWebPageEl.checked = true;
+  if (els.permChangeInfoEl) els.permChangeInfoEl.checked = false;
+  if (els.permInviteUsersEl) els.permInviteUsersEl.checked = true;
+  if (els.permPinMessagesEl) els.permPinMessagesEl.checked = false;
+
+  els.memberModalEl?.classList.add('hidden');
+  els.restrictModalEl?.classList.remove('hidden');
+}
+
+/**
+ * Close restrict modal
+ */
+function closeRestrictModal() {
+  els.restrictModalEl?.classList.add('hidden');
+  els.memberModalEl?.classList.remove('hidden');
+}
+
+/**
+ * Apply restrict permissions
+ */
+async function applyRestrictPermissions() {
+  if (!currentMemberId || !appState.activeChatId) return;
+
+  const permissions = {
+    can_send_messages: els.permSendMessagesEl?.checked ?? true,
+    can_send_audios: els.permSendMediaEl?.checked ?? true,
+    can_send_documents: els.permSendMediaEl?.checked ?? true,
+    can_send_photos: els.permSendMediaEl?.checked ?? true,
+    can_send_videos: els.permSendMediaEl?.checked ?? true,
+    can_send_video_notes: els.permSendMediaEl?.checked ?? true,
+    can_send_voice_notes: els.permSendMediaEl?.checked ?? true,
+    can_send_polls: els.permSendPollsEl?.checked ?? true,
+    can_send_other_messages: els.permSendOtherEl?.checked ?? true,
+    can_add_web_page_previews: els.permAddWebPageEl?.checked ?? true,
+    can_change_info: els.permChangeInfoEl?.checked ?? false,
+    can_invite_users: els.permInviteUsersEl?.checked ?? true,
+    can_pin_messages: els.permPinMessagesEl?.checked ?? false,
+    can_manage_topics: false
+  };
+
+  try {
+    const res = await botAPI.restrictChatMember(appState.activeChatId, currentMemberId, permissions);
+    if (res.ok) {
+      notifications.toastsShow('✅ Thành công', 'Đã áp dụng hạn chế', els.toastsEl);
+      closeRestrictModal();
+      closeMemberModal();
+      refreshMembersList(false);
+    } else {
+      notifications.toastsShow('❌ Lỗi', res.description || 'Không thể áp dụng hạn chế', els.toastsEl);
+    }
+  } catch (e) {
+    notifications.toastsShow('❌ Lỗi', e.message, els.toastsEl);
+  }
+}
+
+/**
+ * Handle chat list context menu
+ */
+function handleChatListContextMenu(e) {
+  const item = e.target.closest('.chat-item');
+  if (!item) return;
+
+  e.preventDefault();
+
+  const chatId = item.dataset.chatId;
+  if (!chatId) return;
+
+  if (confirm('Xóa cuộc trò chuyện này và toàn bộ lịch sử?')) {
+    deleteChat(chatId);
+  }
+}
+
+/**
+ * Delete chat
+ */
+function deleteChat(chatId) {
+  appState.removeChat(chatId);
+
+  if (appState.activeChatId === chatId) {
+    appState.setActiveChatId(null);
+  }
+
+  storage.saveChatHistory(appState.token, appState.chats);
+  renderUI();
+  notifications.toastsShow('✅ Đã xóa', 'Cuộc trò chuyện đã được xóa', els.toastsEl);
 }
 
 /**

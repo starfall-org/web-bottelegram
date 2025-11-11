@@ -812,6 +812,26 @@ textarea {
   font-size: 0.85rem;
 }
 
+.restrict-modal-body {
+  margin-bottom: 16px;
+}
+
+.restrict-hint {
+  font-size: 0.9rem;
+  color: var(--muted);
+  margin-bottom: 12px;
+}
+
+.permissions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 8px;
+}
+
+.restrict-modal-actions {
+  margin-top: 16px;
+}
+
 .toasts {
   position: fixed;
   right: 20px;

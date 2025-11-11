@@ -103,7 +103,25 @@ export function renderMessage(message, messagesEl, onDeleteClick, options = {}) 
 
   const meta = document.createElement('div');
   meta.className = 'meta';
-  meta.textContent = `${message.fromName} • ${fmtTime(message.date)}`;
+
+  if (message.fromId && !isOwn && options.canManageMembers) {
+    const senderName = document.createElement('span');
+    senderName.className = 'msg-sender-name';
+    senderName.textContent = message.fromName;
+    senderName.dataset.userId = message.fromId;
+    senderName.style.cursor = 'pointer';
+    senderName.style.textDecoration = 'underline';
+    meta.appendChild(senderName);
+
+    const separator = document.createTextNode(' • ');
+    meta.appendChild(separator);
+
+    const time = document.createTextNode(fmtTime(message.date));
+    meta.appendChild(time);
+  } else {
+    meta.textContent = `${message.fromName} • ${fmtTime(message.date)}`;
+  }
+
   item.appendChild(meta);
 
   messagesEl.appendChild(item);

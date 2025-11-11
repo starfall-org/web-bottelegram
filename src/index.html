@@ -200,7 +200,58 @@
         <button id="memberPromoteBtn" class="btn secondary" data-role="admin">⭐ Thăng admin</button>
         <button id="memberModeratorBtn" class="btn secondary" data-role="moderator">🛡️ Moderator</button>
         <button id="memberDemoteBtn" class="btn secondary" data-role="member">👤 Thành viên</button>
+        <button id="memberRestrictBtn" class="btn secondary">🔒 Hạn chế quyền</button>
         <button id="memberKickBtn" class="btn danger">🚫 Kick</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Restrict Permissions Modal -->
+  <div id="restrictModal" class="overlay hidden">
+    <div class="dialog dialog-medium restrict-modal">
+      <div class="dialog-header">
+        <h3>Hạn chế quyền thành viên</h3>
+        <button id="closeRestrictModalBtn" class="icon-btn" title="Đóng" aria-label="Đóng">✕</button>
+      </div>
+      <div class="restrict-modal-body">
+        <p class="restrict-hint">Chọn các quyền cho phép:</p>
+        <div class="permissions-grid">
+          <label class="option-item">
+            <input type="checkbox" id="permSendMessages" checked />
+            <span>Gửi tin nhắn</span>
+          </label>
+          <label class="option-item">
+            <input type="checkbox" id="permSendMedia" checked />
+            <span>Gửi ảnh/video</span>
+          </label>
+          <label class="option-item">
+            <input type="checkbox" id="permSendPolls" checked />
+            <span>Gửi poll</span>
+          </label>
+          <label class="option-item">
+            <input type="checkbox" id="permSendOther" checked />
+            <span>Gửi sticker/GIF</span>
+          </label>
+          <label class="option-item">
+            <input type="checkbox" id="permAddWebPage" checked />
+            <span>Thêm link preview</span>
+          </label>
+          <label class="option-item">
+            <input type="checkbox" id="permChangeInfo" />
+            <span>Đổi thông tin nhóm</span>
+          </label>
+          <label class="option-item">
+            <input type="checkbox" id="permInviteUsers" checked />
+            <span>Mời người dùng</span>
+          </label>
+          <label class="option-item">
+            <input type="checkbox" id="permPinMessages" />
+            <span>Ghim tin nhắn</span>
+          </label>
+        </div>
+      </div>
+      <div class="restrict-modal-actions">
+        <button id="applyRestrictBtn" class="btn success full">Áp dụng</button>
       </div>
     </div>
   </div>
