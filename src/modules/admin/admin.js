@@ -3,6 +3,8 @@
  */
 
 import * as botAPI from '../api/bot.js';
+import * as appState from '../state/appState.js';
+import * as notifications from '../notifications/notifications.js';
 
 const ADMIN_PERMISSIONS = {
   can_manage_chat: true,
@@ -123,4 +125,93 @@ export function roleLabel(status) {
 
 export function isElevated(status) {
   return ['creator', 'administrator', 'moderator'].includes((status || '').toLowerCase());
+}
+
+/**
+ * Show members dialog with management features
+ */
+export async function showMembers(chatId, chat, overlayEl, groupInfoEl, membersListEl, hintEl, toastsEl, onKick, onToggleAdmin) {
+  if (!overlayEl || !membersListEl) return;
+
+  overlayEl.classList.remove('hidden');
+  groupInfoEl.textContent = `Đang tải thành viên cho ${chat.title || 'chat'}...`;
+  membersListEl.innerHTML = '';
+  hintEl.textContent = '';
+
+  try {
+    const administrators = await fetchAdministrators(chatId);
+    const members = appState.getChatMembersArray(chatId);
+    
+    groupInfoEl.textContent = `${chat.title} (${members.length} thành viên)`;
+    
+    membersListEl.innerHTML = '';
+    members.forEach(member => {
+      const memberEl = document.createElement('div');
+      memberEl.className = 'member-item';
+      memberEl.innerHTML = `
+        <div class="member-avatar">${member.avatarText}</div>
+        <div class="member-info">
+          <div class="member-name">${member.displayName}</div>
+          <div class="member-status">${roleLabel(member.status)}</div>
+        </div>
+      `;
+      
+      memberEl.addEventListener('click', () => {
+        if (onKick && !isElevated(member.status)) {
+          if (confirm(`Kick ${member.displayName}?`)) {
+            onKick(member.id, member.displayName);
+          }
+        }
+      });
+      
+      membersListEl.appendChild(memberEl);
+    });
+    
+  } catch (error) {
+    groupInfoEl.textContent = 'Lỗi khi tải thành viên';
+    hintEl.textContent = error.message;
+  }
+}
+
+/**
+ * Toggle admin status for a member
+ */
+export async function toggleAdmin(chatId, userId, promote, userName, toastsEl, callback) {
+  try {
+    if (promote) {
+      await applyRole(chatId, userId, 'administrator');
+      if (toastsEl) {
+        notifications.toastsShow('Thành công', `Đã thăng ${userName} làm admin`, toastsEl);
+      }
+    } else {
+      await applyRole(chatId, userId, 'member');
+      if (toastsEl) {
+        notifications.toastsShow('Thành công', `Đã hạ ${userName} thành thành viên`, toastsEl);
+      }
+    }
+    
+    if (callback) callback();
+  } catch (error) {
+    if (toastsEl) {
+      notifications.toastsShow('Lỗi', `Không thay đổi quyền: ${error.message}`, toastsEl);
+    }
+  }
+}
+
+/**
+ * Kick member with confirmation
+ */
+export async function kickMemberWithConfirm(chatId, userId, userName, toastsEl, callback) {
+  try {
+    await kickMember(chatId, userId);
+    if (toastsEl) {
+      notifications.toastsShow('Thành công', `Đã kick ${userName}`, toastsEl);
+    }
+    
+    if (callback) callback();
+  } catch (error) {
+    if (toastsEl) {
+      notifications.toastsShow('Lỗi', `Không kick thành viên: ${error.message}`, toastsEl);
+    }
+  }
 }

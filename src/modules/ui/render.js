@@ -103,7 +103,22 @@ export function renderMessage(message, messagesEl, onDeleteClick, options = {}) 
 
   const meta = document.createElement('div');
   meta.className = 'meta';
-  meta.textContent = `${message.fromName} • ${fmtTime(message.date)}`;
+  
+  // Make sender name clickable in group chats for user actions
+  const fromNameSpan = document.createElement('span');
+  fromNameSpan.className = 'sender-name';
+  fromNameSpan.textContent = message.fromName;
+  if (options.isGroupChat && options.onUserClick) {
+    fromNameSpan.style.cursor = 'pointer';
+    fromNameSpan.style.textDecoration = 'underline';
+    fromNameSpan.addEventListener('click', (e) => {
+      e.stopPropagation();
+      options.onUserClick(message.fromId, message.fromName);
+    });
+  }
+  
+  meta.appendChild(fromNameSpan);
+  meta.appendChild(document.createTextNode(` • ${fmtTime(message.date)}`));
   item.appendChild(meta);
 
   messagesEl.appendChild(item);
@@ -167,7 +182,7 @@ function renderSticker(container, message) {
 /**
  * Render chat list
  */
-export function renderChatList(chats, activeChatId, emptyNoticeEl, chatListEl, onChatClick) {
+export function renderChatList(chats, activeChatId, emptyNoticeEl, chatListEl, onChatClick, onDeleteChat) {
   chatListEl.innerHTML = '';
 
   const items = Array.from(chats.values()).sort((a, b) => (b.lastDate || 0) - (a.lastDate || 0));
@@ -195,8 +210,20 @@ export function renderChatList(chats, activeChatId, emptyNoticeEl, chatListEl, o
         <div class="last">${c.lastText ? snippet(c.lastText) : '—'}</div>
       </div>
       <div class="badge${c.unread ? '' : ' hidden'}">${c.unread || ''}</div>
+      <button class="delete-chat-btn" title="Xóa chat">🗑️</button>
     `;
-    el.addEventListener('click', () => onChatClick(c.id));
+    
+    // Chat click handler
+    el.querySelector('.info, .avatar').addEventListener('click', () => onChatClick(c.id));
+    
+    // Delete chat button handler
+    el.querySelector('.delete-chat-btn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (onDeleteChat && confirm(`Xóa chat "${c.title}"?`)) {
+        onDeleteChat(c.id);
+      }
+    });
+    
     chatListEl.appendChild(el);
   }
 }
@@ -263,4 +290,57 @@ export function maybeShowNewMsgBtn(newMsgBtn, messagesEl) {
   if (!atBottom) {
     newMsgBtn.style.display = 'block';
   }
+}
+
+/**
+ * Render sticker panel
+ */
+export function renderStickerPanel(stickers, containerEl, onStickerClick) {
+  if (!containerEl) return;
+
+  containerEl.innerHTML = '';
+
+  if (!stickers || stickers.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'stickers-empty';
+    empty.textContent = 'Chưa có sticker nào';
+    containerEl.appendChild(empty);
+    return;
+  }
+
+  stickers.forEach(sticker => {
+    const item = document.createElement('div');
+    item.className = 'sticker-item';
+    item.title = sticker.emoji || 'Sticker';
+    
+    if (sticker.file_id && sticker.url) {
+      if (sticker.is_animated) {
+        // Animated sticker placeholder
+        item.innerHTML = `<div class="sticker-thumb">${sticker.emoji || '✨'}</div>`;
+      } else if (sticker.is_video) {
+        const video = document.createElement('video');
+        video.src = sticker.url;
+        video.autoplay = true;
+        video.loop = true;
+        video.muted = true;
+        video.playsInline = true;
+        video.className = 'sticker-thumb';
+        item.appendChild(video);
+      } else {
+        const img = document.createElement('img');
+        img.src = sticker.url;
+        img.alt = sticker.emoji || 'Sticker';
+        img.className = 'sticker-thumb';
+        item.appendChild(img);
+      }
+    } else {
+      item.innerHTML = `<div class="sticker-thumb">${sticker.emoji || '❓'}</div>`;
+    }
+
+    item.addEventListener('click', () => {
+      if (onStickerClick) onStickerClick(sticker);
+    });
+
+    containerEl.appendChild(item);
+  });
 }

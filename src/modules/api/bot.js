@@ -76,6 +76,13 @@ export async function sendChatAction(chatId, action = 'typing') {
   return botPost('sendChatAction', { chat_id: chatId, action });
 }
 
+export async function sendSticker(chatId, stickerFileId) {
+  return botPost('sendSticker', { 
+    chat_id: chatId, 
+    sticker: stickerFileId 
+  });
+}
+
 export async function deleteMessage(chatId, messageId) {
   return botPost('deleteMessage', {
     chat_id: chatId,

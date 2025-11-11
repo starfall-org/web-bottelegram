@@ -6,6 +6,7 @@ const CHAT_HISTORY_PREFIX = 'tg_bot_chat_';
 const BOT_INFO_PREFIX = 'tg_bot_info_';
 const UPDATE_ID_KEY = 'tg_last_update_id';
 const THEME_PREF_KEY = 'tg_theme_preference';
+const STICKERS_PREFIX = 'tg_bot_stickers_';
 const COOKIE_MAX_AGE = 30 * 24 * 60 * 60; // 30 days
 
 /**
@@ -294,4 +295,59 @@ export function saveThemePreference(theme) {
 export function loadThemePreference() {
   const val = getCookie(THEME_PREF_KEY);
   return val ? decodeURIComponent(val) : null;
+}
+
+/**
+ * Save sticker to collection
+ */
+export function saveSticker(token, sticker) {
+  const profileId = getBotProfileId(token);
+  if (!profileId || !sticker || !sticker.file_id) return false;
+
+  const cookieName = STICKERS_PREFIX + profileId;
+  const existingStickers = loadStickers(token);
+  
+  // Check if sticker already exists
+  const exists = existingStickers.some(s => s.file_id === sticker.file_id);
+  if (exists) return true;
+
+  // Add new sticker (limit to 100 stickers)
+  const updatedStickers = [sticker, ...existingStickers].slice(0, 100);
+  
+  try {
+    const encoded = sanitizeValue(updatedStickers);
+    setCookie(cookieName, encoded);
+    return true;
+  } catch (e) {
+    console.error('Failed to save sticker:', e);
+    return false;
+  }
+}
+
+/**
+ * Load stickers collection
+ */
+export function loadStickers(token) {
+  const profileId = getBotProfileId(token);
+  if (!profileId) return [];
+
+  const cookieName = STICKERS_PREFIX + profileId;
+  const value = getCookie(cookieName);
+
+  if (!value) return [];
+
+  const data = parseValue(value);
+  return Array.isArray(data) ? data : [];
+}
+
+/**
+ * Clear stickers collection
+ */
+export function clearStickers(token) {
+  const profileId = getBotProfileId(token);
+  if (!profileId) return false;
+
+  const cookieName = STICKERS_PREFIX + profileId;
+  deleteCookie(cookieName);
+  return true;
 }

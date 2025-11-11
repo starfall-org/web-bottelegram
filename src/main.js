@@ -18,6 +18,8 @@ let els = null;
 // Setup polling
 let pollTimer = null;
 let actionTimer = null;
+let isPolling = false;
+let pollQueue = [];
 
 const DEFAULT_PREFERENCES = {
   autoScroll: true,
@@ -139,6 +141,18 @@ function setupEventListeners() {
   });
   els.inputEl.addEventListener('focus', startChatAction);
   els.inputEl.addEventListener('blur', stopChatAction);
+
+  // Sticker panel
+  els.stickerBtn.addEventListener('click', toggleStickerPanel);
+  els.closeStickerBtn.addEventListener('click', closeStickerPanel);
+
+  // User actions menu
+  els.closeUserActionsBtn.addEventListener('click', closeUserActionsMenu);
+  els.kickUserBtn.addEventListener('click', () => performUserAction('kick'));
+  els.promoteUserBtn.addEventListener('click', () => performUserAction('promote'));
+  els.moderateUserBtn.addEventListener('click', () => performUserAction('moderate'));
+  els.demoteUserBtn.addEventListener('click', () => performUserAction('demote'));
+  els.restrictUserBtn.addEventListener('click', () => performUserAction('restrict'));
 
   // Attachments
   els.attachBtn.addEventListener('click', () => {
@@ -543,8 +557,8 @@ function updateBotInfo() {
  */
 function startPolling() {
   clearInterval(pollTimer);
-  pollOnce().catch(() => {});
-  pollTimer = setInterval(() => pollOnce().catch(() => {}), 2500);
+  isPolling = true;
+  pollOnceSequential();
   els.statusEl.textContent = 'Đang nhận cập nhật...';
 }
 
@@ -554,6 +568,34 @@ function startPolling() {
 function stopPolling() {
   clearInterval(pollTimer);
   pollTimer = null;
+  isPolling = false;
+  pollQueue = [];
+}
+
+/**
+ * Sequential polling with delay
+ */
+async function pollOnceSequential() {
+  if (!isPolling) return;
+  
+  try {
+    await pollOnce();
+    
+    // Wait 1 second before next poll
+    setTimeout(() => {
+      if (isPolling) {
+        pollOnceSequential();
+      }
+    }, 1000);
+  } catch (e) {
+    console.error('Polling error:', e);
+    // Wait 2 seconds on error before retrying
+    setTimeout(() => {
+      if (isPolling) {
+        pollOnceSequential();
+      }
+    }, 2000);
+  }
 }
 
 /**
@@ -584,6 +626,7 @@ async function pollOnce() {
     els.statusEl.textContent = 'Đang nhận cập nhật...';
   } catch (e) {
     els.statusEl.textContent = 'CORS hoặc mạng lỗi khi getUpdates';
+    throw e;
   }
 }
 
@@ -655,6 +698,7 @@ async function processMessage(msg) {
     id: msg.message_id,
     side: isFromBot ? 'right' : 'left',
     date: timestampMs,
+    fromId: msg.from ? msg.from.id : null,
     fromName: senderNameFromMsg(msg),
     reply_to: msg.reply_to_message && msg.reply_to_message.message_id,
     reply_preview: msg.reply_to_message && snippet(msg.reply_to_message.text || msg.reply_to_message.caption || '')
@@ -693,6 +737,19 @@ async function processMessage(msg) {
       url = await getFileUrl(st.file_id);
     }
 
+    // Save sticker to collection
+    const stickerData = {
+      file_id: st.file_id,
+      url: url,
+      emoji: st.emoji || '',
+      is_animated: st.is_animated,
+      is_video: st.is_video,
+      set_name: st.set_name,
+      width: st.width,
+      height: st.height
+    };
+    storage.saveSticker(appState.token, stickerData);
+
     message = { ...baseMessage, type: 'sticker', mediaUrl: url, stickerFormat: fmt, emoji: st.emoji || '' };
   } else {
     message = { ...baseMessage, type: 'text', text: '[Không hiển thị loại nội dung này]' };
@@ -701,7 +758,15 @@ async function processMessage(msg) {
   if (appState.addMessageToChat(chatId, message)) {
     if (isActiveChat) {
       const permissions = appState.getChatPermissions(chatId);
-      render.renderMessage(message, els.messagesEl, deleteMessage, { canDeleteOthers: permissions.canDeleteMessages });
+      const chat = appState.getChat(chatId);
+      const isGroupChat = chat && (chat.type === 'group' || chat.type === 'supergroup');
+      
+      render.renderMessage(message, els.messagesEl, deleteMessage, { 
+        canDeleteOthers: permissions.canDeleteMessages,
+        isGroupChat,
+        onUserClick: handleUserClick
+      });
+      
       if (preferences.autoScroll && shouldStickToBottom) {
         scrollToBottom(els.messagesEl);
         els.newMsgBtn.style.display = 'none';
@@ -712,11 +777,12 @@ async function processMessage(msg) {
       chat.unread = (chat.unread || 0) + 1;
       notifications.notifyNewMessage(chat, message, els.toastsEl, {
         playSound: preferences.sound,
-        push: preferences.push
+        push: preferences.push,
+        scrollToMessage: window.scrollToMessage
       });
     }
 
-    render.renderChatList(appState.chats, appState.activeChatId, els.emptyNoticeEl, els.chatListEl, openChat);
+    render.renderChatList(appState.chats, appState.activeChatId, els.emptyNoticeEl, els.chatListEl, openChat, deleteChat);
     if (isActiveChat) {
       render.updateMembersButton(chat, els.membersBtnEl);
     }
@@ -1050,7 +1116,7 @@ async function showMembersDialog() {
     els.membersListEl,
     els.membersHintEl,
     els.toastsEl,
-    (userId, userName) => admin.kickMember(appState.activeChatId, userId, userName, els.toastsEl, showMembersDialog),
+    (userId, userName) => admin.kickMemberWithConfirm(appState.activeChatId, userId, userName, els.toastsEl, showMembersDialog),
     (userId, promote, userName) => admin.toggleAdmin(appState.activeChatId, userId, promote, userName, els.toastsEl, showMembersDialog)
   );
 }
@@ -1072,6 +1138,218 @@ function stopChatAction() {
   clearInterval(actionTimer);
   actionTimer = null;
 }
+
+/**
+ * Delete chat
+ */
+async function deleteChat(chatId) {
+  if (!chatId) return;
+  
+  // Remove from app state
+  appState.removeChat(chatId);
+  
+  // Save to storage
+  storage.saveChatHistory(appState.token, appState.chats);
+  
+  // If this was the active chat, clear it
+  if (appState.activeChatId === chatId) {
+    appState.setActiveChatId(null);
+    render.clearMessagesView(els.messagesEl);
+    render.updateChatHeader(null, els.headerTitleEl, els.activeAvatarEl);
+    els.inputEl.disabled = true;
+  }
+  
+  // Re-render chat list
+  render.renderChatList(appState.chats, appState.activeChatId, els.emptyNoticeEl, els.chatListEl, openChat, deleteChat);
+  
+  notifications.toastsShow('Thành công', 'Đã xóa chat', els.toastsEl);
+}
+
+/**
+ * Handle user click in group chat
+ */
+function handleUserClick(userId, userName) {
+  if (!userId || !appState.activeChatId) return;
+  
+  const chat = appState.getChat(appState.activeChatId);
+  if (!chat || (chat.type !== 'group' && chat.type !== 'supergroup')) return;
+  
+  // Store current user info for actions
+  window.currentUserAction = {
+    userId,
+    userName,
+    chatId: appState.activeChatId
+  };
+  
+  // Show user actions menu
+  showUserActionsMenu(userName);
+}
+
+/**
+ * Show user actions menu
+ */
+function showUserActionsMenu(userName) {
+  els.userActionsTitle.textContent = `Tác vụ với ${userName}`;
+  els.userActionsMenu.classList.remove('hidden');
+}
+
+/**
+ * Close user actions menu
+ */
+function closeUserActionsMenu() {
+  els.userActionsMenu.classList.add('hidden');
+  window.currentUserAction = null;
+}
+
+/**
+ * Perform user action
+ */
+async function performUserAction(action) {
+  if (!window.currentUserAction) return;
+  
+  const { userId, userName, chatId } = window.currentUserAction;
+  
+  try {
+    switch (action) {
+      case 'kick':
+        if (confirm(`Kick ${userName} khỏi nhóm?`)) {
+          await admin.kickMember(chatId, userId);
+          notifications.toastsShow('Thành công', `Đã kick ${userName}`, els.toastsEl);
+        }
+        break;
+        
+      case 'promote':
+        await admin.applyRole(chatId, userId, 'admin');
+        notifications.toastsShow('Thành công', `Đã thăng ${userName} làm admin`, els.toastsEl);
+        break;
+        
+      case 'moderate':
+        await admin.applyRole(chatId, userId, 'moderator');
+        notifications.toastsShow('Thành công', `Đã thăng ${userName} làm moderator`, els.toastsEl);
+        break;
+        
+      case 'demote':
+        await admin.applyRole(chatId, userId, 'member');
+        notifications.toastsShow('Thành công', `Đã hạ ${userName} thành thành viên`, els.toastsEl);
+        break;
+        
+      case 'restrict':
+        // This would need a more complex UI for specific restrictions
+        notifications.toastsShow('Thông báo', 'Tính năng hạn chế quyền đang phát triển', els.toastsEl);
+        break;
+    }
+  } catch (error) {
+    notifications.toastsShow('Lỗi', `Không thực hiện tác vụ: ${error.message}`, els.toastsEl);
+  }
+  
+  closeUserActionsMenu();
+}
+
+/**
+ * Toggle sticker panel
+ */
+function toggleStickerPanel() {
+  if (els.stickerPanel.classList.contains('hidden')) {
+    showStickerPanel();
+  } else {
+    closeStickerPanel();
+  }
+}
+
+/**
+ * Show sticker panel
+ */
+function showStickerPanel() {
+  els.stickerPanel.classList.remove('hidden');
+  
+  // Load stickers
+  const stickers = storage.loadStickers(appState.token);
+  
+  // Ensure stickers have URLs
+  const stickersWithUrls = Promise.all(
+    stickers.map(async (sticker) => {
+      if (!sticker.url && sticker.file_id) {
+        try {
+          const info = await botAPI.getFile(sticker.file_id);
+          if (info.ok) {
+            sticker.url = botAPI.fullFileUrl(info.result.file_path);
+          }
+        } catch (e) {
+          console.warn('Failed to get sticker URL:', e);
+        }
+      }
+      return sticker;
+    })
+  );
+  
+  stickersWithUrls.then((resolvedStickers) => {
+    render.renderStickerPanel(resolvedStickers, els.stickerList, handleStickerClick);
+  });
+}
+
+/**
+ * Close sticker panel
+ */
+function closeStickerPanel() {
+  els.stickerPanel.classList.add('hidden');
+}
+
+/**
+ * Handle sticker click
+ */
+async function handleStickerClick(sticker) {
+  if (!appState.activeChatId) {
+    notifications.toastsShow('Lỗi', 'Chọn chat trước', els.toastsEl);
+    return;
+  }
+  
+  try {
+    await botAPI.sendSticker(appState.activeChatId, sticker.file_id);
+    closeStickerPanel();
+    
+    // Add sticker to sent messages (optimistic UI)
+    const message = {
+      id: Date.now(), // Temporary ID
+      side: 'right',
+      date: Date.now(),
+      fromName: appState.bot.name || 'Bot',
+      type: 'sticker',
+      mediaUrl: sticker.url,
+      stickerFormat: sticker.is_animated ? 'tgs' : (sticker.is_video ? 'webm' : 'webp'),
+      emoji: sticker.emoji || ''
+    };
+    
+    appState.addMessageToChat(appState.activeChatId, message);
+    render.renderMessage(message, els.messagesEl, deleteMessage, { 
+      canDeleteOthers: false,
+      isGroupChat: false
+    });
+    scrollToBottom(els.messagesEl);
+    
+  } catch (error) {
+    notifications.toastsShow('Lỗi', `Không gửi sticker: ${error.message}`, els.toastsEl);
+  }
+}
+
+/**
+ * Scroll to message function for notifications
+ */
+window.scrollToMessage = function(chatId, messageId) {
+  if (appState.activeChatId !== chatId) {
+    openChat(chatId);
+  }
+  
+  setTimeout(() => {
+    const messageEl = document.querySelector(`[data-msg-id="${messageId}"]`);
+    if (messageEl) {
+      messageEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      messageEl.style.animation = 'pulse 1s ease-in-out';
+      setTimeout(() => {
+        messageEl.style.animation = '';
+      }, 1000);
+    }
+  }, 500);
+};
 
 /**
  * Start application

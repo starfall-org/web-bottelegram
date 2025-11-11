@@ -53,9 +53,19 @@
           <span id="cancelReply" class="cancel-reply" role="button" aria-label="Hủy trả lời">✕</span>
         </div>
         <button id="attachBtn" class="icon-btn" title="Đính kèm" aria-label="Đính kèm">📎</button>
+        <button id="stickerBtn" class="icon-btn" title="Sticker" aria-label="Sticker">😀</button>
         <input id="input" type="text" placeholder="Nhập tin nhắn..." disabled />
         <button id="sendBtn" class="icon-btn primary" title="Gửi" aria-label="Gửi">➤</button>
         <input id="fileInput" type="file" style="display:none" />
+      </div>
+      
+      <!-- Sticker Panel -->
+      <div id="stickerPanel" class="sticker-panel hidden">
+        <div class="sticker-panel-header">
+          <span>Sticker</span>
+          <button id="closeStickerBtn" class="icon-btn" title="Đóng">✕</button>
+        </div>
+        <div id="stickerList" class="sticker-list"></div>
       </div>
     </main>
   </div>
@@ -202,6 +212,21 @@
         <button id="memberDemoteBtn" class="btn secondary" data-role="member">👤 Thành viên</button>
         <button id="memberKickBtn" class="btn danger">🚫 Kick</button>
       </div>
+    </div>
+  </div>
+
+  <!-- User Actions Menu -->
+  <div id="userActionsMenu" class="user-actions-menu hidden">
+    <div class="user-actions-header">
+      <span id="userActionsTitle">Tác vụ với người dùng</span>
+      <button id="closeUserActionsBtn" class="icon-btn" title="Đóng">✕</button>
+    </div>
+    <div class="user-actions-list">
+      <button id="kickUserBtn" class="btn danger" data-action="kick">🚫 Kick người dùng</button>
+      <button id="promoteUserBtn" class="btn secondary" data-action="promote">⭐ Thăng admin</button>
+      <button id="moderateUserBtn" class="btn secondary" data-action="moderate">🛡️ Thăng moderator</button>
+      <button id="demoteUserBtn" class="btn secondary" data-action="demote">👤 Hạ thành viên</button>
+      <button id="restrictUserBtn" class="btn warning" data-action="restrict">🔒 Hạn chế quyền</button>
     </div>
   </div>
 
