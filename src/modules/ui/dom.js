@@ -75,6 +75,8 @@ export const notifBtn = () => document.getElementById('notifBtn');
 export const themeOptionLight = () => document.getElementById('themeOptionLight');
 export const themeOptionDark = () => document.getElementById('themeOptionDark');
 export const themeOptionSystem = () => document.getElementById('themeOptionSystem');
+export const langOptionEn = () => document.getElementById('langOptionEn');
+export const langOptionVi = () => document.getElementById('langOptionVi');
 export const botDetailNameEl = () => document.getElementById('botDetailName');
 export const botDetailUsernameEl = () => document.getElementById('botDetailUsername');
 export const botDetailIdEl = () => document.getElementById('botDetailId');
@@ -206,6 +208,8 @@ export function getCachedElements() {
     themeOptionLight: themeOptionLight(),
     themeOptionDark: themeOptionDark(),
     themeOptionSystem: themeOptionSystem(),
+    langOptionEn: langOptionEn(),
+    langOptionVi: langOptionVi(),
     botDetailNameEl: botDetailNameEl(),
     botDetailUsernameEl: botDetailUsernameEl(),
     botDetailIdEl: botDetailIdEl(),
