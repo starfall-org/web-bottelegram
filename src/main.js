@@ -5,7 +5,7 @@
 import './styles/main.css';
 import * as botAPI from './modules/api/bot.js';
 import * as appState from './modules/state/appState.js';
-import * as storage from './modules/storage/cookieStorage.js';
+import * as storage from './modules/storage/localStorage.js';
 import * as render from './modules/ui/render.js';
 import * as dom from './modules/ui/dom.js';
 import * as notifications from './modules/notifications/notifications.js';
@@ -73,9 +73,15 @@ function init() {
     botAPI.setToken(storedToken);
     botAPI.setProxy(storedProxy);
 
-    // Load saved chat history from cookies
+    // Load saved chat history
     const savedChats = storage.loadChatHistory(storedToken);
     appState.setChats(savedChats);
+
+    // Restore last active chat
+    const lastActiveChat = localStorage.getItem('last_active_chat');
+    if (lastActiveChat && savedChats.has(lastActiveChat)) {
+      appState.setActiveChatId(lastActiveChat);
+    }
 
     // Load last update ID
     const lastUpdateId = storage.getLastUpdateId();
@@ -163,8 +169,12 @@ function setupEventListeners() {
   els.inputEl.addEventListener('blur', stopChatAction);
 
   // Sticker panel
-  els.stickerBtn.addEventListener('click', toggleStickerPanel);
-  els.closeStickerBtn.addEventListener('click', closeStickerPanel);
+  if (els.stickerBtn) {
+    els.stickerBtn.addEventListener('click', toggleStickerPanel);
+  }
+  if (els.closeStickerBtn) {
+    els.closeStickerBtn.addEventListener('click', closeStickerPanel);
+  }
 
   // User actions menu
   els.closeUserActionsBtn.addEventListener('click', closeUserActionsMenu);
@@ -286,6 +296,7 @@ function renderUI() {
  */
 function openChat(chatId) {
   appState.setActiveChatId(chatId);
+  localStorage.setItem('last_active_chat', chatId);
   const chat = appState.getChat(chatId);
 
   if (chat) {
@@ -1627,10 +1638,10 @@ async function performUserAction(action) {
  * Toggle sticker panel
  */
 function toggleStickerPanel() {
-  if (els.stickerPanel.classList.contains('hidden')) {
+  if (!els.stickerPanel) return;
+  const isHidden = els.stickerPanel.classList.toggle('hidden');
+  if (!isHidden) {
     showStickerPanel();
-  } else {
-    closeStickerPanel();
   }
 }
 
