@@ -50,6 +50,10 @@ function normalizeChat(chat) {
     chat.members = new Map(entries.map(([id, data]) => [String(id), data]));
   }
 
+  if (!Array.isArray(chat.messages)) {
+    chat.messages = [];
+  }
+
   chat.permissions = { ...createDefaultPermissions(), ...(chat.permissions || {}) };
 
   if (!chat.avatarText) {
