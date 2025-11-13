@@ -47,6 +47,7 @@ export const themeToggleBtn = () => document.getElementById('themeToggleBtn');
 // Sidebar
 export const sidebarEl = () => document.getElementById('sidebar');
 export const menuToggleEl = () => document.getElementById('menuToggle');
+export const sidebarCloseBtn = () => document.getElementById('sidebarCloseBtn');
 
 // Open chat
 export const openChatInputEl = () => document.getElementById('openChatInput');
@@ -109,8 +110,22 @@ export const memberModalJoinedEl = () => document.getElementById('memberModalJoi
 export const memberPromoteBtn = () => document.getElementById('memberPromoteBtn');
 export const memberModeratorBtn = () => document.getElementById('memberModeratorBtn');
 export const memberDemoteBtn = () => document.getElementById('memberDemoteBtn');
+export const memberRestrictBtn = () => document.getElementById('memberRestrictBtn');
 export const memberKickBtn = () => document.getElementById('memberKickBtn');
 export const closeMemberModalBtn = () => document.getElementById('closeMemberModalBtn');
+
+// Restrict modal
+export const restrictModalEl = () => document.getElementById('restrictModal');
+export const closeRestrictModalBtn = () => document.getElementById('closeRestrictModalBtn');
+export const applyRestrictBtn = () => document.getElementById('applyRestrictBtn');
+export const permSendMessagesEl = () => document.getElementById('permSendMessages');
+export const permSendMediaEl = () => document.getElementById('permSendMedia');
+export const permSendPollsEl = () => document.getElementById('permSendPolls');
+export const permSendOtherEl = () => document.getElementById('permSendOther');
+export const permAddWebPageEl = () => document.getElementById('permAddWebPage');
+export const permChangeInfoEl = () => document.getElementById('permChangeInfo');
+export const permInviteUsersEl = () => document.getElementById('permInviteUsers');
+export const permPinMessagesEl = () => document.getElementById('permPinMessages');
 
 // Toasts
 export const toastsEl = () => document.getElementById('toasts');
@@ -138,6 +153,7 @@ export function getCachedElements() {
     themeToggleBtn: themeToggleBtn(),
     sidebarEl: sidebarEl(),
     menuToggleEl: menuToggleEl(),
+    sidebarCloseBtn: sidebarCloseBtn(),
     openChatInputEl: openChatInputEl(),
     openChatBtnEl: openChatBtnEl(),
     membersBtnEl: membersBtnEl(),
@@ -165,8 +181,20 @@ export function getCachedElements() {
     memberPromoteBtn: memberPromoteBtn(),
     memberModeratorBtn: memberModeratorBtn(),
     memberDemoteBtn: memberDemoteBtn(),
+    memberRestrictBtn: memberRestrictBtn(),
     memberKickBtn: memberKickBtn(),
     closeMemberModalBtn: closeMemberModalBtn(),
+    restrictModalEl: restrictModalEl(),
+    closeRestrictModalBtn: closeRestrictModalBtn(),
+    applyRestrictBtn: applyRestrictBtn(),
+    permSendMessagesEl: permSendMessagesEl(),
+    permSendMediaEl: permSendMediaEl(),
+    permSendPollsEl: permSendPollsEl(),
+    permSendOtherEl: permSendOtherEl(),
+    permAddWebPageEl: permAddWebPageEl(),
+    permChangeInfoEl: permChangeInfoEl(),
+    permInviteUsersEl: permInviteUsersEl(),
+    permPinMessagesEl: permPinMessagesEl(),
     overlayEl: overlayEl(),
     settingsBtn: settingsBtn(),
     saveBtn: saveBtn(),
