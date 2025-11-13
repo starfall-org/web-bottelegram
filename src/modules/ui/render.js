@@ -4,6 +4,7 @@
 
 import { fmtTime, snippet, initials } from '../utils/helpers.js';
 import * as appState from '../state/appState.js';
+import * as i18n from '../i18n/i18n.js';
 
 /**
  * Render a single message
@@ -23,7 +24,7 @@ export function renderMessage(message, messagesEl, onDeleteClick, options = {}) 
     const delBtn = document.createElement('button');
     delBtn.className = 'msg-action-btn';
     delBtn.textContent = '🗑️';
-    delBtn.title = 'Xóa tin nhắn';
+    delBtn.title = i18n.t('deleteMessage');
     delBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       if (onDeleteClick) onDeleteClick(message.id);
@@ -46,7 +47,7 @@ export function renderMessage(message, messagesEl, onDeleteClick, options = {}) 
     const img = document.createElement('img');
     img.src = message.mediaUrl;
     img.className = 'media';
-    img.alt = message.caption || 'Ảnh';
+    img.alt = message.caption || i18n.t('photo');
     cnt.appendChild(img);
     if (message.caption) {
       const t = document.createElement('div');
@@ -85,7 +86,7 @@ export function renderMessage(message, messagesEl, onDeleteClick, options = {}) 
     a.target = '_blank';
     a.rel = 'noopener noreferrer';
     a.className = 'doc-link';
-    a.textContent = message.fileName || 'Tệp';
+    a.textContent = message.fileName || i18n.t('file');
     cnt.appendChild(a);
     if (message.caption) {
       const t = document.createElement('div');
@@ -169,7 +170,7 @@ function renderSticker(container, message) {
     note.style.color = 'var(--muted)';
     note.style.marginTop = '4px';
     note.style.textAlign = 'center';
-    note.textContent = '[Animated sticker]';
+    note.textContent = i18n.t('animatedSticker');
     container.appendChild(note);
   } else {
     // Unknown format
