@@ -6,12 +6,12 @@ export default defineConfig({
     outDir: '../dist',
     emptyOutDir: true,
     rollupOptions: {
-      input: 'src/index.html'
+      input: 'index.html'
     }
   },
   server: {
     host: '0.0.0.0',
-    port: 5000,
+    port: 5173,
     strictPort: true,
     hmr: {
       host: process.env.REPL_SLUG ? `${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.replit.dev` : 'localhost',
