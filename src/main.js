@@ -10,6 +10,7 @@ import * as render from './modules/ui/render.js';
 import * as dom from './modules/ui/dom.js';
 import * as notifications from './modules/notifications/notifications.js';
 import * as admin from './modules/admin/admin.js';
+import * as i18n from './modules/i18n/i18n.js';
 import { fmtTime, initials, snippet, senderNameFromMsg, senderUsernameFromMsg, scrollToBottom, isAtBottom, formatDateTime } from './modules/utils/helpers.js';
 
 // Get DOM elements
@@ -37,6 +38,10 @@ let activeMembersTab = 'members';
  */
 function init() {
   els = dom.getCachedElements();
+
+  // Initialize i18n
+  i18n.initI18n();
+  updateAllUIText();
 
   systemThemeMatcher = window.matchMedia('(prefers-color-scheme: dark)');
   if (systemThemeMatcher.addEventListener) {
@@ -111,6 +116,10 @@ function setupEventListeners() {
   els.themeOptionDark?.addEventListener('click', () => applyTheme('dark'));
   els.themeOptionSystem?.addEventListener('click', () => applyTheme('system'));
 
+  // Language controls
+  els.langOptionEn?.addEventListener('click', () => switchLanguage('en'));
+  els.langOptionVi?.addEventListener('click', () => switchLanguage('vi'));
+
   // Preferences toggles
   els.prefAutoScrollEl?.addEventListener('change', (e) => updatePreference('autoScroll', e.target.checked));
   els.prefSoundEl?.addEventListener('change', (e) => updatePreference('sound', e.target.checked));
@@ -178,7 +187,7 @@ function setupEventListeners() {
   // Attachments
   els.attachBtn.addEventListener('click', () => {
     if (!appState.activeChatId) {
-      alert('Chọn chat trước.');
+      alert(i18n.t('pleaseSelectChat'));
       return;
     }
     stopChatAction();
@@ -260,7 +269,7 @@ function openChat(chatId) {
     els.inputEl.disabled = false;
     els.sendBtn.disabled = false;
     els.attachBtn.disabled = false;
-    els.inputEl.placeholder = 'Nhập tin nhắn...';
+    els.inputEl.placeholder = i18n.t('enterMessage');
     els.inputEl.focus();
 
     // Hide sidebar on mobile
@@ -271,7 +280,7 @@ function openChat(chatId) {
     els.inputEl.disabled = true;
     els.sendBtn.disabled = true;
     els.attachBtn.disabled = true;
-    els.inputEl.placeholder = 'Chưa chọn cuộc trò chuyện';
+    els.inputEl.placeholder = i18n.t('noConversationSelected');
   }
 
   els.newMsgBtn.style.display = 'none';
@@ -301,7 +310,7 @@ function saveSettings() {
   const proxy = els.proxyInputEl.value.trim();
 
   if (!token) {
-    els.settingsHintEl.textContent = '❌ Nhập Bot Token!';
+    els.settingsHintEl.textContent = i18n.t('enterToken');
     return;
   }
 
@@ -327,19 +336,22 @@ function saveSettings() {
  */
 async function testConnection() {
   if (!appState.token) {
-    els.settingsHintEl.textContent = 'Chưa có token.';
+    els.settingsHintEl.textContent = i18n.t('tokenMissing');
     return;
   }
 
   try {
     const me = await botAPI.getMe();
     if (me.ok) {
-      els.settingsHintEl.textContent = `✅ OK: @${me.result.username || '(không tên)'} • id=${me.result.id}`;
+      els.settingsHintEl.textContent = i18n.t('connectionOk', { 
+        username: me.result.username || i18n.t('connectionNoUsername'), 
+        id: me.result.id 
+      });
     } else {
-      els.settingsHintEl.textContent = '❌ Lỗi getMe: ' + (me.description || 'Không rõ');
+      els.settingsHintEl.textContent = i18n.t('connectionFailed', { error: me.description || i18n.t('unknownError') });
     }
   } catch (e) {
-    els.settingsHintEl.textContent = '❌ CORS hoặc mạng lỗi: ' + e.message;
+    els.settingsHintEl.textContent = i18n.t('connectionNetworkError', { error: e.message });
   }
 }
 
@@ -351,9 +363,9 @@ async function deleteWebhook() {
 
   try {
     const res = await botAPI.deleteWebhook(false);
-    els.settingsHintEl.textContent = res.ok ? '✅ Đã xóa webhook.' : '❌ Không xóa được: ' + (res.description || 'Không rõ');
+    els.settingsHintEl.textContent = res.ok ? i18n.t('webhookDeleted') : i18n.t('webhookDeleteFailed', { error: res.description || i18n.t('unknownError') });
   } catch (e) {
-    els.settingsHintEl.textContent = '❌ Lỗi mạng khi xóa webhook: ' + e.message;
+    els.settingsHintEl.textContent = i18n.t('webhookDeleteNetworkError', { error: e.message });
   }
 }
 
@@ -364,10 +376,10 @@ async function handleNotificationRequest() {
   try {
     const permission = await notifications.requestNotifications();
     const granted = permission === 'granted';
-    els.settingsHintEl.textContent = granted ? '✅ Thông báo: đã cấp quyền.' : '❌ Thông báo: bị từ chối hoặc chưa cấp.';
+    els.settingsHintEl.textContent = granted ? i18n.t('notificationsGranted') : i18n.t('notificationsDenied');
     updatePreference('push', granted);
   } catch (e) {
-    els.settingsHintEl.textContent = '❌ Lỗi: ' + e.message;
+    els.settingsHintEl.textContent = i18n.t('error') + ': ' + e.message;
   }
 }
 
@@ -466,13 +478,109 @@ function handleSystemThemeChange() {
   }
 }
 
+/**
+ * Switch language
+ */
+function switchLanguage(lang) {
+  i18n.setLanguage(lang);
+  updateAllUIText();
+  highlightLanguageOption(lang);
+  renderUI();
+}
+
+/**
+ * Highlight active language option
+ */
+function highlightLanguageOption(lang) {
+  const mapping = {
+    en: els.langOptionEn,
+    vi: els.langOptionVi
+  };
+  Object.entries(mapping).forEach(([key, button]) => {
+    if (!button) return;
+    if (key === lang) {
+      button.classList.add('active');
+    } else {
+      button.classList.remove('active');
+    }
+  });
+}
+
+/**
+ * Update all UI text with current language
+ */
+function updateAllUIText() {
+  // Update all elements with data-i18n attribute
+  const elements = document.querySelectorAll('[data-i18n]');
+  elements.forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (key) {
+      el.textContent = i18n.t(key);
+    }
+  });
+
+  // Update placeholders
+  if (els.openChatInputEl) {
+    els.openChatInputEl.placeholder = i18n.t('enterChatId');
+  }
+  if (els.inputEl) {
+    if (appState.activeChatId) {
+      els.inputEl.placeholder = i18n.t('enterMessage');
+    } else {
+      els.inputEl.placeholder = i18n.t('noConversationSelected');
+    }
+  }
+  if (els.tokenInputEl) {
+    els.tokenInputEl.placeholder = i18n.t('botToken');
+  }
+  if (els.proxyInputEl) {
+    els.proxyInputEl.placeholder = i18n.t('corsProxy');
+  }
+
+  // Update titles
+  if (els.settingsBtn) {
+    els.settingsBtn.title = i18n.t('settingsTitle');
+    els.settingsBtn.setAttribute('aria-label', i18n.t('settingsTitle'));
+  }
+  if (els.themeToggleBtn) {
+    els.themeToggleBtn.title = i18n.t('changeTheme');
+    els.themeToggleBtn.setAttribute('aria-label', i18n.t('changeTheme'));
+  }
+  if (els.openChatBtnEl) {
+    els.openChatBtnEl.title = i18n.t('openChat');
+    els.openChatBtnEl.setAttribute('aria-label', i18n.t('openChat'));
+  }
+  if (els.sendBtn) {
+    els.sendBtn.title = i18n.t('send');
+    els.sendBtn.setAttribute('aria-label', i18n.t('send'));
+  }
+  if (els.attachBtn) {
+    els.attachBtn.title = i18n.t('attach');
+    els.attachBtn.setAttribute('aria-label', i18n.t('attach'));
+  }
+  if (els.stickerBtn) {
+    els.stickerBtn.title = i18n.t('sticker');
+    els.stickerBtn.setAttribute('aria-label', i18n.t('sticker'));
+  }
+  if (els.membersBtnEl) {
+    els.membersBtnEl.title = i18n.t('manageMembers');
+    els.membersBtnEl.setAttribute('aria-label', i18n.t('manageMembers'));
+  }
+  if (els.cancelReply) {
+    els.cancelReply.setAttribute('aria-label', i18n.t('cancelReply'));
+  }
+
+  // Highlight current language
+  highlightLanguageOption(i18n.getCurrentLanguage());
+}
+
 function getSupportedFeatures() {
   return [
-    'Giao diện sáng / tối / hệ thống',
-    'Thông báo đẩy khi có tin nhắn mới',
-    'Lưu lịch sử hội thoại trong trình duyệt',
-    'Quản lý thành viên & chỉnh sửa quyền',
-    'Gửi tin nhắn văn bản và media'
+    i18n.t('featureThemes'),
+    i18n.t('featurePushNotifications'),
+    i18n.t('featureChatHistory'),
+    i18n.t('featureMemberManagement'),
+    i18n.t('featureSendMessages')
   ];
 }
 
@@ -481,11 +589,11 @@ function getSupportedFeatures() {
  */
 async function connect() {
   if (!appState.token) {
-    els.statusEl.textContent = 'Chưa kết nối (thiếu token)';
+    els.statusEl.textContent = i18n.t('statusDisconnected');
     return;
   }
 
-  els.statusEl.textContent = 'Đang kết nối...';
+  els.statusEl.textContent = i18n.t('statusConnecting');
 
   try {
     const me = await botAPI.getMe();
@@ -631,9 +739,9 @@ async function pollOnce() {
     const res = await botAPI.getUpdates(appState.lastUpdateId || undefined);
 
     if (!res.ok) {
-      els.statusEl.textContent = 'Lỗi getUpdates: ' + (res.description || 'Không rõ');
+      els.statusEl.textContent = i18n.t('getUpdatesError', { error: res.description || i18n.t('unknownError') });
       if (String(res.error_code) === '409') {
-        els.statusEl.textContent = 'Webhook đang hoạt động. Xóa webhook trong Cài đặt.';
+        els.statusEl.textContent = i18n.t('webhookActive');
       }
       return;
     }
@@ -648,9 +756,9 @@ async function pollOnce() {
       await processMessage(msg);
     }
 
-    els.statusEl.textContent = 'Đang nhận cập nhật...';
+    els.statusEl.textContent = i18n.t('statusConnected');
   } catch (e) {
-    els.statusEl.textContent = 'CORS hoặc mạng lỗi khi getUpdates';
+    els.statusEl.textContent = i18n.t('corsError');
     throw e;
   }
 }
@@ -662,7 +770,7 @@ async function processMessage(msg) {
   const chatData = msg.chat;
   const chatId = String(chatData.id);
   const isPrivate = chatData.type === 'private';
-  const fallbackTitle = isPrivate ? [chatData.first_name, chatData.last_name].filter(Boolean).join(' ') || chatData.username || 'Người dùng' : chatData.title || chatData.type || 'Chat';
+  const fallbackTitle = isPrivate ? [chatData.first_name, chatData.last_name].filter(Boolean).join(' ') || chatData.username || i18n.t('user') : chatData.title || chatData.type || 'Chat';
 
   const chat = appState.getOrCreateChat(chatId, {
     type: chatData.type,
@@ -778,7 +886,7 @@ async function processMessage(msg) {
 
     message = { ...baseMessage, type: 'sticker', mediaUrl: url, stickerFormat: fmt, emoji: st.emoji || '' };
   } else {
-    message = { ...baseMessage, type: 'text', text: '[Không hiển thị loại nội dung này]' };
+    message = { ...baseMessage, type: 'text', text: i18n.t('unsupportedContent') };
   }
 
   if (appState.addMessageToChat(chatId, message)) {
@@ -896,12 +1004,12 @@ async function sendMessage() {
   if (!text) return;
 
   if (!appState.token) {
-    alert('Bạn cần nhập token.');
+    alert(i18n.t('needToken'));
     return;
   }
 
   if (!appState.activeChatId) {
-    alert('Hãy chọn cuộc trò chuyện.');
+    alert(i18n.t('pleaseSelectConversation'));
     return;
   }
 
@@ -927,7 +1035,7 @@ async function sendMessage() {
         type: 'text',
         text,
         date: msg.date * 1000,
-        fromName: 'Bạn',
+        fromName: i18n.t('you'),
         reply_to: body.reply_to_message_id,
         reply_preview: appState.replyTo ? snippet(text) : null
       };
@@ -947,10 +1055,10 @@ async function sendMessage() {
         storage.saveChatHistory(appState.token, appState.chats);
       }
     } else {
-      alert('Gửi thất bại: ' + (sent.description || 'Không rõ'));
+      alert(i18n.t('messageSendFailed', { error: sent.description || i18n.t('unknownError') }));
     }
   } catch (e) {
-    alert('Lỗi mạng khi gửi tin nhắn: ' + e.message);
+    alert(i18n.t('networkError', { error: e.message }));
   }
 }
 
@@ -959,7 +1067,7 @@ async function sendMessage() {
  */
 async function sendFile(file) {
   if (!file || !appState.activeChatId) {
-    alert('Chưa chọn chat hoặc tệp.');
+    alert(i18n.t('selectFile'));
     return;
   }
 
@@ -1022,7 +1130,7 @@ async function sendFile(file) {
         caption,
         fileName,
         date: msg.date * 1000,
-        fromName: 'Bạn'
+        fromName: i18n.t('you')
       };
 
       const chatId = appState.activeChatId;
@@ -1040,10 +1148,10 @@ async function sendFile(file) {
         storage.saveChatHistory(appState.token, appState.chats);
       }
     } else {
-      alert('Gửi tệp thất bại: ' + (res.description || 'Không rõ'));
+      alert(i18n.t('fileSendFailed', { error: res.description || i18n.t('unknownError') }));
     }
   } catch (e) {
-    alert('Lỗi mạng khi gửi tệp: ' + e.message);
+    alert(i18n.t('networkError', { error: e.message }));
   }
 }
 
@@ -1051,7 +1159,7 @@ async function sendFile(file) {
  * Delete message
  */
 async function deleteMessage(messageId) {
-  if (!confirm('Bạn có chắc muốn xóa tin nhắn này?')) return;
+  if (!confirm(i18n.t('confirmDelete'))) return;
 
   const chatId = appState.activeChatId;
   if (!chatId) return;
@@ -1070,13 +1178,13 @@ async function deleteMessage(messageId) {
       });
       render.renderChatList(appState.chats, appState.activeChatId, els.emptyNoticeEl, els.chatListEl, openChat);
       storage.saveChatHistory(appState.token, appState.chats);
-      notifications.toastsShow('✅ Thành công', 'Đã xóa tin nhắn', els.toastsEl);
+      notifications.toastsShow(i18n.t('success'), i18n.t('messageDeleted'), els.toastsEl);
     } else {
-      const reason = res.description || 'Không thể xóa tin nhắn (kiểm tra quyền của bot)';
-      notifications.toastsShow('❌ Lỗi', reason, els.toastsEl);
+      const reason = res.description || i18n.t('cannotDeleteMessage');
+      notifications.toastsShow(i18n.t('error'), reason, els.toastsEl);
     }
   } catch (e) {
-    notifications.toastsShow('❌ Lỗi', 'Lỗi mạng: ' + e.message, els.toastsEl);
+    notifications.toastsShow(i18n.t('error'), i18n.t('networkError', { error: e.message }), els.toastsEl);
   }
 }
 
@@ -1087,7 +1195,7 @@ async function openChatFromInput() {
   const query = els.openChatInputEl?.value.trim();
 
   if (!query) {
-    notifications.toastsShow('⚠️ Chú ý', 'Vui lòng nhập chat ID hoặc username', els.toastsEl);
+    notifications.toastsShow(i18n.t('warning'), i18n.t('enterChatIdOrUsername'), els.toastsEl);
     return;
   }
 
@@ -1096,7 +1204,7 @@ async function openChatFromInput() {
 
     if (query.startsWith('@')) {
       const username = query.substring(1);
-      notifications.toastsShow('🔍 Đang tìm...', 'Đang tìm @' + username, els.toastsEl);
+      notifications.toastsShow(i18n.t('searching'), i18n.t('searchingForUser', { username }), els.toastsEl);
       chatIdentifier = '@' + username;
     }
 
@@ -1106,7 +1214,7 @@ async function openChatFromInput() {
       const c = res.result;
       const id = String(c.id);
       const isPrivate = c.type === 'private';
-      const title = isPrivate ? [c.first_name, c.last_name].filter(Boolean).join(' ') || c.username || 'Người dùng' : c.title || c.type || 'Chat';
+      const title = isPrivate ? [c.first_name, c.last_name].filter(Boolean).join(' ') || c.username || i18n.t('user') : c.title || c.type || 'Chat';
 
       if (!appState.getChat(id)) {
         appState.getOrCreateChat(id, {
@@ -1114,7 +1222,7 @@ async function openChatFromInput() {
           title,
           avatarText: initials(title)
         });
-        notifications.toastsShow('✅ Tìm thấy', title, els.toastsEl);
+        notifications.toastsShow(i18n.t('found'), title, els.toastsEl);
       }
 
       render.renderChatList(appState.chats, appState.activeChatId, els.emptyNoticeEl, els.chatListEl, openChat);
@@ -1123,10 +1231,10 @@ async function openChatFromInput() {
         els.openChatInputEl.value = '';
       }
     } else {
-      notifications.toastsShow('❌ Không tìm thấy', res.description || 'Chat không tồn tại hoặc bot chưa có quyền truy cập', els.toastsEl);
+      notifications.toastsShow(i18n.t('notFound'), res.description || i18n.t('chatNotFound'), els.toastsEl);
     }
   } catch (e) {
-    notifications.toastsShow('❌ Lỗi', 'Lỗi khi tìm kiếm: ' + e.message, els.toastsEl);
+    notifications.toastsShow(i18n.t('error'), i18n.t('searchError', { error: e.message }), els.toastsEl);
   }
 }
 
