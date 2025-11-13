@@ -1456,17 +1456,11 @@ function renderMembersList() {
     info.appendChild(name);
     info.appendChild(status);
 
-  await admin.showMembers(
-    appState.activeChatId,
-    chat,
-    els.membersOverlayEl,
-    els.groupInfoEl,
-    els.membersListEl,
-    els.membersHintEl,
-    els.toastsEl,
-    (userId, userName) => admin.kickMemberWithConfirm(appState.activeChatId, userId, userName, els.toastsEl, showMembersDialog),
-    (userId, promote, userName) => admin.toggleAdmin(appState.activeChatId, userId, promote, userName, els.toastsEl, showMembersDialog)
-  );
+    item.appendChild(avatar);
+    item.appendChild(info);
+
+    els.membersListEl.appendChild(item);
+  });
 }
 
 /**
