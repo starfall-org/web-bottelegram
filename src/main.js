@@ -154,7 +154,10 @@ function setupEventListeners() {
   // Composer
   els.sendBtn.addEventListener('click', sendMessage);
   els.inputEl.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') sendMessage();
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
   });
   els.inputEl.addEventListener('focus', startChatAction);
   els.inputEl.addEventListener('blur', stopChatAction);

@@ -395,8 +395,8 @@ textarea {
 
 .sticker-image,
 .sticker-video {
-  max-width: 200px !important;
-  max-height: 200px !important;
+  max-width: 150px !important;
+  max-height: 150px !important;
 }
 
 .sticker-placeholder {
@@ -426,12 +426,12 @@ textarea {
 
 .composer {
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: auto auto 1fr auto;
   gap: 10px;
   padding: 12px;
   border-top: 1px solid var(--border);
   background: var(--panel);
-  align-items: center;
+  align-items: end;
   position: relative;
 }
 
@@ -456,13 +456,18 @@ textarea {
   font-weight: bold;
 }
 
-.composer input[type='text'] {
+.composer input[type='text'],
+.composer textarea {
   padding: 10px 12px;
   border-radius: 10px;
   border: 1px solid var(--border);
   background: var(--input-bg);
   color: var(--text);
   font-size: 0.92rem;
+  resize: vertical;
+  min-height: 40px;
+  max-height: 120px;
+  line-height: 1.4;
 }
 
 .btn {
@@ -976,7 +981,7 @@ textarea {
   border: 1px solid var(--border);
   border-bottom: none;
   border-radius: 12px 12px 0 0;
-  max-height: 300px;
+  max-height: 200px;
   display: flex;
   flex-direction: column;
   box-shadow: 0 -4px 12px var(--shadow);
@@ -1138,10 +1143,14 @@ textarea {
   }
 
   .composer {
-    grid-template-columns: auto 1fr auto;
+    grid-template-columns: auto auto 1fr auto;
   }
 
   .floating-btn {
     bottom: 90px;
+  }
+
+  .sticker-panel {
+    max-height: 180px;
   }
 }
