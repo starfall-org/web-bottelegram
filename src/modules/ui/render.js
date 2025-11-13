@@ -215,18 +215,25 @@ export function renderChatList(chats, activeChatId, emptyNoticeEl, chatListEl, o
       <div class="badge${c.unread ? '' : ' hidden'}">${c.unread || ''}</div>
       <button class="delete-chat-btn" title="Xóa chat">🗑️</button>
     `;
-    
-    // Chat click handler
-    el.querySelector('.info, .avatar').addEventListener('click', () => onChatClick(c.id));
-    
-    // Delete chat button handler
-    el.querySelector('.delete-chat-btn').addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (onDeleteChat && confirm(`Xóa chat "${c.title}"?`)) {
-        onDeleteChat(c.id);
+
+    // Chat click handler - click on the whole item except the delete button
+    el.addEventListener('click', (e) => {
+      if (!e.target.closest('.delete-chat-btn')) {
+        onChatClick(c.id);
       }
     });
-    
+
+    // Delete chat button handler
+    const deleteBtn = el.querySelector('.delete-chat-btn');
+    if (deleteBtn) {
+      deleteBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (onDeleteChat && confirm(`Xóa chat "${c.title}"?`)) {
+          onDeleteChat(c.id);
+        }
+      });
+    }
+
     chatListEl.appendChild(el);
   }
 }

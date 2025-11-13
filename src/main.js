@@ -261,7 +261,7 @@ function setupEventListeners() {
 function renderUI() {
   const chat = appState.getChat(appState.activeChatId);
 
-  render.renderChatList(appState.chats, appState.activeChatId, els.emptyNoticeEl, els.chatListEl, openChat);
+  render.renderChatList(appState.chats, appState.activeChatId, els.emptyNoticeEl, els.chatListEl, openChat, deleteChat);
 
   if (chat) {
     render.updateChatHeader(chat, els.headerTitleEl, els.activeAvatarEl);
@@ -1099,7 +1099,7 @@ async function sendMessage() {
         } else {
           render.maybeShowNewMsgBtn(els.newMsgBtn, els.messagesEl);
         }
-        render.renderChatList(appState.chats, appState.activeChatId, els.emptyNoticeEl, els.chatListEl, openChat);
+        render.renderChatList(appState.chats, appState.activeChatId, els.emptyNoticeEl, els.chatListEl, openChat, deleteChat);
         storage.saveChatHistory(appState.token, appState.chats);
       }
     } else {
@@ -1195,7 +1195,7 @@ async function sendFile(file) {
         } else {
           render.maybeShowNewMsgBtn(els.newMsgBtn, els.messagesEl);
         }
-        render.renderChatList(appState.chats, appState.activeChatId, els.emptyNoticeEl, els.chatListEl, openChat);
+        render.renderChatList(appState.chats, appState.activeChatId, els.emptyNoticeEl, els.chatListEl, openChat, deleteChat);
         storage.saveChatHistory(appState.token, appState.chats);
       }
     } else {
@@ -1227,7 +1227,7 @@ async function deleteMessage(messageId) {
         isGroupChat: chat.type === 'group' || chat.type === 'supergroup',
         onUserClick: handleUserClick
       });
-      render.renderChatList(appState.chats, appState.activeChatId, els.emptyNoticeEl, els.chatListEl, openChat);
+      render.renderChatList(appState.chats, appState.activeChatId, els.emptyNoticeEl, els.chatListEl, openChat, deleteChat);
       storage.saveChatHistory(appState.token, appState.chats);
       notifications.toastsShow(i18n.t('success'), i18n.t('messageDeleted'), els.toastsEl);
     } else {
@@ -1276,7 +1276,7 @@ async function openChatFromInput() {
         notifications.toastsShow(i18n.t('found'), title, els.toastsEl);
       }
 
-      render.renderChatList(appState.chats, appState.activeChatId, els.emptyNoticeEl, els.chatListEl, openChat);
+      render.renderChatList(appState.chats, appState.activeChatId, els.emptyNoticeEl, els.chatListEl, openChat, deleteChat);
       openChat(id);
       if (els.openChatInputEl) {
         els.openChatInputEl.value = '';
