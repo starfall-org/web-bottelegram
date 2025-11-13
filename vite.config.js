@@ -1,12 +1,11 @@
 import { defineConfig } from 'vite'
 
 export default defineConfig({
-  root: 'src',
   build: {
-    outDir: '../dist',
+    outDir: 'dist',
     emptyOutDir: true,
     rollupOptions: {
-      input: 'index.html'
+      input: 'src/index.html'
     }
   },
   server: {
@@ -14,7 +13,6 @@ export default defineConfig({
     port: 5173,
     strictPort: true,
     hmr: {
-      host: process.env.REPL_SLUG ? `${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.replit.dev` : 'localhost',
       clientPort: 443,
       protocol: 'wss'
     }
