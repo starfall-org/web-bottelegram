@@ -1,0 +1,10 @@
+
+> web-bottelegram@1.0.0 dev
+> vite
+
+[33m(!) Could not auto-determine entry point from rollupOptions or html files and there are no explicit optimizeDeps.include patterns. Skipping dependency pre-bundling.[39m
+
+  [32m[1mVITE[22m v5.4.21[39m  [2mready in [0m[1m160[22m[2m[0m ms[22m
+
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m5000[22m/[39m
+  [32m➜[39m  [1mNetwork[22m: [36mhttp://10.10.1.93:[1m5000[22m/[39m
