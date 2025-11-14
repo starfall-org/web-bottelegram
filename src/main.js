@@ -104,7 +104,7 @@ function init() {
   // Setup event listeners
   setupEventListeners();
 
-  // Initial render
+  // Initial render - this will render chat list and active chat if available
   renderUI();
 }
 
@@ -655,6 +655,8 @@ async function connect() {
       storage.saveBotInfo(appState.token, botInfo);
       updateBotInfo();
       startPolling();
+      // Ensure UI is rendered after successful connection
+      renderUI();
     } else {
       els.statusEl.textContent = 'Lỗi getMe: ' + (me.description || 'Không rõ');
     }
