@@ -135,8 +135,8 @@ function renderSticker(container, message) {
     img.src = message.mediaUrl;
     img.className = 'media sticker-image';
     img.alt = message.emoji || 'Sticker';
-    img.style.maxWidth = '200px';
-    img.style.maxHeight = '200px';
+    img.style.maxWidth = '150px';
+    img.style.maxHeight = '150px';
     img.style.objectFit = 'contain';
     container.appendChild(img);
   } else if (message.stickerFormat === 'webm' || message.stickerFormat === 'video') {
@@ -148,8 +148,8 @@ function renderSticker(container, message) {
     v.muted = true;
     v.playsInline = true;
     v.className = 'media sticker-video';
-    v.style.maxWidth = '200px';
-    v.style.maxHeight = '200px';
+    v.style.maxWidth = '150px';
+    v.style.maxHeight = '150px';
     v.style.objectFit = 'contain';
     container.appendChild(v);
   } else if (message.stickerFormat === 'tgs' || message.stickerFormat === 'animated') {
@@ -215,18 +215,25 @@ export function renderChatList(chats, activeChatId, emptyNoticeEl, chatListEl, o
       <div class="badge${c.unread ? '' : ' hidden'}">${c.unread || ''}</div>
       <button class="delete-chat-btn" title="Xóa chat">🗑️</button>
     `;
-    
-    // Chat click handler
-    el.querySelector('.info, .avatar').addEventListener('click', () => onChatClick(c.id));
-    
-    // Delete chat button handler
-    el.querySelector('.delete-chat-btn').addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (onDeleteChat && confirm(`Xóa chat "${c.title}"?`)) {
-        onDeleteChat(c.id);
+
+    // Chat click handler - click on the whole item except the delete button
+    el.addEventListener('click', (e) => {
+      if (!e.target.closest('.delete-chat-btn')) {
+        onChatClick(c.id);
       }
     });
-    
+
+    // Delete chat button handler
+    const deleteBtn = el.querySelector('.delete-chat-btn');
+    if (deleteBtn) {
+      deleteBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (onDeleteChat && confirm(`Xóa chat "${c.title}"?`)) {
+          onDeleteChat(c.id);
+        }
+      });
+    }
+
     chatListEl.appendChild(el);
   }
 }

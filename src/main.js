@@ -5,7 +5,7 @@
 import './styles/main.css';
 import * as botAPI from './modules/api/bot.js';
 import * as appState from './modules/state/appState.js';
-import * as storage from './modules/storage/cookieStorage.js';
+import * as storage from './modules/storage/localStorage.js';
 import * as render from './modules/ui/render.js';
 import * as dom from './modules/ui/dom.js';
 import * as notifications from './modules/notifications/notifications.js';
@@ -57,6 +57,10 @@ function init() {
   applyPreferencesToUI();
   notifications.initNotifications().catch(() => {});
 
+  // Hide sidebar close button on desktop
+  updateSidebarCloseButton();
+  window.addEventListener('resize', updateSidebarCloseButton);
+
   // Migrate from localStorage if needed
   storage.migrateFromLocalStorage();
 
@@ -69,9 +73,15 @@ function init() {
     botAPI.setToken(storedToken);
     botAPI.setProxy(storedProxy);
 
-    // Load saved chat history from cookies
+    // Load saved chat history
     const savedChats = storage.loadChatHistory(storedToken);
     appState.setChats(savedChats);
+
+    // Restore last active chat
+    const lastActiveChat = localStorage.getItem('last_active_chat');
+    if (lastActiveChat && savedChats.has(lastActiveChat)) {
+      appState.setActiveChatId(lastActiveChat);
+    }
 
     // Load last update ID
     const lastUpdateId = storage.getLastUpdateId();
@@ -94,7 +104,7 @@ function init() {
   // Setup event listeners
   setupEventListeners();
 
-  // Initial render
+  // Initial render - this will render chat list and active chat if available
   renderUI();
 }
 
@@ -137,7 +147,7 @@ function setupEventListeners() {
   });
 
   els.sidebarCloseBtn?.addEventListener('click', () => {
-    els.sidebarEl.classList.add('hidden-mobile');
+    els.sidebarEl.classList.toggle('hidden-mobile');
   });
 
   // Messages
@@ -150,14 +160,21 @@ function setupEventListeners() {
   // Composer
   els.sendBtn.addEventListener('click', sendMessage);
   els.inputEl.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') sendMessage();
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
   });
   els.inputEl.addEventListener('focus', startChatAction);
   els.inputEl.addEventListener('blur', stopChatAction);
 
   // Sticker panel
-  els.stickerBtn.addEventListener('click', toggleStickerPanel);
-  els.closeStickerBtn.addEventListener('click', closeStickerPanel);
+  if (els.stickerBtn) {
+    els.stickerBtn.addEventListener('click', toggleStickerPanel);
+  }
+  if (els.closeStickerBtn) {
+    els.closeStickerBtn.addEventListener('click', closeStickerPanel);
+  }
 
   // User actions menu
   els.closeUserActionsBtn.addEventListener('click', closeUserActionsMenu);
@@ -254,7 +271,7 @@ function setupEventListeners() {
 function renderUI() {
   const chat = appState.getChat(appState.activeChatId);
 
-  render.renderChatList(appState.chats, appState.activeChatId, els.emptyNoticeEl, els.chatListEl, openChat);
+  render.renderChatList(appState.chats, appState.activeChatId, els.emptyNoticeEl, els.chatListEl, openChat, deleteChat);
 
   if (chat) {
     render.updateChatHeader(chat, els.headerTitleEl, els.activeAvatarEl);
@@ -279,6 +296,7 @@ function renderUI() {
  */
 function openChat(chatId) {
   appState.setActiveChatId(chatId);
+  localStorage.setItem('last_active_chat', chatId);
   const chat = appState.getChat(chatId);
 
   if (chat) {
@@ -637,6 +655,8 @@ async function connect() {
       storage.saveBotInfo(appState.token, botInfo);
       updateBotInfo();
       startPolling();
+      // Ensure UI is rendered after successful connection
+      renderUI();
     } else {
       els.statusEl.textContent = 'Lỗi getMe: ' + (me.description || 'Không rõ');
     }
@@ -1092,7 +1112,7 @@ async function sendMessage() {
         } else {
           render.maybeShowNewMsgBtn(els.newMsgBtn, els.messagesEl);
         }
-        render.renderChatList(appState.chats, appState.activeChatId, els.emptyNoticeEl, els.chatListEl, openChat);
+        render.renderChatList(appState.chats, appState.activeChatId, els.emptyNoticeEl, els.chatListEl, openChat, deleteChat);
         storage.saveChatHistory(appState.token, appState.chats);
       }
     } else {
@@ -1188,7 +1208,7 @@ async function sendFile(file) {
         } else {
           render.maybeShowNewMsgBtn(els.newMsgBtn, els.messagesEl);
         }
-        render.renderChatList(appState.chats, appState.activeChatId, els.emptyNoticeEl, els.chatListEl, openChat);
+        render.renderChatList(appState.chats, appState.activeChatId, els.emptyNoticeEl, els.chatListEl, openChat, deleteChat);
         storage.saveChatHistory(appState.token, appState.chats);
       }
     } else {
@@ -1220,7 +1240,7 @@ async function deleteMessage(messageId) {
         isGroupChat: chat.type === 'group' || chat.type === 'supergroup',
         onUserClick: handleUserClick
       });
-      render.renderChatList(appState.chats, appState.activeChatId, els.emptyNoticeEl, els.chatListEl, openChat);
+      render.renderChatList(appState.chats, appState.activeChatId, els.emptyNoticeEl, els.chatListEl, openChat, deleteChat);
       storage.saveChatHistory(appState.token, appState.chats);
       notifications.toastsShow(i18n.t('success'), i18n.t('messageDeleted'), els.toastsEl);
     } else {
@@ -1269,7 +1289,7 @@ async function openChatFromInput() {
         notifications.toastsShow(i18n.t('found'), title, els.toastsEl);
       }
 
-      render.renderChatList(appState.chats, appState.activeChatId, els.emptyNoticeEl, els.chatListEl, openChat);
+      render.renderChatList(appState.chats, appState.activeChatId, els.emptyNoticeEl, els.chatListEl, openChat, deleteChat);
       openChat(id);
       if (els.openChatInputEl) {
         els.openChatInputEl.value = '';
@@ -1452,17 +1472,11 @@ function renderMembersList() {
     info.appendChild(name);
     info.appendChild(status);
 
-  await admin.showMembers(
-    appState.activeChatId,
-    chat,
-    els.membersOverlayEl,
-    els.groupInfoEl,
-    els.membersListEl,
-    els.membersHintEl,
-    els.toastsEl,
-    (userId, userName) => admin.kickMemberWithConfirm(appState.activeChatId, userId, userName, els.toastsEl, showMembersDialog),
-    (userId, promote, userName) => admin.toggleAdmin(appState.activeChatId, userId, promote, userName, els.toastsEl, showMembersDialog)
-  );
+    item.appendChild(avatar);
+    item.appendChild(info);
+
+    els.membersListEl.appendChild(item);
+  });
 }
 
 /**
@@ -1626,10 +1640,10 @@ async function performUserAction(action) {
  * Toggle sticker panel
  */
 function toggleStickerPanel() {
-  if (els.stickerPanel.classList.contains('hidden')) {
+  if (!els.stickerPanel) return;
+  const isHidden = els.stickerPanel.classList.toggle('hidden');
+  if (!isHidden) {
     showStickerPanel();
-  } else {
-    closeStickerPanel();
   }
 }
 
@@ -1727,6 +1741,20 @@ window.scrollToMessage = function(chatId, messageId) {
     }
   }, 500);
 };
+
+/**
+ * Update sidebar close button visibility based on screen size
+ */
+function updateSidebarCloseButton() {
+  if (!els || !els.sidebarCloseBtn) return;
+  
+  const isMobile = window.innerWidth <= 840;
+  if (isMobile) {
+    els.sidebarCloseBtn.style.display = 'grid';
+  } else {
+    els.sidebarCloseBtn.style.display = 'none';
+  }
+}
 
 /**
  * Start application

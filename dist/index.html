@@ -4,8 +4,8 @@
   <meta charset="utf-8" />
   <title>Telegram Bot Web UI (Multi-chat + Media + Notification)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-  <script type="module" crossorigin src="/assets/index-DXOjJuLi.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/index-BC0V-QYd.css">
+  <script type="module" crossorigin src="/assets/index-11KgsHET.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-BLxEal7a.css">
 </head>
 <body data-theme="dark">
   <div class="app">
@@ -15,6 +15,7 @@
         <div class="sidebar-actions">
           <button id="themeToggleBtn" class="icon-btn" title="Đổi giao diện" aria-label="Đổi giao diện">🌓</button>
           <button id="settingsBtn" class="icon-btn" title="Cài đặt" aria-label="Cài đặt">⚙️</button>
+          <button id="sidebarCloseBtn" class="icon-btn sidebar-close" title="Đóng" aria-label="Đóng sidebar">✕</button>
         </div>
       </div>
       <div class="open-chat">
@@ -56,7 +57,7 @@
         </div>
         <button id="attachBtn" class="icon-btn" title="Đính kèm" aria-label="Đính kèm">📎</button>
         <button id="stickerBtn" class="icon-btn" title="Sticker" aria-label="Sticker">😀</button>
-        <input id="input" type="text" placeholder="Nhập tin nhắn..." disabled />
+        <textarea id="input" rows="2" placeholder="Nhập tin nhắn..." disabled></textarea>
         <button id="sendBtn" class="icon-btn primary" title="Gửi" aria-label="Gửi">➤</button>
         <input id="fileInput" type="file" style="display:none" />
       </div>
@@ -223,10 +224,11 @@
         </div>
       </div>
       <div class="member-modal-actions">
-        <button id="memberPromoteBtn" class="btn secondary" data-role="admin" data-i18n="promoteAdmin">⭐ Thăng admin</button>
-        <button id="memberModeratorBtn" class="btn secondary" data-role="moderator" data-i18n="promoteModerator">🛡️ Moderator</button>
-        <button id="memberDemoteBtn" class="btn secondary" data-role="member" data-i18n="demoteToMember">👤 Thành viên</button>
-        <button id="memberKickBtn" class="btn danger" data-i18n="kickUser">🚫 Kick</button>
+        <button id="memberPromoteBtn" class="btn secondary" data-role="admin">⭐ Thăng admin</button>
+        <button id="memberModeratorBtn" class="btn secondary" data-role="moderator">🛡️ Moderator</button>
+        <button id="memberDemoteBtn" class="btn secondary" data-role="member">👤 Thành viên</button>
+        <button id="memberRestrictBtn" class="btn secondary">🔒 Hạn chế quyền</button>
+        <button id="memberKickBtn" class="btn danger">🚫 Kick</button>
       </div>
     </div>
   </div>
