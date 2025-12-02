@@ -100,7 +100,7 @@ export function useBotConnection() {
       })
     }
 
-    const processMessage = (message: any, isEdited = false) => {
+    const processMessage = (message: any, _isEdited = false) => {
       const chatId = message.chat.id.toString()
       
       // Get or create chat
@@ -148,7 +148,7 @@ export function useBotConnection() {
       const newMessage = {
         id: message.message_id,
         type: messageType,
-        side: message.from?.is_bot === true ? 'left' : 'right',
+        side: (message.from?.is_bot === true ? 'left' : 'right') as 'left' | 'right',
         text,
         mediaUrl,
         fileName,

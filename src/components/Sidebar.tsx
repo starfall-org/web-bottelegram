@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ChatList } from '@/components/ChatList'
 import { SettingsDialog } from '@/components/SettingsDialog'
-import { Sun, Moon, Menu, X, MessageSquare, Settings } from 'lucide-react'
+import { Sun, Moon, Menu, X, MessageSquare } from 'lucide-react'
 import { useTheme } from '@/components/ThemeProvider'
 import { cn } from '@/lib/utils'
 

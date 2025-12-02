@@ -2,7 +2,6 @@ import React, { useState, useRef } from 'react'
 import { useBotStore } from '@/store/botStore'
 import { useTranslation } from '@/i18n/useTranslation'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Send, Paperclip, Smile, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 

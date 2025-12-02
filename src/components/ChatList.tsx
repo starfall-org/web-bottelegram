@@ -6,9 +6,10 @@ import { Trash2 } from "lucide-react";
 import { cn, snippet, formatTime } from "@/lib/utils";
 
 export function ChatList() {
-  const { chats, activeChatId, setActiveChatId, getSortedChats } =
+  const { getCurrentActiveChatId, setActiveChatId, getSortedChats } =
     useBotStore();
-  const { t, language } = useTranslation();
+  const { t } = useTranslation();
+  const activeChatId = getCurrentActiveChatId();
   const sortedChats = getSortedChats();
 
   const handleChatClick = (chatId: string) => {
