@@ -1,4 +1,3 @@
-import React from 'react'
 import { useBotStore, Message } from '@/store/botStore'
 import { Button } from '@/components/ui/button'
 import { Trash2 } from 'lucide-react'
