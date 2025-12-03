@@ -1,59 +1,65 @@
-import { useBotStore, Message } from '@/store/botStore'
-import { Trash2, Reply, Copy, Forward, Pin, CheckCircle } from 'lucide-react'
-import { cn, formatTime } from '@/lib/utils'
+import { useBotStore, Message } from "@/store/botStore";
+import { Trash2, Reply, Copy, Forward, Pin, CheckCircle } from "lucide-react";
+import { cn, formatTime } from "@/lib/utils";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
   DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu"
-import { useTranslation } from '@/i18n/useTranslation'
-import { UserInfoDialog } from '@/components/UserInfoDialog'
-import { botService } from '@/services/botService'
+} from "@/components/ui/dropdown-menu";
+import { useTranslation } from "@/i18n/useTranslation";
+import { UserInfoDialog } from "@/components/UserInfoDialog";
+import { botService } from "@/services/botService";
 
 interface MessageListProps {
-  chatId: string
+  chatId: string;
 }
 
 interface MessageItemProps {
-  message: Message
-  onDelete?: (messageId: number | string, deleteForAll?: boolean) => void
-  onReply?: (messageId: number | string) => void
-  onScrollToMessage?: (messageId: number | string) => void
-  showSenderName?: boolean
+  message: Message;
+  onDelete?: (messageId: number | string, deleteForAll?: boolean) => void;
+  onReply?: (messageId: number | string) => void;
+  onScrollToMessage?: (messageId: number | string) => void;
+  showSenderName?: boolean;
 }
 
-function MessageItem({ message, onDelete, onReply, onScrollToMessage, showSenderName = false }: MessageItemProps) {
-  const isOwn = message.side === 'right'
-  const { t } = useTranslation()
+function MessageItem({
+  message,
+  onDelete,
+  onReply,
+  onScrollToMessage,
+  showSenderName = false,
+}: MessageItemProps) {
+  const isOwn = message.side === "right";
+  const { t } = useTranslation();
 
   const handleDelete = (deleteForAll = false) => {
-    if (onDelete && confirm(t('chat.deleteChatConfirm'))) {
-      onDelete(message.id, deleteForAll)
+    if (onDelete) {
+      onDelete(message.id, deleteForAll);
     }
-  }
+  };
 
   const handleReply = () => {
     if (onReply) {
-      onReply(message.id)
+      onReply(message.id);
     }
-  }
+  };
 
   const handleReplyClick = () => {
     if (message.reply_to && onScrollToMessage) {
-      onScrollToMessage(message.reply_to)
+      onScrollToMessage(message.reply_to);
     }
-  }
+  };
 
   const renderContent = () => {
     switch (message.type) {
-      case 'photo':
+      case "photo":
         return (
           <div>
-            <img 
-              src={message.mediaUrl} 
-              alt={message.caption || 'Photo'} 
+            <img
+              src={message.mediaUrl}
+              alt={message.caption || "Photo"}
               className="max-w-full rounded-lg"
               loading="lazy"
             />
@@ -61,14 +67,14 @@ function MessageItem({ message, onDelete, onReply, onScrollToMessage, showSender
               <p className="mt-2 text-sm">{message.caption}</p>
             )}
           </div>
-        )
+        );
 
-      case 'video':
+      case "video":
         return (
           <div>
-            <video 
-              src={message.mediaUrl} 
-              controls 
+            <video
+              src={message.mediaUrl}
+              controls
               className="max-w-full rounded-lg"
               preload="metadata"
             />
@@ -76,10 +82,10 @@ function MessageItem({ message, onDelete, onReply, onScrollToMessage, showSender
               <p className="mt-2 text-sm">{message.caption}</p>
             )}
           </div>
-        )
+        );
 
-      case 'audio':
-      case 'voice':
+      case "audio":
+      case "voice":
         return (
           <div>
             <audio src={message.mediaUrl} controls className="w-full" />
@@ -87,75 +93,84 @@ function MessageItem({ message, onDelete, onReply, onScrollToMessage, showSender
               <p className="mt-2 text-sm">{message.caption}</p>
             )}
           </div>
-        )
+        );
 
-      case 'document':
+      case "document":
         return (
           <div>
-            <a 
-              href={message.mediaUrl} 
-              target="_blank" 
+            <a
+              href={message.mediaUrl}
+              target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 p-2 rounded bg-muted hover:bg-muted/80 transition-colors"
             >
-              📄 {message.fileName || 'Document'}
+              📄 {message.fileName || "Document"}
             </a>
             {message.caption && (
               <p className="mt-2 text-sm">{message.caption}</p>
             )}
           </div>
-        )
+        );
 
-      case 'sticker':
+      case "sticker":
         return (
           <div className="flex flex-col items-center">
-            {message.stickerFormat === 'webp' || message.stickerFormat === 'static' ? (
-              <img 
-                src={message.mediaUrl} 
-                alt={message.emoji || 'Sticker'} 
+            {message.stickerFormat === "webp" ||
+            message.stickerFormat === "static" ? (
+              <img
+                src={message.mediaUrl}
+                alt={message.emoji || "Sticker"}
                 className="sticker-message"
               />
-            ) : message.stickerFormat === 'webm' || message.stickerFormat === 'video' ? (
-              <video 
-                src={message.mediaUrl} 
-                autoPlay 
-                loop 
-                muted 
+            ) : message.stickerFormat === "webm" ||
+              message.stickerFormat === "video" ? (
+              <video
+                src={message.mediaUrl}
+                autoPlay
+                loop
+                muted
                 className="sticker-message"
               />
             ) : (
               <div className="text-4xl p-4">
-                {message.emoji || '✨'}
+                {message.emoji || "✨"}
                 <div className="text-xs text-muted-foreground mt-1">
                   Animated Sticker
                 </div>
               </div>
             )}
           </div>
-        )
+        );
 
       default:
-        return <p className="whitespace-pre-wrap break-words">{message.text}</p>
+        return (
+          <p className="whitespace-pre-wrap break-words">{message.text}</p>
+        );
     }
-  }
+  };
 
   return (
     <div
       id={`message-${message.id}`}
       className={cn(
-        'group flex flex-col gap-1',
-        isOwn ? 'items-end' : 'items-start'
+        "group flex flex-col gap-1",
+        isOwn ? "items-end" : "items-start"
       )}
     >
       {/* Sender name outside bubble */}
       {showSenderName && message.fromId && (
-        <div className={cn("text-xs font-medium px-2", isOwn ? "text-right" : "text-left")}>
+        <div
+          className={cn(
+            "text-xs font-medium px-2",
+            isOwn ? "text-right" : "text-left"
+          )}
+        >
           {isOwn ? (
             <span className="text-muted-foreground">{message.fromName}</span>
           ) : (
             <UserInfoDialog
               userId={message.fromId}
-              userName={message.fromName || 'Unknown'}
+              userName={message.fromName || "Unknown"}
               username={undefined}
             >
               <button className="text-primary hover:underline cursor-pointer">
@@ -170,30 +185,32 @@ function MessageItem({ message, onDelete, onReply, onScrollToMessage, showSender
         <DropdownMenuTrigger asChild>
           <div
             className={cn(
-              'chat-message relative cursor-pointer',
-              isOwn ? 'own' : 'other',
-              message.reply_to && 'border-l-4 border-primary pl-3'
+              "chat-message relative cursor-pointer",
+              isOwn ? "own" : "other",
+              message.reply_to && "border-l-4 border-primary pl-3"
             )}
           >
             {/* Reply context - clickable but inside message */}
             {message.reply_preview && (
-              <div 
+              <div
                 className="text-xs mb-2 p-2 bg-muted/50 rounded border-l-4 border-primary cursor-pointer hover:bg-muted/70 transition-colors"
                 onClick={(e) => {
-                  e.stopPropagation()
-                  handleReplyClick()
+                  e.stopPropagation();
+                  handleReplyClick();
                 }}
                 onPointerDown={(e) => e.stopPropagation()}
               >
-                <div className="font-medium text-primary mb-0.5">{message.fromName || t('chat.you')}</div>
-                <div className="text-muted-foreground truncate">{message.reply_preview}</div>
+                <div className="font-medium text-primary mb-0.5">
+                  {message.fromName || t("chat.you")}
+                </div>
+                <div className="text-muted-foreground truncate">
+                  {message.reply_preview}
+                </div>
               </div>
             )}
 
             {/* Message content */}
-            <div className="mb-2">
-              {renderContent()}
-            </div>
+            <div className="mb-2">{renderContent()}</div>
 
             {/* Message metadata */}
             <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -201,102 +218,114 @@ function MessageItem({ message, onDelete, onReply, onScrollToMessage, showSender
             </div>
           </div>
         </DropdownMenuTrigger>
-        
+
         <DropdownMenuContent align={isOwn ? "end" : "start"}>
           {onReply && (
-            <DropdownMenuItem onClick={(e) => {
-              e.stopPropagation()
-              handleReply()
-            }}>
+            <DropdownMenuItem
+              onClick={(e) => {
+                e.stopPropagation();
+                handleReply();
+              }}
+            >
               <Reply className="mr-2 h-4 w-4" />
-              <span>{t('chat.reply')}</span>
+              <span>{t("chat.reply")}</span>
             </DropdownMenuItem>
           )}
-          
-          <DropdownMenuItem onClick={(e) => {
-            e.stopPropagation()
-            if (message.text) {
-              navigator.clipboard.writeText(message.text)
-            }
-          }}>
+
+          <DropdownMenuItem
+            onClick={(e) => {
+              e.stopPropagation();
+              if (message.text) {
+                navigator.clipboard.writeText(message.text);
+              }
+            }}
+          >
             <Copy className="mr-2 h-4 w-4" />
-            <span>{t('chat.copy')}</span>
+            <span>{t("chat.copy")}</span>
           </DropdownMenuItem>
 
-          <DropdownMenuItem onClick={(e) => {
-            e.stopPropagation()
-            console.log('Forward message', message.id)
-          }}>
+          <DropdownMenuItem
+            onClick={(e) => {
+              e.stopPropagation();
+              console.log("Forward message", message.id);
+            }}
+          >
             <Forward className="mr-2 h-4 w-4" />
-            <span>{t('chat.forward')}</span>
+            <span>{t("chat.forward")}</span>
           </DropdownMenuItem>
 
-          <DropdownMenuItem onClick={(e) => {
-            e.stopPropagation()
-            console.log('Pin message', message.id)
-          }}>
+          <DropdownMenuItem
+            onClick={(e) => {
+              e.stopPropagation();
+              console.log("Pin message", message.id);
+            }}
+          >
             <Pin className="mr-2 h-4 w-4" />
-            <span>{t('chat.pin')}</span>
+            <span>{t("chat.pin")}</span>
           </DropdownMenuItem>
 
-          <DropdownMenuItem onClick={(e) => {
-            e.stopPropagation()
-            console.log('Select message', message.id)
-          }}>
+          <DropdownMenuItem
+            onClick={(e) => {
+              e.stopPropagation();
+              console.log("Select message", message.id);
+            }}
+          >
             <CheckCircle className="mr-2 h-4 w-4" />
-            <span>{t('chat.select')}</span>
+            <span>{t("chat.select")}</span>
           </DropdownMenuItem>
 
           {onDelete && (
             <>
               <DropdownMenuSeparator />
-              <DropdownMenuItem 
+              <DropdownMenuItem
                 onClick={(e) => {
-                  e.stopPropagation()
-                  handleDelete(false)
-                }}
-                className="text-red-600 focus:text-red-600"
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                <span>{t('chat.deleteForMe')}</span>
-              </DropdownMenuItem>
-              
-              <DropdownMenuItem 
-                onClick={(e) => {
-                  e.stopPropagation()
-                  if (confirm(t('chat.confirmDeleteForAll'))) {
-                    handleDelete(true)
+                  e.stopPropagation();
+                  if (confirm(t("chat.deleteChatConfirm"))) {
+                    handleDelete(false);
                   }
                 }}
                 className="text-red-600 focus:text-red-600"
               >
                 <Trash2 className="mr-2 h-4 w-4" />
-                <span>{t('chat.deleteForAll')}</span>
+                <span>{t("chat.deleteForMe")}</span>
+              </DropdownMenuItem>
+
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (confirm(t("chat.confirmDeleteForAll"))) {
+                    handleDelete(true);
+                  }
+                }}
+                className="text-red-600 focus:text-red-600"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                <span>{t("chat.deleteForAll")}</span>
               </DropdownMenuItem>
             </>
           )}
         </DropdownMenuContent>
       </DropdownMenu>
     </div>
-  )
+  );
 }
 
 export function MessageList({ chatId }: MessageListProps) {
-  const { getCurrentChats, setReplyTo, removeMessage } = useBotStore()
-  const chats = getCurrentChats()
-  const chat = chats?.get(chatId)
+  const { getCurrentChats, setReplyTo, removeMessage } = useBotStore();
+  const chats = getCurrentChats();
+  const chat = chats?.get(chatId);
 
   const handleScrollToMessage = (messageId: number | string) => {
-    const messageElement = document.getElementById(`message-${messageId}`)
+    const messageElement = document.getElementById(`message-${messageId}`);
     if (messageElement) {
-      messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      messageElement.scrollIntoView({ behavior: "smooth", block: "center" });
       // Add a brief highlight effect
-      messageElement.classList.add('message-pulse')
+      messageElement.classList.add("message-pulse");
       setTimeout(() => {
-        messageElement.classList.remove('message-pulse')
-      }, 1000)
+        messageElement.classList.remove("message-pulse");
+      }, 1000);
     }
-  }
+  };
 
   if (!chat || !chat.messages || chat.messages.length === 0) {
     return (
@@ -306,42 +335,51 @@ export function MessageList({ chatId }: MessageListProps) {
           <p className="text-xs mt-1">Hãy gửi tin nhắn đầu tiên!</p>
         </div>
       </div>
-    )
+    );
   }
 
-  const isGroupChat = chat.type === 'group' || chat.type === 'supergroup'
+  const isGroupChat = chat.type === "group" || chat.type === "supergroup";
 
-  const handleDeleteMessage = async (messageId: number | string, deleteForAll = false) => {
+  const handleDeleteMessage = async (
+    messageId: number | string,
+    deleteForAll = false
+  ) => {
     try {
-      let success = false
-      
+      let success = false;
+
       if (deleteForAll) {
         // Call Telegram API to delete message for everyone
-        const result = await botService.deleteMessage(chatId, Number(messageId))
-        success = result.ok
-        
+        const result = await botService.deleteMessage(
+          chatId,
+          Number(messageId)
+        );
+        success = result.ok;
+
         if (!success) {
-          console.error('[MessageList] Failed to delete message:', result.description)
-          alert(`Failed to delete message: ${result.description}`)
+          console.error(
+            "[MessageList] Failed to delete message:",
+            result.description
+          );
+          alert(`Failed to delete message: ${result.description}`);
         }
       } else {
         // Just remove from local state (delete for me)
-        success = true
+        success = true;
       }
-      
+
       // Remove from local state if deletion was successful or if delete for me
       if (success) {
-        removeMessage(chatId, messageId)
+        removeMessage(chatId, messageId);
       }
     } catch (error) {
-      console.error('[MessageList] Error deleting message:', error)
-      alert('An error occurred while deleting the message')
+      console.error("[MessageList] Error deleting message:", error);
+      alert("An error occurred while deleting the message");
     }
-  }
+  };
 
   const handleReplyToMessage = (messageId: number | string) => {
-    setReplyTo(messageId.toString())
-  }
+    setReplyTo(messageId.toString());
+  };
 
   return (
     <div className="space-y-3">
@@ -356,5 +394,5 @@ export function MessageList({ chatId }: MessageListProps) {
         />
       ))}
     </div>
-  )
+  );
 }
