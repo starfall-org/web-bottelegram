@@ -1,6 +1,5 @@
-.firebase
-.vscode
-node_modules
+.firebase/
+.vscode/
+node_modules/
 .env
-dist
-
+dist/
