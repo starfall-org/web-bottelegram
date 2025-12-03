@@ -26,7 +26,6 @@ export function Sidebar({ className }: SidebarProps) {
     const chatId = openChatInput.trim();
     if (!chatId) return;
 
-    // TODO: Implement chat opening logic with bot service
     console.log("Opening chat:", chatId);
     setOpenChatInput("");
   };
