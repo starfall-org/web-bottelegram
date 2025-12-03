@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { useBotStore, type BotState } from '@/store/botStore'
+import { useBotStore, type BotState, type Message } from '@/store/botStore'
 import { botService, type TelegramUpdate } from '@/services/botService'
 
 export function useBotConnection() {
@@ -153,10 +153,10 @@ export function useBotConnection() {
       }
 
       // Create message object
-      const newMessage = {
+      const newMessage: Message = {
         id: message.message_id,
         type: messageType,
-        side: 'left',
+        side: 'left' as const,
         text,
         mediaUrl,
         fileName,

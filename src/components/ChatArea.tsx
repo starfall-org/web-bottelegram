@@ -5,7 +5,7 @@ import { MessageList } from '@/components/MessageList'
 import { InputArea } from '@/components/InputArea'
 import { ChatInfoDialog } from '@/components/ChatInfoDialog'
 import { Button } from '@/components/ui/button'
-import { Users, Wifi, WifiOff, ArrowDown } from 'lucide-react'
+import { Wifi, WifiOff, ArrowDown } from 'lucide-react'
 
 export function ChatArea() {
   const [showNewMessageButton, setShowNewMessageButton] = useState(false)
@@ -85,8 +85,6 @@ export function ChatArea() {
       </main>
     )
   }
-
-  const isGroupChat = activeChat.type === 'group' || activeChat.type === 'supergroup'
 
   return (
     <main className="flex-1 flex flex-col">

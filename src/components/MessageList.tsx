@@ -1,6 +1,5 @@
 import { useBotStore, Message } from '@/store/botStore'
-import { Button } from '@/components/ui/button'
-import { Trash2, MoreHorizontal, Reply, Copy, Forward, Pin, CheckCircle } from 'lucide-react'
+import { Trash2, Reply, Copy, Forward, Pin, CheckCircle } from 'lucide-react'
 import { cn, formatTime } from '@/lib/utils'
 import {
   DropdownMenu,

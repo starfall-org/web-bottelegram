@@ -71,7 +71,7 @@ export function SettingsDialog() {
     }
   }, [open, token])
 
-  const showStatus = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
+  const showStatus = (message: string, _type: 'success' | 'error' | 'info' = 'info') => {
     setStatusMessage(message)
     setTimeout(() => setStatusMessage(''), 4000)
   }

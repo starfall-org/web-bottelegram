@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useBotStore } from '@/store/botStore'
 import { useBotConnection } from '@/hooks/useBotConnection'
 import { Sidebar } from '@/components/Sidebar'
