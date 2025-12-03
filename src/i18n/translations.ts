@@ -94,6 +94,21 @@ export interface Translation {
     selectChat: string
     composing: string
     you: string
+    // Message actions
+    reply: string
+    copy: string
+    forward: string
+    pin: string
+    select: string
+    deleteForMe: string
+    deleteForAll: string
+    confirmDeleteForAll: string
+    // Chat info
+    info: string
+    groupInfo: string
+    userInfo: string
+    type: string
+    openChat: string
   }
 
   // Settings
@@ -267,6 +282,19 @@ export const translations: Record<Language, Translation> = {
       selectChat: 'Chọn cuộc trò chuyện...',
       composing: 'Đang soạn...',
       you: 'Bạn',
+      reply: 'Trả lời',
+      copy: 'Sao chép',
+      forward: 'Chuyển tiếp',
+      pin: 'Ghim',
+      select: 'Chọn',
+      deleteForMe: 'Xóa phía tôi',
+      deleteForAll: 'Xóa tất cả',
+      confirmDeleteForAll: 'Bạn có chắc muốn xóa tin nhắn này ở cả 2 phía?',
+      info: 'Thông tin cuộc trò chuyện',
+      groupInfo: 'Thông tin nhóm',
+      userInfo: 'Thông tin người dùng',
+      type: 'Loại',
+      openChat: 'Mở cuộc trò chuyện',
     },
 
     settings: {
@@ -432,6 +460,19 @@ export const translations: Record<Language, Translation> = {
       selectChat: 'Select a chat...',
       composing: 'Composing...',
       you: 'You',
+      reply: 'Reply',
+      copy: 'Copy',
+      forward: 'Forward',
+      pin: 'Pin',
+      select: 'Select',
+      deleteForMe: 'Delete for me',
+      deleteForAll: 'Delete for everyone',
+      confirmDeleteForAll: 'Are you sure you want to delete this message on both sides?',
+      info: 'Chat Info',
+      groupInfo: 'Group information',
+      userInfo: 'User information',
+      type: 'Type',
+      openChat: 'Open Chat',
     },
 
     settings: {

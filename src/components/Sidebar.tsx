@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useBotStore } from '@/store/botStore'
+import { useBotConnection } from '@/hooks/useBotConnection'
 import { useTranslation } from '@/i18n/useTranslation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -17,9 +18,9 @@ export function Sidebar({ className }: SidebarProps) {
   const [isHidden, setIsHidden] = useState(false)
   const [openChatInput, setOpenChatInput] = useState('')
   const { theme, setTheme } = useTheme()
-  const { isConnected, getCurrentBotInfo, token } = useBotStore()
+  const { isConnected, pollingStatus, lastError, botInfo } = useBotConnection()
+  const { token } = useBotStore()
   const { t } = useTranslation()
-  const botInfo = getCurrentBotInfo()
 
   const handleOpenChat = async () => {
     const chatId = openChatInput.trim()
@@ -73,9 +74,10 @@ export function Sidebar({ className }: SidebarProps) {
               <MessageSquare className="h-5 w-5 text-primary" />
               {/* Connection indicator */}
               <div className={cn(
-                "absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full border border-background",
-                isConnected && token ? "bg-green-500" : "bg-red-500"
-              )} />
+                "absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full border border-background transition-colors duration-300",
+                pollingStatus === 'polling' ? "bg-green-500 animate-pulse" : 
+                pollingStatus === 'error' ? "bg-red-500" : "bg-yellow-500"
+              )} title={lastError || pollingStatus} />
             </div>
             <div className="flex flex-col">
               <h1 className="font-semibold text-lg">
@@ -86,7 +88,7 @@ export function Sidebar({ className }: SidebarProps) {
                   {isConnected ? (
                     botInfo.name ? `${t('connection.connected')}: ${botInfo.name}` : t('connection.connected')
                   ) : (
-                    t('connection.connecting')
+                    pollingStatus === 'error' ? (lastError || 'Error') : t('connection.connecting')
                   )}
                 </p>
               )}

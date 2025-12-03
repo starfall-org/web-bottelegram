@@ -3,9 +3,9 @@ import { useBotStore } from '@/store/botStore'
 import { useTranslation } from '@/i18n/useTranslation'
 import { MessageList } from '@/components/MessageList'
 import { InputArea } from '@/components/InputArea'
-import { SettingsDialog } from '@/components/SettingsDialog'
+import { ChatInfoDialog } from '@/components/ChatInfoDialog'
 import { Button } from '@/components/ui/button'
-import { Users, MoreVertical, Wifi, WifiOff, ArrowDown } from 'lucide-react'
+import { Users, Wifi, WifiOff, ArrowDown } from 'lucide-react'
 
 export function ChatArea() {
   const [showNewMessageButton, setShowNewMessageButton] = useState(false)
@@ -119,23 +119,7 @@ export function ChatArea() {
         </div>
         
         <div className="flex items-center gap-2">
-          {isGroupChat && (
-            <Button
-              variant="ghost"
-              size="icon"
-              title={t('chat.manageMembers')}
-            >
-              <Users className="h-4 w-4" />
-            </Button>
-          )}
-          <SettingsDialog />
-          <Button
-            variant="ghost"
-            size="icon"
-            title={t('chat.moreOptions')}
-          >
-            <MoreVertical className="h-4 w-4" />
-          </Button>
+          <ChatInfoDialog />
         </div>
       </div>
 

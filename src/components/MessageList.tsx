@@ -1,7 +1,17 @@
 import { useBotStore, Message } from '@/store/botStore'
 import { Button } from '@/components/ui/button'
-import { Trash2 } from 'lucide-react'
+import { Trash2, MoreHorizontal, Reply, Copy, Forward, Pin, CheckCircle } from 'lucide-react'
 import { cn, formatTime } from '@/lib/utils'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu"
+import { useTranslation } from '@/i18n/useTranslation'
+import { UserInfoDialog } from '@/components/UserInfoDialog'
+import { botService } from '@/services/botService'
 
 interface MessageListProps {
   chatId: string
@@ -9,23 +19,31 @@ interface MessageListProps {
 
 interface MessageItemProps {
   message: Message
-  onDelete?: (messageId: number | string) => void
+  onDelete?: (messageId: number | string, deleteForAll?: boolean) => void
   onReply?: (messageId: number | string) => void
+  onScrollToMessage?: (messageId: number | string) => void
   showSenderName?: boolean
 }
 
-function MessageItem({ message, onDelete, onReply, showSenderName = false }: MessageItemProps) {
+function MessageItem({ message, onDelete, onReply, onScrollToMessage, showSenderName = false }: MessageItemProps) {
   const isOwn = message.side === 'right'
+  const { t } = useTranslation()
 
-  const handleDelete = () => {
-    if (onDelete && confirm('Xóa tin nhắn này?')) {
-      onDelete(message.id)
+  const handleDelete = (deleteForAll = false) => {
+    if (onDelete && confirm(t('chat.deleteChatConfirm'))) {
+      onDelete(message.id, deleteForAll)
     }
   }
 
   const handleReply = () => {
     if (onReply) {
       onReply(message.id)
+    }
+  }
+
+  const handleReplyClick = () => {
+    if (message.reply_to && onScrollToMessage) {
+      onScrollToMessage(message.reply_to)
     }
   }
 
@@ -124,60 +142,142 @@ function MessageItem({ message, onDelete, onReply, showSenderName = false }: Mes
 
   return (
     <div
+      id={`message-${message.id}`}
       className={cn(
-        'group flex',
-        isOwn ? 'justify-end' : 'justify-start'
+        'group flex flex-col gap-1',
+        isOwn ? 'items-end' : 'items-start'
       )}
     >
-      <div
-        className={cn(
-          'chat-message relative',
-          isOwn ? 'own' : 'other',
-          message.reply_to && 'border-l-4 border-primary pl-3'
-        )}
-        onClick={handleReply}
-      >
-        {/* Reply context */}
-        {message.reply_preview && (
-          <div className="text-xs text-muted-foreground mb-2 p-2 bg-muted rounded border-l-2 border-primary">
-            ↪ {message.reply_preview}
-          </div>
-        )}
-
-        {/* Sender name for group chats */}
-        {showSenderName && !isOwn && (
-          <div className="text-xs font-medium text-primary mb-1">
-            {message.fromName}
-          </div>
-        )}
-
-        {/* Message content */}
-        <div className="mb-2">
-          {renderContent()}
+      {/* Sender name outside bubble */}
+      {showSenderName && message.fromId && (
+        <div className={cn("text-xs font-medium px-2", isOwn ? "text-right" : "text-left")}>
+          {isOwn ? (
+            <span className="text-muted-foreground">{message.fromName}</span>
+          ) : (
+            <UserInfoDialog
+              userId={message.fromId}
+              userName={message.fromName || 'Unknown'}
+              username={undefined}
+            >
+              <button className="text-primary hover:underline cursor-pointer">
+                {message.fromName}
+              </button>
+            </UserInfoDialog>
+          )}
         </div>
+      )}
 
-        {/* Message metadata */}
-        <div className="flex items-center justify-between text-xs text-muted-foreground">
-          <span>{formatTime(message.date)}</span>
-          
-          {/* Action buttons */}
-          <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 ml-2">
-            {onDelete && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 w-6 p-0 hover:bg-destructive hover:text-destructive-foreground"
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <div
+            className={cn(
+              'chat-message relative cursor-pointer',
+              isOwn ? 'own' : 'other',
+              message.reply_to && 'border-l-4 border-primary pl-3'
+            )}
+          >
+            {/* Reply context - clickable but inside message */}
+            {message.reply_preview && (
+              <div 
+                className="text-xs mb-2 p-2 bg-muted/50 rounded border-l-4 border-primary cursor-pointer hover:bg-muted/70 transition-colors"
                 onClick={(e) => {
                   e.stopPropagation()
-                  handleDelete()
+                  handleReplyClick()
                 }}
+                onPointerDown={(e) => e.stopPropagation()}
               >
-                <Trash2 className="h-3 w-3" />
-              </Button>
+                <div className="font-medium text-primary mb-0.5">{message.fromName || t('chat.you')}</div>
+                <div className="text-muted-foreground truncate">{message.reply_preview}</div>
+              </div>
             )}
+
+            {/* Message content */}
+            <div className="mb-2">
+              {renderContent()}
+            </div>
+
+            {/* Message metadata */}
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>{formatTime(message.date)}</span>
+            </div>
           </div>
-        </div>
-      </div>
+        </DropdownMenuTrigger>
+        
+        <DropdownMenuContent align={isOwn ? "end" : "start"}>
+          {onReply && (
+            <DropdownMenuItem onClick={(e) => {
+              e.stopPropagation()
+              handleReply()
+            }}>
+              <Reply className="mr-2 h-4 w-4" />
+              <span>{t('chat.reply')}</span>
+            </DropdownMenuItem>
+          )}
+          
+          <DropdownMenuItem onClick={(e) => {
+            e.stopPropagation()
+            if (message.text) {
+              navigator.clipboard.writeText(message.text)
+            }
+          }}>
+            <Copy className="mr-2 h-4 w-4" />
+            <span>{t('chat.copy')}</span>
+          </DropdownMenuItem>
+
+          <DropdownMenuItem onClick={(e) => {
+            e.stopPropagation()
+            console.log('Forward message', message.id)
+          }}>
+            <Forward className="mr-2 h-4 w-4" />
+            <span>{t('chat.forward')}</span>
+          </DropdownMenuItem>
+
+          <DropdownMenuItem onClick={(e) => {
+            e.stopPropagation()
+            console.log('Pin message', message.id)
+          }}>
+            <Pin className="mr-2 h-4 w-4" />
+            <span>{t('chat.pin')}</span>
+          </DropdownMenuItem>
+
+          <DropdownMenuItem onClick={(e) => {
+            e.stopPropagation()
+            console.log('Select message', message.id)
+          }}>
+            <CheckCircle className="mr-2 h-4 w-4" />
+            <span>{t('chat.select')}</span>
+          </DropdownMenuItem>
+
+          {onDelete && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem 
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleDelete(false)
+                }}
+                className="text-red-600 focus:text-red-600"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                <span>{t('chat.deleteForMe')}</span>
+              </DropdownMenuItem>
+              
+              <DropdownMenuItem 
+                onClick={(e) => {
+                  e.stopPropagation()
+                  if (confirm(t('chat.confirmDeleteForAll'))) {
+                    handleDelete(true)
+                  }
+                }}
+                className="text-red-600 focus:text-red-600"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                <span>{t('chat.deleteForAll')}</span>
+              </DropdownMenuItem>
+            </>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   )
 }
@@ -187,7 +287,19 @@ export function MessageList({ chatId }: MessageListProps) {
   const chats = getCurrentChats()
   const chat = chats?.get(chatId)
 
-  if (!chat || chat.messages.length === 0) {
+  const handleScrollToMessage = (messageId: number | string) => {
+    const messageElement = document.getElementById(`message-${messageId}`)
+    if (messageElement) {
+      messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      // Add a brief highlight effect
+      messageElement.classList.add('message-pulse')
+      setTimeout(() => {
+        messageElement.classList.remove('message-pulse')
+      }, 1000)
+    }
+  }
+
+  if (!chat || !chat.messages || chat.messages.length === 0) {
     return (
       <div className="flex-1 flex items-center justify-center">
         <div className="text-center text-muted-foreground">
@@ -200,12 +312,32 @@ export function MessageList({ chatId }: MessageListProps) {
 
   const isGroupChat = chat.type === 'group' || chat.type === 'supergroup'
 
-  const handleDeleteMessage = async (messageId: number | string) => {
-    // TODO: Call bot service to delete message
-    console.log('Deleting message:', messageId)
-    
-    // Optimistically remove from local state
-    removeMessage(chatId, messageId)
+  const handleDeleteMessage = async (messageId: number | string, deleteForAll = false) => {
+    try {
+      let success = false
+      
+      if (deleteForAll) {
+        // Call Telegram API to delete message for everyone
+        const result = await botService.deleteMessage(chatId, Number(messageId))
+        success = result.ok
+        
+        if (!success) {
+          console.error('[MessageList] Failed to delete message:', result.description)
+          alert(`Failed to delete message: ${result.description}`)
+        }
+      } else {
+        // Just remove from local state (delete for me)
+        success = true
+      }
+      
+      // Remove from local state if deletion was successful or if delete for me
+      if (success) {
+        removeMessage(chatId, messageId)
+      }
+    } catch (error) {
+      console.error('[MessageList] Error deleting message:', error)
+      alert('An error occurred while deleting the message')
+    }
   }
 
   const handleReplyToMessage = (messageId: number | string) => {
@@ -220,6 +352,7 @@ export function MessageList({ chatId }: MessageListProps) {
           message={message}
           onDelete={handleDeleteMessage}
           onReply={handleReplyToMessage}
+          onScrollToMessage={handleScrollToMessage}
           showSenderName={isGroupChat}
         />
       ))}

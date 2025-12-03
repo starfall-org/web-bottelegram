@@ -105,7 +105,7 @@
 }
 
 .chat-message.own {
-  @apply bg-primary text-primary-foreground ml-auto;
+  @apply bg-accent/80 text-accent-foreground ml-auto;
 }
 
 .chat-message.other {

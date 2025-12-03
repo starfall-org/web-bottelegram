@@ -7,6 +7,8 @@ export function useBotConnection() {
     token,
     setConnected,
     setPolling,
+    setPollingStatus,
+    setLastError,
     setBotInfo,
     getCurrentLastUpdateId,
     setLastUpdateId,
@@ -68,7 +70,13 @@ export function useBotConnection() {
           }
 
           // Start polling for updates
-          await botService.startPolling(handleUpdates)
+          await botService.startPolling(
+            handleUpdates,
+            (status, error) => {
+              setPollingStatus(status)
+              if (error) setLastError(error)
+            }
+          )
           setPolling(true)
         } else {
           console.error('Failed to connect to bot:', response.description)
@@ -148,7 +156,7 @@ export function useBotConnection() {
       const newMessage = {
         id: message.message_id,
         type: messageType,
-        side: (message.from?.is_bot === true ? 'left' : 'right') as 'left' | 'right',
+        side: 'left',
         text,
         mediaUrl,
         fileName,
@@ -177,6 +185,8 @@ export function useBotConnection() {
   return {
     isConnected: useBotStore((state: BotState) => state.isConnected),
     isPolling: useBotStore((state: BotState) => state.isPolling),
+    pollingStatus: useBotStore((state: BotState) => state.pollingStatus),
+    lastError: useBotStore((state: BotState) => state.lastError),
     botInfo: useBotStore((state: BotState) => state.getCurrentBotInfo())
   }
 }

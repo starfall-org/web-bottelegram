@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react'
 import { useBotStore } from '@/store/botStore'
+import { botService } from '@/services/botService'
 import { useTranslation } from '@/i18n/useTranslation'
 import { Button } from '@/components/ui/button'
 import { Send, Paperclip, Smile, X } from 'lucide-react'
@@ -31,29 +32,49 @@ export function InputArea({ className }: InputAreaProps) {
   const replyMessage = replyTo && activeChat ?
     activeChat.messages.find((m: any) => m.id.toString() === replyTo) : null
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!message.trim() || !activeChatId || !isConnected) return
     
-    // TODO: Implement sending message with bot service
-    const newMessage = {
-      id: Date.now(),
-      type: 'text' as const,
-      side: 'right' as const,
-      text: message,
-      date: Date.now(),
-      fromId: 0, // Bot ID placeholder
-      fromName: t('chat.you'),
-      reply_to: replyTo ? parseInt(replyTo) : undefined,
-      reply_preview: replyMessage?.text?.substring(0, 50)
-    }
-
-    addMessage(activeChatId, newMessage)
+    const textToSend = message.trim()
+    const replyToId = replyTo ? parseInt(replyTo) : undefined
+    
+    // Clear input immediately for better UX
     setMessage('')
     setReplyTo(null)
-    
-    // Reset textarea height
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto'
+    }
+
+    try {
+      const response = await botService.sendMessage(activeChatId, textToSend, {
+        reply_to_message_id: replyToId
+      })
+
+      if (response.ok && response.result) {
+        const sentMessage = response.result
+        const newMessage = {
+          id: sentMessage.message_id,
+          type: 'text' as const,
+          side: 'right' as const,
+          text: sentMessage.text || textToSend,
+          date: sentMessage.date * 1000,
+          fromId: sentMessage.from?.id,
+          fromName: sentMessage.from?.first_name || t('chat.you'),
+          reply_to: replyToId,
+          reply_preview: replyMessage?.text?.substring(0, 50)
+        }
+        addMessage(activeChatId, newMessage)
+      } else {
+        console.error('Failed to send message:', response.description)
+        // Restore message on failure
+        setMessage(textToSend)
+        if (replyTo) setReplyTo(replyTo)
+      }
+    } catch (error) {
+      console.error('Error sending message:', error)
+      // Restore message on failure
+      setMessage(textToSend)
+      if (replyTo) setReplyTo(replyTo)
     }
   }
 

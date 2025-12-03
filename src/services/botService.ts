@@ -90,9 +90,12 @@ export class BotService {
     if (!this.bot) throw new Error('Bot not initialized')
     
     try {
+      console.debug(`[BotService] Sending message to ${chatId}:`, text)
       const message = await this.bot.api.sendMessage(chatId, text, options)
+      console.debug('[BotService] Message sent:', message)
       return { ok: true, result: message }
     } catch (error: any) {
+      console.error('[BotService] Send message error:', error)
       return { 
         ok: false, 
         description: error.description || error.message || 'Unknown error' 
@@ -330,33 +333,56 @@ export class BotService {
       baseUrl
   }
 
-  async startPolling(updateCallback?: (updates: TelegramUpdate[]) => void) {
+  async startPolling(
+    updateCallback?: (updates: TelegramUpdate[]) => void,
+    statusCallback?: (status: 'idle' | 'polling' | 'error', error?: string | null) => void
+  ) {
     if (!this.bot) throw new Error('Bot not initialized')
     if (this.isPolling) return
 
     this.updateCallback = updateCallback || null
     this.isPolling = true
+    
+    if (statusCallback) statusCallback('polling')
 
     const poll = async () => {
       if (!this.isPolling) return
 
       try {
+        console.debug('[BotService] Polling for updates...')
         const response = await this.getUpdates(this.lastUpdateId + 1, 30)
         
-        if (response.ok && response.result && response.result.length > 0) {
-          const updates = response.result
+        if (response.ok) {
+          if (statusCallback) statusCallback('polling')
           
-          // Update lastUpdateId
-          this.lastUpdateId = updates[updates.length - 1].update_id
+          if (response.result && response.result.length > 0) {
+            const updates = response.result
+            console.debug(`[BotService] Received ${updates.length} updates`)
+            
+            // Update lastUpdateId
+            this.lastUpdateId = updates[updates.length - 1].update_id
+            
+            // Call update callback if provided
+            if (this.updateCallback) {
+              this.updateCallback(updates)
+            }
+          }
+        } else {
+          console.error('[BotService] Polling failed:', response.description)
+          if (statusCallback) statusCallback('error', response.description)
           
-          // Call update callback if provided
-          if (this.updateCallback) {
-            this.updateCallback(updates)
+          // Handle 409 Conflict specifically
+          if (response.error_code === 409) {
+            console.error('[BotService] Conflict detected, stopping polling')
+            this.stop()
+            if (statusCallback) statusCallback('error', 'Conflict: Another bot instance is running')
+            return
           }
         }
-      } catch (error) {
-        console.error('Polling error:', error)
-        // Continue polling even if there's an error
+      } catch (error: any) {
+        console.error('[BotService] Polling error:', error)
+        if (statusCallback) statusCallback('error', error.message || 'Unknown error')
+        // Continue polling even if there's an error, unless stopped
       }
 
       // Schedule next poll

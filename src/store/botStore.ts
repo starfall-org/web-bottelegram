@@ -85,6 +85,8 @@ export interface BotState {
   token: string
   isConnected: boolean
   isPolling: boolean
+  pollingStatus: 'idle' | 'polling' | 'error'
+  lastError: string | null
   
   // Bot data per token (key: bot token, value: BotData)
   botDataMap: Map<string, BotData>
@@ -105,6 +107,8 @@ export interface BotState {
   setToken: (token: string) => void
   setConnected: (connected: boolean) => void
   setPolling: (polling: boolean) => void
+  setPollingStatus: (status: 'idle' | 'polling' | 'error') => void
+  setLastError: (error: string | null) => void
   setBotInfo: (info: Partial<BotInfo>) => void
   setActiveChatId: (chatId: string | null) => void
   setReplyTo: (messageId: string | null) => void
@@ -177,6 +181,8 @@ export const useBotStore = create<BotState>()(
       token: '',
       isConnected: false,
       isPolling: false,
+      pollingStatus: 'idle',
+      lastError: null,
       botDataMap: new Map(),
       replyTo: null,
       theme: 'system',
@@ -203,6 +209,8 @@ export const useBotStore = create<BotState>()(
       
       setConnected: (isConnected: boolean) => set({ isConnected }),
       setPolling: (isPolling: boolean) => set({ isPolling }),
+      setPollingStatus: (pollingStatus: 'idle' | 'polling' | 'error') => set({ pollingStatus }),
+      setLastError: (lastError: string | null) => set({ lastError }),
       
       setBotInfo: (info: Partial<BotInfo>) => {
         const state = get()
@@ -460,29 +468,48 @@ export const useBotStore = create<BotState>()(
         theme: state.theme,
         language: state.language,
         preferences: state.preferences,
-        // Serialize botDataMap as array of entries
-        botDataMap: Array.from(state.botDataMap.entries()).map(([token, botData]) => [
-          token,
-          {
-            ...botData,
-            chats: Array.from(botData.chats.entries())
-          }
-        ])
+        // Serialize botDataMap as array of entries, and handle nested Sets/Maps
+        botDataMap: state.botDataMap instanceof Map 
+          ? Array.from(state.botDataMap.entries()).map(([token, botData]) => [
+              token,
+              {
+                ...botData,
+                chats: botData.chats instanceof Map 
+                  ? Array.from(botData.chats.entries()).map(([chatId, chat]) => [
+                      chatId,
+                      {
+                        ...chat,
+                        messageIds: chat.messageIds instanceof Set 
+                          ? Array.from(chat.messageIds) 
+                          : Array.isArray(chat.messageIds) ? chat.messageIds : [],
+                        members: chat.members instanceof Map 
+                          ? Array.from(chat.members.entries()) 
+                          : []
+                      }
+                    ])
+                  : []
+              }
+            ])
+          : []
       }),
       onRehydrateStorage: () => (state?: BotState) => {
+        console.debug('[BotStore] Rehydrating state...', state)
         if (!state) return
         
         try {
           // Ensure botDataMap is always initialized
           if (!state.botDataMap) {
+            console.warn('[BotStore] botDataMap is missing, initializing new Map')
             state.botDataMap = new Map()
           } else if (Array.isArray(state.botDataMap)) {
+            console.debug('[BotStore] Converting botDataMap array to Map', state.botDataMap)
             // Convert array back to Map on rehydration
             const botDataArray = state.botDataMap as any[]
             state.botDataMap = new Map(
               botDataArray.map(([token, botData]) => {
                 // Ensure botData is valid
                 if (!botData || typeof botData !== 'object') {
+                  console.warn('[BotStore] Invalid botData for token', token)
                   return [token, createDefaultBotData()]
                 }
                 
@@ -490,9 +517,18 @@ export const useBotStore = create<BotState>()(
                   token,
                   {
                     ...botData,
-                    // Ensure chats is a Map
+                    // Ensure chats is a Map and reconstruct nested Sets/Maps
                     chats: botData.chats && Array.isArray(botData.chats)
-                      ? new Map(botData.chats)
+                      ? new Map(
+                          (botData.chats as any[]).map(([chatId, chat]: [string, any]) => [
+                            chatId,
+                            {
+                              ...chat,
+                              messageIds: new Set(chat.messageIds || []),
+                              members: new Map(chat.members || [])
+                            }
+                          ])
+                        )
                       : new Map(),
                     // Ensure other required fields exist
                     botInfo: botData.botInfo || createDefaultBotInfo(),
@@ -502,6 +538,9 @@ export const useBotStore = create<BotState>()(
                 ]
               })
             )
+            console.debug('[BotStore] Rehydration complete. Chats:', state.botDataMap)
+          } else {
+            console.debug('[BotStore] botDataMap is already a Map (or unknown type)', state.botDataMap)
           }
           
           // Ensure other required properties exist
@@ -521,7 +560,7 @@ export const useBotStore = create<BotState>()(
             state.theme = 'system'
           }
         } catch (error) {
-          console.error('Error during store rehydration:', error)
+          console.error('[BotStore] Error during store rehydration:', error)
           // Reset to default state if rehydration fails
           if (state) {
             state.botDataMap = new Map()
