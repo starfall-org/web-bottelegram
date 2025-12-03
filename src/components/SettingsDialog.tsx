@@ -18,13 +18,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
-import { 
-  Settings, 
-  Sun, 
-  Moon, 
-  Monitor, 
-  Bot, 
-  Wifi, 
+import {
+  Settings,
+  Sun,
+  Moon,
+  Monitor,
+  Bot,
+  Wifi,
   WifiOff,
   Shield,
   Palette,
@@ -36,6 +36,7 @@ import {
   Check,
   AlertCircle
 } from 'lucide-react'
+import { botService } from '@/services/botService'
 
 export function SettingsDialog() {
   const [open, setOpen] = useState(false)
@@ -93,6 +94,19 @@ export function SettingsDialog() {
     setTimeout(() => setStatusMessage(''), 4000)
   }
 
+  // Apply current token + proxy to BotService
+  const applyServiceConfig = () => {
+    const tok = tokenInput.trim()
+    const proxyPrefix = proxyInput.trim() || undefined
+    if (!tok) return false
+    try {
+      botService.setConfig({ token: tok, proxyPrefix })
+      return true
+    } catch {
+      return false
+    }
+  }
+
   const handleSaveConnection = async () => {
     if (!tokenInput.trim()) {
       showStatus(t('messages.enterToken'), 'error')
@@ -125,12 +139,18 @@ export function SettingsDialog() {
     }
 
     setIsLoading(true)
-    showStatus(t('messages.connectionTesting'), 'info')
-    
     try {
-      // TODO: Implement actual connection test with bot service
-      await new Promise(resolve => setTimeout(resolve, 2000))
-      showStatus(t('messages.connectionSuccess'), 'success')
+      if (!applyServiceConfig()) {
+        showStatus(t('messages.enterTokenToTest'), 'error')
+        return
+      }
+      showStatus(t('messages.connectionTesting'), 'info')
+      const res = await botService.getMe()
+      if (res.ok) {
+        showStatus(t('messages.connectionSuccess'), 'success')
+      } else {
+        showStatus(res.description || t('messages.connectionFailed'), 'error')
+      }
     } catch (error) {
       showStatus(t('messages.connectionFailed'), 'error')
     } finally {
@@ -145,12 +165,18 @@ export function SettingsDialog() {
     }
 
     setIsLoading(true)
-    showStatus(t('messages.webhookDeleting'), 'info')
-    
     try {
-      // TODO: Implement webhook deletion with bot service
-      await new Promise(resolve => setTimeout(resolve, 1500))
-      showStatus(t('messages.webhookDeleted'), 'success')
+      if (!applyServiceConfig()) {
+        showStatus(t('messages.enterToken'), 'error')
+        return
+      }
+      showStatus(t('messages.webhookDeleting'), 'info')
+      const res = await botService.deleteWebhook(true)
+      if (res.ok) {
+        showStatus(t('messages.webhookDeleted'), 'success')
+      } else {
+        showStatus(res.description || t('messages.webhookDeleteFailed'), 'error')
+      }
     } catch (error) {
       showStatus(t('messages.webhookDeleteFailed'), 'error')
     } finally {
@@ -167,9 +193,24 @@ export function SettingsDialog() {
     showStatus(t('messages.switchedBot'), 'success')
   }
 
-  // Update current bot info (local only)
-  const handleUpdateBotInfo = () => {
+  // Update current bot info (Telegram API + local)
+  const handleUpdateBotInfo = async () => {
+    setIsLoading(true)
     try {
+      // Try update via Telegram API if possible
+      if (tokenInput.trim() && applyServiceConfig()) {
+        try {
+          await botService.setMyName(botName || undefined)
+        } catch {}
+        try {
+          await botService.setMyDescription(botDescription || undefined)
+        } catch {}
+        try {
+          await botService.setMyShortDescription(botShortDescription || undefined)
+        } catch {}
+      }
+
+      // Always sync local store
       setBotInfo({
         name: botName || null,
         username: botUsernameInput || null,
@@ -179,6 +220,8 @@ export function SettingsDialog() {
       showStatus(t('messages.botInfoUpdated'), 'success')
     } catch {
       showStatus(t('messages.botInfoUpdateFailed'), 'error')
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -406,7 +449,11 @@ export function SettingsDialog() {
                       value={botUsernameInput}
                       onChange={(e) => setBotUsernameInput(e.target.value)}
                       placeholder="@mybot"
+                      readOnly
                     />
+                    <p className="text-xs text-muted-foreground">
+                      Username chỉ thay đổi được qua BotFather. Trường này chỉ để hiển thị/lưu cục bộ.
+                    </p>
                   </div>
                   <div className="space-y-2 md:col-span-2">
                     <Label htmlFor="bot-short-desc">{t('bot.botShortDescription')}</Label>

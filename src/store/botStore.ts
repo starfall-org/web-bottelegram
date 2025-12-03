@@ -79,11 +79,13 @@ export interface StickerEntry {
   emoji?: string
   format: 'static' | 'video' | 'animated' | 'unknown'
   addedAt: number
+  favorite?: boolean
 }
 export interface BotData {
   botInfo: BotInfo
   chats: Map<string, Chat>
   recentStickers: StickerEntry[]
+  favoriteStickers: StickerEntry[]
   lastUpdateId: number
   activeChatId: string | null
 }
@@ -140,6 +142,9 @@ export interface BotState {
   // Sticker storage
   addRecentSticker: (sticker: StickerEntry) => void
   getRecentStickers: () => StickerEntry[]
+  addFavoriteSticker: (sticker: StickerEntry) => void
+  removeFavoriteSticker: (file_id: string) => void
+  getFavoriteStickers: () => StickerEntry[]
 
   // Utility
   clearAllData: () => void
@@ -188,6 +193,7 @@ const createDefaultBotData = (): BotData => ({
   botInfo: createDefaultBotInfo(),
   chats: new Map(),
   recentStickers: [],
+  favoriteStickers: [],
   lastUpdateId: 0,
   activeChatId: null
 })
@@ -548,6 +554,38 @@ export const useBotStore = create<BotState>()(
         return data?.recentStickers || []
       },
 
+      addFavoriteSticker: (sticker: StickerEntry) => {
+        const state = get()
+        if (!state.token) return
+        const currentBotData = state.botDataMap.get(state.token) || createDefaultBotData()
+        const existing = currentBotData.favoriteStickers || []
+        const filtered = existing.filter((s: StickerEntry) => s.file_id !== sticker.file_id)
+        const normalized = { ...sticker, addedAt: sticker.addedAt || Date.now(), favorite: true }
+        const updated = [normalized, ...filtered].slice(0, 100)
+        const updatedBotData = { ...currentBotData, favoriteStickers: updated }
+        set((state: BotState) => ({
+          botDataMap: new Map(state.botDataMap).set(state.token, updatedBotData)
+        }))
+      },
+
+      removeFavoriteSticker: (file_id: string) => {
+        const state = get()
+        if (!state.token) return
+        const currentBotData = state.botDataMap.get(state.token) || createDefaultBotData()
+        const existing = currentBotData.favoriteStickers || []
+        const updated = existing.filter((s: StickerEntry) => s.file_id !== file_id)
+        const updatedBotData = { ...currentBotData, favoriteStickers: updated }
+        set((state: BotState) => ({
+          botDataMap: new Map(state.botDataMap).set(state.token, updatedBotData)
+        }))
+      },
+
+      getFavoriteStickers: () => {
+        const state = get()
+        const data = state.getCurrentBotData()
+        return data?.favoriteStickers || []
+      },
+
       clearAllData: () => set({
         botDataMap: new Map(),
         replyTo: null
@@ -628,7 +666,8 @@ export const useBotStore = create<BotState>()(
                       }
                     ])
                   : [],
-                recentStickers: botData.recentStickers || []
+                recentStickers: botData.recentStickers || [],
+                favoriteStickers: botData.favoriteStickers || []
               }
             ])
           : []
@@ -675,7 +714,8 @@ export const useBotStore = create<BotState>()(
                     botInfo: botData.botInfo || createDefaultBotInfo(),
                     lastUpdateId: botData.lastUpdateId || 0,
                     activeChatId: botData.activeChatId || null,
-                    recentStickers: botData.recentStickers || []
+                    recentStickers: botData.recentStickers || [],
+                    favoriteStickers: botData.favoriteStickers || []
                   }
                 ]
               })

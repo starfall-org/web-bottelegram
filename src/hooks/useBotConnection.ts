@@ -49,19 +49,32 @@ export function useBotConnection() {
             commands: []
           })
           
-          // Try to get commands
+          // Try to get commands + profile (description, short description)
           try {
-            const commandsResponse = await botService.getMyCommands()
+            const [commandsResponse, descRes, shortDescRes] = await Promise.all([
+              botService.getMyCommands(),
+              botService.getMyDescription(),
+              botService.getMyShortDescription()
+            ])
+
             if (commandsResponse.ok && commandsResponse.result) {
               setBotInfo({
-                commands: commandsResponse.result.map(cmd => ({
+                commands: commandsResponse.result.map((cmd: any) => ({
                   command: cmd.command,
                   description: cmd.description
                 }))
               })
             }
+
+            if (descRes.ok && (descRes as any).result?.description !== undefined) {
+              setBotInfo({ description: (descRes as any).result.description || null })
+            }
+
+            if (shortDescRes.ok && (shortDescRes as any).result?.short_description !== undefined) {
+              setBotInfo({ shortDescription: (shortDescRes as any).result.short_description || null })
+            }
           } catch (error) {
-            console.warn('Failed to get bot commands:', error)
+            console.warn('Failed to load bot profile:', error)
           }
 
           setConnected(true)

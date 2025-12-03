@@ -9,6 +9,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { User, MessageCircle, Info } from 'lucide-react'
 import { useTranslation } from '@/i18n/useTranslation'
+import { botService } from '@/services/botService'
 
 interface UserInfoDialogProps {
   userId: number
@@ -18,21 +19,61 @@ interface UserInfoDialogProps {
 }
 
 export function UserInfoDialog({ userId, userName, username, children }: UserInfoDialogProps) {
-  const { setActiveChatId, getCurrentChats } = useBotStore()
+  const { setActiveChatId, getCurrentChats, isConnected, getOrCreateChat } = useBotStore()
   const { t } = useTranslation()
   const chats = getCurrentChats()
 
-  const handleOpenChat = () => {
+  const handleOpenChat = async () => {
     // First, try to find existing chat with this user
+    const idStr = userId.toString()
     const existingChat = Array.from(chats?.values() || []).find(
-      chat => chat.type === 'private' && chat.id === userId.toString()
+      chat => chat.type === 'private' && chat.id === idStr
     )
 
     if (existingChat) {
       setActiveChatId(existingChat.id)
-    } else {
-      // Create a new chat placeholder (will be populated when first message arrives)
-      setActiveChatId(userId.toString())
+      return
+    }
+
+    try {
+      let chatId = idStr
+      let chatData: any = {
+        type: 'private',
+        title: userName || `User ${idStr}`,
+        avatarText: (userName || 'U').charAt(0).toUpperCase()
+      }
+
+      // If we have username and bot is connected, resolve info via API for better metadata
+      if (isConnected && username) {
+        const uname = username.startsWith('@') ? username : `@${username}`
+        const res = await botService.getChat(uname)
+        if (res.ok && (res as any).result) {
+          const info: any = (res as any).result
+          chatId = String(info.id)
+          const title =
+            info.title ||
+            `${(info.first_name || '')} ${(info.last_name || '')}`.trim() ||
+            info.username ||
+            chatId
+          const avatarText = (title || 'U').charAt(0).toUpperCase()
+          chatData = {
+            type: info.type || 'private',
+            title,
+            avatarText
+          }
+        }
+      }
+
+      getOrCreateChat(chatId, chatData)
+      setActiveChatId(chatId)
+    } catch (_e) {
+      // Fallback: ensure a local chat exists
+      getOrCreateChat(idStr, {
+        type: 'private',
+        title: userName || `User ${idStr}`,
+        avatarText: (userName || 'U').charAt(0).toUpperCase()
+      })
+      setActiveChatId(idStr)
     }
   }
 

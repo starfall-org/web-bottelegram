@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
-import { Send, Paperclip, Smile, X } from "lucide-react";
+import { Send, Paperclip, Smile, X, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { InputFile } from "grammy";
 
@@ -45,12 +45,15 @@ export function InputArea({ className }: InputAreaProps) {
     addMessage,
     updateMessage,
     addRecentSticker,
+    addFavoriteSticker,
+    removeFavoriteSticker,
   } = useBotStore();
 
   const activeChatId = getCurrentActiveChatId();
   const chats = getCurrentChats();
   const activeChat = activeChatId ? chats?.get(activeChatId) : null;
   const recentStickers = useBotStore((s: any) => s.getRecentStickers());
+  const favoriteStickers = useBotStore((s: any) => s.getFavoriteStickers());
   const replyMessage =
     replyTo && activeChat
       ? activeChat.messages.find((m: any) => m.id.toString() === replyTo)
@@ -369,6 +372,26 @@ export function InputArea({ className }: InputAreaProps) {
     try {
       await botService.sendChatAction(activeChatId, "choose_sticker");
     } catch {}
+  };
+
+  const isStickerFavorite = (fileId: string) =>
+    Array.isArray(favoriteStickers) &&
+    favoriteStickers.some((s: any) => s.file_id === fileId);
+
+  const toggleFavoriteSticker = (sticker: any) => {
+    if (!sticker?.file_id) return;
+    if (isStickerFavorite(sticker.file_id)) {
+      removeFavoriteSticker(sticker.file_id);
+    } else {
+      addFavoriteSticker({
+        file_id: sticker.file_id,
+        url: sticker.url,
+        emoji: sticker.emoji,
+        format: sticker.format || "unknown",
+        addedAt: Date.now(),
+        favorite: true,
+      } as any);
+    }
   };
 
   const handleSendStickerCore = async (fileId: string) => {
@@ -728,8 +751,9 @@ export function InputArea({ className }: InputAreaProps) {
             className="absolute bottom-16 right-4 z-20 w-80 rounded-2xl border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/70 shadow-xl p-3 animate-slideIn"
           >
             <Tabs defaultValue="recent" className="w-full">
-              <TabsList className="grid grid-cols-3 w-full">
+              <TabsList className="grid grid-cols-4 w-full">
                 <TabsTrigger value="recent">Gần đây</TabsTrigger>
+                <TabsTrigger value="favorite">Ưa thích</TabsTrigger>
                 <TabsTrigger value="id">File ID</TabsTrigger>
                 <TabsTrigger value="upload">Tải lên</TabsTrigger>
               </TabsList>
@@ -737,39 +761,104 @@ export function InputArea({ className }: InputAreaProps) {
               <TabsContent value="recent" className="mt-3">
                 {recentStickers && recentStickers.length > 0 ? (
                   <div className="grid grid-cols-4 gap-2">
-                    {recentStickers.map((s: any) => (
-                      <button
-                        key={s.file_id}
-                        className="border rounded-lg p-1 flex items-center justify-center hover:bg-muted/80 transition-colors h-16"
-                        onClick={() => handleSendStickerFromRecent(s.file_id)}
-                        disabled={
-                          isSendingSticker || !isConnected || !activeChatId
-                        }
-                        title={s.emoji || ""}
-                      >
-                        {s.format === "static" && s.url ? (
-                          <img
-                            src={s.url}
-                            alt={s.emoji || "sticker"}
-                            className="max-w-full max-h-full object-contain"
-                          />
-                        ) : s.format === "video" && s.url ? (
-                          <video
-                            src={s.url}
-                            autoPlay
-                            loop
-                            muted
-                            className="max-w-full max-h-full object-contain"
-                          />
-                        ) : (
-                          <span className="text-3xl">{s.emoji || "✨"}</span>
-                        )}
-                      </button>
-                    ))}
+                    {recentStickers.map((s: any) => {
+                      const isFav = isStickerFavorite(s.file_id);
+                      return (
+                        <div key={s.file_id} className="relative">
+                          <button
+                            className="border rounded-lg p-1 flex items-center justify-center hover:bg-muted/80 transition-colors h-16 w-full"
+                            onClick={() => handleSendStickerFromRecent(s.file_id)}
+                            disabled={isSendingSticker || !isConnected || !activeChatId}
+                            title={s.emoji || ""}
+                          >
+                            {s.format === "static" && s.url ? (
+                              <img
+                                src={s.url}
+                                alt={s.emoji || "sticker"}
+                                className="max-w-full max-h-full object-contain"
+                              />
+                            ) : s.format === "video" && s.url ? (
+                              <video
+                                src={s.url}
+                                autoPlay
+                                loop
+                                muted
+                                className="max-w-full max-h-full object-contain"
+                              />
+                            ) : (
+                              <span className="text-3xl">{s.emoji || "✨"}</span>
+                            )}
+                          </button>
+                          <button
+                            className="absolute top-1 right-1 p-1 rounded bg-background/80 border hover:bg-background"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleFavoriteSticker({ ...s });
+                            }}
+                            title={isFav ? "Bỏ ưa thích" : "Thêm vào ưa thích"}
+                          >
+                            <span className="sr-only">Favorite</span>
+                            <Star className={`h-4 w-4 ${isFav ? "text-yellow-500" : "opacity-50"}`} />
+                          </button>
+                        </div>
+                      );
+                    })}
                   </div>
                 ) : (
                   <p className="text-xs text-muted-foreground">
                     Chưa có sticker gần đây. Hãy gửi một sticker để lưu lại.
+                  </p>
+                )}
+              </TabsContent>
+
+              <TabsContent value="favorite" className="mt-3">
+                {favoriteStickers && favoriteStickers.length > 0 ? (
+                  <div className="grid grid-cols-4 gap-2">
+                    {favoriteStickers.map((s: any) => {
+                      return (
+                        <div key={s.file_id} className="relative">
+                          <button
+                            className="border rounded-lg p-1 flex items-center justify-center hover:bg-muted/80 transition-colors h-16 w-full"
+                            onClick={() => handleSendStickerFromRecent(s.file_id)}
+                            disabled={isSendingSticker || !isConnected || !activeChatId}
+                            title={s.emoji || ""}
+                          >
+                            {s.format === "static" && s.url ? (
+                              <img
+                                src={s.url}
+                                alt={s.emoji || "sticker"}
+                                className="max-w-full max-h-full object-contain"
+                              />
+                            ) : s.format === "video" && s.url ? (
+                              <video
+                                src={s.url}
+                                autoPlay
+                                loop
+                                muted
+                                className="max-w-full max-h-full object-contain"
+                              />
+                            ) : (
+                              <span className="text-3xl">{s.emoji || "✨"}</span>
+                            )}
+                          </button>
+                          <button
+                            className="absolute top-1 right-1 p-1 rounded bg-background/80 border hover:bg-background"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleFavoriteSticker(s);
+                            }}
+                            title="Bỏ ưa thích"
+                          >
+                            <span className="sr-only">Unfavorite</span>
+                            <Star className="h-4 w-4 text-yellow-500" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Chưa có sticker ưa thích.
                   </p>
                 )}
               </TabsContent>

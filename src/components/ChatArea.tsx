@@ -5,17 +5,26 @@ import { MessageList } from '@/components/MessageList'
 import { InputArea } from '@/components/InputArea'
 import { ChatInfoDialog } from '@/components/ChatInfoDialog'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Wifi, WifiOff, ArrowDown } from 'lucide-react'
+import { botService } from '@/services/botService'
 
 export function ChatArea() {
   const [showNewMessageButton, setShowNewMessageButton] = useState(false)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
+
+  const [openChatInput, setOpenChatInput] = useState('')
+  const [openChatTitle, setOpenChatTitle] = useState('')
+  const [openChatLoading, setOpenChatLoading] = useState(false)
+  const [openChatError, setOpenChatError] = useState<string | null>(null)
   
   const {
     getCurrentActiveChatId,
     getCurrentChats,
     getCurrentBotInfo,
-    isConnected
+    isConnected,
+    getOrCreateChat,
+    setActiveChatId,
   } = useBotStore()
   
   const { t } = useTranslation()
@@ -41,6 +50,60 @@ export function ChatArea() {
       setShowNewMessageButton(true)
     } else if (isAtBottom && showNewMessageButton) {
       setShowNewMessageButton(false)
+    }
+  }
+
+  const handleOpenChat = async () => {
+    setOpenChatError(null)
+    const raw = openChatInput.trim()
+    if (!raw) return
+    setOpenChatLoading(true)
+    try {
+      let chatId = ''
+      let chatData: any = null
+
+      if (raw.startsWith('@') || /[A-Za-z]/.test(raw)) {
+        if (!isConnected) {
+          throw new Error('Cần kết nối bot để tra cứu @username')
+        }
+        const uname = raw.startsWith('@') ? raw : `@${raw}`
+        const res = await botService.getChat(uname)
+        if (res.ok && (res as any).result) {
+          const info: any = (res as any).result
+          chatId = String(info.id)
+          const title =
+            info.title ||
+            `${(info.first_name || '')} ${(info.last_name || '')}`.trim() ||
+            info.username ||
+            chatId
+          const avatarText = (title || 'U').charAt(0).toUpperCase()
+          chatData = {
+            type: info.type || 'private',
+            title,
+            avatarText,
+          }
+        } else {
+          throw new Error((res as any).description || 'Không tìm thấy chat')
+        }
+      } else {
+        chatId = raw
+        const title = openChatTitle.trim() || `Chat ${chatId}`
+        const avatarText = (title || 'U').charAt(0).toUpperCase()
+        chatData = {
+          type: 'private',
+          title,
+          avatarText,
+        }
+      }
+
+      getOrCreateChat(chatId, chatData)
+      setActiveChatId(chatId)
+      setOpenChatInput('')
+      setOpenChatTitle('')
+    } catch (e: any) {
+      setOpenChatError(e?.message || 'Không thể mở chat')
+    } finally {
+      setOpenChatLoading(false)
     }
   }
 
@@ -80,6 +143,36 @@ export function ChatArea() {
                 )}
               </div>
             )}
+
+            <div className="mt-6 space-y-2 p-4 border rounded-lg text-left">
+              <p className="text-sm font-medium">Mở chat mới</p>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Input
+                  placeholder="Chat ID hoặc @username"
+                  value={openChatInput}
+                  onChange={(e) => setOpenChatInput(e.target.value)}
+                  disabled={openChatLoading}
+                />
+                <Input
+                  placeholder="Tiêu đề (tùy chọn)"
+                  value={openChatTitle}
+                  onChange={(e) => setOpenChatTitle(e.target.value)}
+                  disabled={openChatLoading}
+                />
+                <Button
+                  onClick={handleOpenChat}
+                  disabled={openChatLoading || !openChatInput.trim()}
+                >
+                  {openChatLoading ? 'Đang mở...' : 'Mở chat'}
+                </Button>
+              </div>
+              {openChatError && (
+                <p className="text-xs text-destructive">{openChatError}</p>
+              )}
+              <p className="text-[10px] text-muted-foreground">
+                Gợi ý: Nhập @channel/@group hoặc ID số. Với người dùng, bot chỉ nhắn nếu họ đã start bot.
+              </p>
+            </div>
           </div>
         </div>
       </main>

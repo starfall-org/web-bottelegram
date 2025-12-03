@@ -397,6 +397,93 @@ export class BotService {
     }
   }
 
+  async setMyCommands(
+    commands: Array<{ command: string; description: string }>,
+    options: { scope?: any; language_code?: string } = {}
+  ) {
+    if (!this.bot) throw new Error("Bot not initialized");
+
+    try {
+      const result = await this.bot.api.setMyCommands(commands as any, options as any);
+      return { ok: true, result };
+    } catch (error: any) {
+      return {
+        ok: false,
+        description: error.description || error.message || "Unknown error",
+      };
+    }
+  }
+
+  async setMyName(name?: string, language_code?: string) {
+    if (!this.bot) throw new Error("Bot not initialized");
+
+    try {
+      const result = await this.bot.api.setMyName({ name, language_code } as any);
+      return { ok: true, result };
+    } catch (error: any) {
+      return {
+        ok: false,
+        description: error.description || error.message || "Unknown error",
+      };
+    }
+  }
+
+  async setMyDescription(description?: string, language_code?: string) {
+    if (!this.bot) throw new Error("Bot not initialized");
+
+    try {
+      const result = await this.bot.api.setMyDescription({ description, language_code } as any);
+      return { ok: true, result };
+    } catch (error: any) {
+      return {
+        ok: false,
+        description: error.description || error.message || "Unknown error",
+      };
+    }
+  }
+
+  async setMyShortDescription(short_description?: string, language_code?: string) {
+    if (!this.bot) throw new Error("Bot not initialized");
+
+    try {
+      const result = await this.bot.api.setMyShortDescription({ short_description, language_code } as any);
+      return { ok: true, result };
+    } catch (error: any) {
+      return {
+        ok: false,
+        description: error.description || error.message || "Unknown error",
+      };
+    }
+  }
+
+  async getMyDescription(language_code?: string) {
+    if (!this.bot) throw new Error("Bot not initialized");
+
+    try {
+      const result = await this.bot.api.getMyDescription({ language_code } as any);
+      return { ok: true, result };
+    } catch (error: any) {
+      return {
+        ok: false,
+        description: error.description || error.message || "Unknown error",
+      };
+    }
+  }
+
+  async getMyShortDescription(language_code?: string) {
+    if (!this.bot) throw new Error("Bot not initialized");
+
+    try {
+      const result = await this.bot.api.getMyShortDescription({ language_code } as any);
+      return { ok: true, result };
+    } catch (error: any) {
+      return {
+        ok: false,
+        description: error.description || error.message || "Unknown error",
+      };
+    }
+  }
+
   getFileUrl(filePath: string): string {
     if (!this.config) throw new Error("Bot not configured");
 
