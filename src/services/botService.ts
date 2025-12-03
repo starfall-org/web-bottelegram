@@ -213,6 +213,27 @@ export class BotService {
     }
   }
 
+  async editMessageText(
+    chatId: string | number,
+    messageId: number,
+    text: string,
+    options: {
+      parse_mode?: "HTML" | "Markdown" | "MarkdownV2";
+    } = {}
+  ) {
+    if (!this.bot) throw new Error("Bot not initialized");
+
+    try {
+      const result = await this.bot.api.editMessageText(chatId, messageId, text, options);
+      return { ok: true, result };
+    } catch (error: any) {
+      return {
+        ok: false,
+        description: error.description || error.message || "Unknown error",
+      };
+    }
+  }
+
   async sendSticker(chatId: string | number, sticker: string | InputFile) {
     if (!this.bot) throw new Error("Bot not initialized");
 

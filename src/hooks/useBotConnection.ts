@@ -13,7 +13,8 @@ export function useBotConnection() {
     getCurrentLastUpdateId,
     setLastUpdateId,
     addMessage,
-    getOrCreateChat
+    getOrCreateChat,
+    addRecentSticker
   } = useBotStore()
   
   const lastUpdateId = getCurrentLastUpdateId()
@@ -108,14 +109,14 @@ export function useBotConnection() {
       })
     }
 
-    const processMessage = (message: any, _isEdited = false) => {
+    const processMessage = async (message: any, _isEdited = false) => {
       const chatId = message.chat.id.toString()
       
       // Get or create chat
       const chatData = {
         type: message.chat.type,
         title: message.chat.title || `${message.chat.first_name || ''} ${message.chat.last_name || ''}`.trim() || 'Private Chat',
-        avatarText: message.chat.title ? message.chat.title.charAt(0).toUpperCase() : 
+        avatarText: message.chat.title ? message.chat.title.charAt(0).toUpperCase() :
                    (message.chat.first_name || message.chat.username || 'U').charAt(0).toUpperCase()
       }
       
@@ -126,6 +127,8 @@ export function useBotConnection() {
       let text = message.text || message.caption || ''
       let mediaUrl = ''
       let fileName = ''
+      let stickerFormat: 'static' | 'video' | 'animated' | undefined = undefined
+      let stickerEmoji: string | undefined = undefined
       
       if (message.photo) {
         messageType = 'photo'
@@ -150,6 +153,30 @@ export function useBotConnection() {
       } else if (message.sticker) {
         messageType = 'sticker'
         mediaUrl = message.sticker.file_id
+        stickerEmoji = message.sticker.emoji
+
+        // Try resolve file url to display and detect format
+        try {
+          const fileRes = await botService.getFile(message.sticker.file_id)
+          if (fileRes.ok && fileRes.result?.file_path) {
+            const url = botService.getFileUrl(fileRes.result.file_path)
+            mediaUrl = url
+            const fp = fileRes.result.file_path.toLowerCase()
+            if (fp.endsWith('.webm')) stickerFormat = 'video'
+            else if (fp.endsWith('.webp')) stickerFormat = 'static'
+            else if (fp.endsWith('.tgs')) stickerFormat = 'animated'
+            // Save to recent stickers
+            addRecentSticker({
+              file_id: message.sticker.file_id,
+              url,
+              emoji: stickerEmoji,
+              format: stickerFormat || 'unknown',
+              addedAt: Date.now()
+            })
+          }
+        } catch (e) {
+          // ignore
+        }
       }
 
       // Create message object
@@ -160,6 +187,7 @@ export function useBotConnection() {
         text,
         mediaUrl,
         fileName,
+        ...(messageType === 'sticker' ? { stickerFormat, emoji: stickerEmoji } : {}),
         date: message.date * 1000, // Convert to milliseconds
         fromId: message.from?.id,
         fromName: message.from?.first_name || message.from?.username || 'Unknown',

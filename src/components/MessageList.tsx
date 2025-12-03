@@ -1,5 +1,5 @@
 import { useBotStore, Message } from "@/store/botStore";
-import { Trash2, Reply, Copy, Forward, Pin, CheckCircle } from "lucide-react";
+import { Trash2, Reply, Copy, Forward, Pin, CheckCircle, Pencil } from "lucide-react";
 import { cn, formatTime } from "@/lib/utils";
 import {
   DropdownMenu,
@@ -33,6 +33,7 @@ function MessageItem({
 }: MessageItemProps) {
   const isOwn = message.side === "right";
   const { t } = useTranslation();
+  const { setEditingMessageId, setReplyTo } = useBotStore();
 
   const handleDelete = (deleteForAll = false) => {
     if (onDelete) {
@@ -229,6 +230,19 @@ function MessageItem({
             >
               <Reply className="mr-2 h-4 w-4" />
               <span>{t("chat.reply")}</span>
+            </DropdownMenuItem>
+          )}
+
+          {isOwn && message.type === "text" && (
+            <DropdownMenuItem
+              onClick={(e) => {
+                e.stopPropagation();
+                setReplyTo(null);
+                setEditingMessageId(message.id.toString());
+              }}
+            >
+              <Pencil className="mr-2 h-4 w-4" />
+              <span>{t("chat.edit")}</span>
             </DropdownMenuItem>
           )}
 

@@ -101,15 +101,19 @@
 
 /* Chat specific styles */
 .chat-message {
-  @apply max-w-[75%] break-words whitespace-pre-wrap rounded-2xl p-3 shadow-sm;
+  @apply max-w-[75%] break-words whitespace-pre-wrap rounded-2xl p-3 shadow-sm border border-border/60 transition-colors duration-200;
 }
 
 .chat-message.own {
-  @apply bg-accent/80 text-accent-foreground ml-auto;
+  @apply bg-primary/15 text-foreground ml-auto border-primary/30;
 }
 
 .chat-message.other {
-  @apply bg-muted text-muted-foreground;
+  @apply bg-muted text-foreground border-border/70;
+}
+
+.chat-message:hover {
+  @apply shadow-md;
 }
 
 .chat-message img,
@@ -125,6 +129,6 @@
 /* Mobile responsive */
 @media (max-width: 768px) {
   .chat-message {
-    @apply max-w-[85%];
+    @apply max-w-[90%];
   }
 }

@@ -73,9 +73,17 @@ export interface BotInfo {
 }
 
 // Bot-specific data structure
+export interface StickerEntry {
+  file_id: string
+  url?: string
+  emoji?: string
+  format: 'static' | 'video' | 'animated' | 'unknown'
+  addedAt: number
+}
 export interface BotData {
   botInfo: BotInfo
   chats: Map<string, Chat>
+  recentStickers: StickerEntry[]
   lastUpdateId: number
   activeChatId: string | null
 }
@@ -93,6 +101,7 @@ export interface BotState {
   
   // UI state
   replyTo: string | null
+  editingMessageId: string | null
   theme: 'light' | 'dark' | 'system'
   language: 'vi' | 'en'
   
@@ -112,6 +121,7 @@ export interface BotState {
   setBotInfo: (info: Partial<BotInfo>) => void
   setActiveChatId: (chatId: string | null) => void
   setReplyTo: (messageId: string | null) => void
+  setEditingMessageId: (messageId: string | null) => void
   setTheme: (theme: 'light' | 'dark' | 'system') => void
   setLanguage: (lang: 'vi' | 'en') => void
   updatePreferences: (prefs: Partial<BotState['preferences']>) => void
@@ -121,9 +131,14 @@ export interface BotState {
   getOrCreateChat: (chatId: string, initialData?: Partial<Chat>) => Chat
   addMessage: (chatId: string, message: Message) => boolean
   removeMessage: (chatId: string, messageId: number | string) => boolean
+  updateMessage: (chatId: string, messageId: number | string, patch: Partial<Message>) => boolean
   upsertMember: (chatId: string, member: Partial<ChatMember> & { id: string }) => ChatMember | null
   removeMember: (chatId: string, userId: string) => boolean
   
+  // Sticker storage
+  addRecentSticker: (sticker: StickerEntry) => void
+  getRecentStickers: () => StickerEntry[]
+
   // Utility
   clearAllData: () => void
   clearBotData: (botToken: string) => void
@@ -170,6 +185,7 @@ const createDefaultBotInfo = (): BotInfo => ({
 const createDefaultBotData = (): BotData => ({
   botInfo: createDefaultBotInfo(),
   chats: new Map(),
+  recentStickers: [],
   lastUpdateId: 0,
   activeChatId: null
 })
@@ -185,6 +201,7 @@ export const useBotStore = create<BotState>()(
       lastError: null,
       botDataMap: new Map(),
       replyTo: null,
+      editingMessageId: null,
       theme: 'system',
       language: 'vi',
       preferences: {
@@ -243,6 +260,7 @@ export const useBotStore = create<BotState>()(
       },
       
       setReplyTo: (replyTo: string | null) => set({ replyTo }),
+      setEditingMessageId: (editingMessageId: string | null) => set({ editingMessageId }),
       setTheme: (theme: 'light' | 'dark' | 'system') => set({ theme }),
       setLanguage: (language: 'vi' | 'en') => set({ language }),
       updatePreferences: (prefs: Partial<BotState['preferences']>) => set((state: BotState) => ({
@@ -349,6 +367,46 @@ export const useBotStore = create<BotState>()(
         return true
       },
 
+      updateMessage: (chatId: string, messageId: number | string, patch: Partial<Message>) => {
+        const state = get()
+        if (!state.token) return false
+
+        const currentBotData = state.botDataMap.get(state.token) || createDefaultBotData()
+        const chat = currentBotData.chats.get(chatId)
+        if (!chat) return false
+
+        const idx = chat.messages.findIndex((m: Message) => m.id === messageId)
+        if (idx === -1) return false
+
+        const updatedMessages = [...chat.messages]
+        const updatedMessage = { ...updatedMessages[idx], ...patch }
+        updatedMessages[idx] = updatedMessage
+
+        const isLast = idx === chat.messages.length - 1
+        const updatedChat = {
+          ...chat,
+          messages: updatedMessages,
+          ...(isLast
+            ? {
+                lastText:
+                  updatedMessage.type === 'text'
+                    ? updatedMessage.text || ''
+                    : (updatedMessage.caption || updatedMessage.text || `[${updatedMessage.type}]`),
+                lastDate: updatedMessage.date || chat.lastDate
+              }
+            : {})
+        }
+
+        const updatedChats = new Map(currentBotData.chats).set(chatId, updatedChat)
+        const updatedBotData = { ...currentBotData, chats: updatedChats }
+
+        set((state: BotState) => ({
+          botDataMap: new Map(state.botDataMap).set(state.token, updatedBotData)
+        }))
+
+        return true
+      },
+
       upsertMember: (chatId: string, memberData: Partial<ChatMember> & { id: string }) => {
         const state = get()
         if (!state.token) return null
@@ -406,6 +464,26 @@ export const useBotStore = create<BotState>()(
         }
 
         return result
+      },
+
+      addRecentSticker: (sticker: StickerEntry) => {
+        const state = get()
+        if (!state.token) return
+        const currentBotData = state.botDataMap.get(state.token) || createDefaultBotData()
+        const existing = currentBotData.recentStickers || []
+        const filtered = existing.filter((s: StickerEntry) => s.file_id !== sticker.file_id)
+        const normalized = { ...sticker, addedAt: sticker.addedAt || Date.now() }
+        const updated = [normalized, ...filtered].slice(0, 50)
+        const updatedBotData = { ...currentBotData, recentStickers: updated }
+        set((state: BotState) => ({
+          botDataMap: new Map(state.botDataMap).set(state.token, updatedBotData)
+        }))
+      },
+
+      getRecentStickers: () => {
+        const state = get()
+        const data = state.getCurrentBotData()
+        return data?.recentStickers || []
       },
 
       clearAllData: () => set({
@@ -469,25 +547,26 @@ export const useBotStore = create<BotState>()(
         language: state.language,
         preferences: state.preferences,
         // Serialize botDataMap as array of entries, and handle nested Sets/Maps
-        botDataMap: state.botDataMap instanceof Map 
+        botDataMap: state.botDataMap instanceof Map
           ? Array.from(state.botDataMap.entries()).map(([token, botData]) => [
               token,
               {
                 ...botData,
-                chats: botData.chats instanceof Map 
+                chats: botData.chats instanceof Map
                   ? Array.from(botData.chats.entries()).map(([chatId, chat]) => [
                       chatId,
                       {
                         ...chat,
-                        messageIds: chat.messageIds instanceof Set 
-                          ? Array.from(chat.messageIds) 
+                        messageIds: chat.messageIds instanceof Set
+                          ? Array.from(chat.messageIds)
                           : Array.isArray(chat.messageIds) ? chat.messageIds : [],
-                        members: chat.members instanceof Map 
-                          ? Array.from(chat.members.entries()) 
+                        members: chat.members instanceof Map
+                          ? Array.from(chat.members.entries())
                           : []
                       }
                     ])
-                  : []
+                  : [],
+                recentStickers: botData.recentStickers || []
               }
             ])
           : []
@@ -533,7 +612,8 @@ export const useBotStore = create<BotState>()(
                     // Ensure other required fields exist
                     botInfo: botData.botInfo || createDefaultBotInfo(),
                     lastUpdateId: botData.lastUpdateId || 0,
-                    activeChatId: botData.activeChatId || null
+                    activeChatId: botData.activeChatId || null,
+                    recentStickers: botData.recentStickers || []
                   }
                 ]
               })

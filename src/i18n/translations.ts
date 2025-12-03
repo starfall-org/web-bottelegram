@@ -69,6 +69,8 @@ export interface Translation {
     sendMessage: string
     replyTo: string
     cancelReply: string
+    editing: string
+    cancelEdit: string
     attachFile: string
     sendPhoto: string
     sendDocument: string
@@ -96,6 +98,7 @@ export interface Translation {
     you: string
     // Message actions
     reply: string
+    edit: string
     copy: string
     forward: string
     pin: string
@@ -278,11 +281,14 @@ export const translations: Record<Language, Translation> = {
       noToken: 'Chưa có token',
       toggleTheme: 'Đổi giao diện',
       replyingTo: 'Đang trả lời',
+      editing: 'Đang sửa',
+      cancelEdit: 'Hủy sửa',
       disconnected: 'Chưa kết nối...',
       selectChat: 'Chọn cuộc trò chuyện...',
       composing: 'Đang soạn...',
       you: 'Bạn',
       reply: 'Trả lời',
+      edit: 'Sửa',
       copy: 'Sao chép',
       forward: 'Chuyển tiếp',
       pin: 'Ghim',
@@ -456,11 +462,14 @@ export const translations: Record<Language, Translation> = {
       noToken: 'No token',
       toggleTheme: 'Toggle theme',
       replyingTo: 'Replying to',
+      editing: 'Editing',
+      cancelEdit: 'Cancel edit',
       disconnected: 'Not connected...',
       selectChat: 'Select a chat...',
       composing: 'Composing...',
       you: 'You',
       reply: 'Reply',
+      edit: 'Edit',
       copy: 'Copy',
       forward: 'Forward',
       pin: 'Pin',

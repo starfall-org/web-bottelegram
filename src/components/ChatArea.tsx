@@ -87,9 +87,9 @@ export function ChatArea() {
   }
 
   return (
-    <main className="flex-1 flex flex-col">
+    <main className="flex-1 flex flex-col relative">
       {/* Chat Header */}
-      <div className="border-b p-4 flex items-center justify-between bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="sticky top-0 z-20 border-b px-4 py-3 md:p-4 flex items-center justify-between bg-background/90 backdrop-blur supports-[backdrop-filter]:bg-background/60 shadow-sm">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-primary text-primary-foreground rounded-full flex items-center justify-center font-semibold">
             {activeChat.avatarText}
@@ -122,24 +122,28 @@ export function ChatArea() {
       </div>
 
       {/* Messages Container */}
-      <div 
+      <div
         ref={messagesContainerRef}
-        className="flex-1 overflow-y-auto"
+        className="flex-1 overflow-y-auto px-3 py-4 md:px-4 md:py-6"
         onScroll={handleScroll}
       >
         {activeChatId && <MessageList chatId={activeChatId} />}
       </div>
 
-      {/* Scroll to Bottom Button */}
+      {/* New Message Overlay + Button */}
       {showNewMessageButton && (
-        <Button
-          className="fixed bottom-24 right-6 rounded-full shadow-lg z-10"
-          onClick={scrollToBottom}
-          size="sm"
-        >
-          <ArrowDown className="h-4 w-4 mr-2" />
-          {t('chat.newMessage')}
-        </Button>
+        <>
+          <div className="pointer-events-none absolute bottom-20 left-0 right-0 h-16 bg-gradient-to-t from-background/90 via-background/60 to-transparent" />
+          <Button
+            className="fixed bottom-24 right-4 md:right-6 rounded-full shadow-lg z-30 animate-slideIn"
+            onClick={scrollToBottom}
+            size="sm"
+            aria-label={t('chat.newMessage')}
+          >
+            <ArrowDown className="h-4 w-4 mr-2" />
+            {t('chat.newMessage')}
+          </Button>
+        </>
       )}
 
       {/* Input Area */}
