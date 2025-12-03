@@ -2,11 +2,18 @@ import React from "react";
 import { useBotStore, type Chat } from "@/store/botStore";
 import { useTranslation } from "@/i18n/useTranslation";
 import { Button } from "@/components/ui/button";
-import { Trash2 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import { MoreVertical, Trash2, Eraser } from "lucide-react";
 import { cn, snippet, formatTime } from "@/lib/utils";
 
 export function ChatList() {
-  const { getCurrentActiveChatId, setActiveChatId, getSortedChats } =
+  const { getCurrentActiveChatId, setActiveChatId, getSortedChats, deleteChat, clearChatHistory } =
     useBotStore();
   const { t } = useTranslation();
   const activeChatId = getCurrentActiveChatId();
@@ -19,8 +26,20 @@ export function ChatList() {
   const handleDeleteChat = (e: React.MouseEvent, chatId: string) => {
     e.stopPropagation();
     if (confirm(t('chat.deleteChatConfirm'))) {
-      // TODO: Implement chat deletion
-      console.log("Deleting chat:", chatId);
+      const ok = deleteChat(chatId);
+      if (!ok) {
+        console.error('[ChatList] Failed to delete chat', chatId);
+      }
+    }
+  };
+
+  const handleClearHistory = (e: React.MouseEvent, chatId: string) => {
+    e.stopPropagation();
+    if (confirm(t('chat.clearHistoryConfirm'))) {
+      const ok = clearChatHistory(chatId);
+      if (!ok) {
+        console.error('[ChatList] Failed to clear history', chatId);
+      }
     }
   };
 
@@ -41,7 +60,7 @@ export function ChatList() {
         <div
           key={chat.id}
           className={cn(
-            "flex items-center gap-3 p-3 border-b cursor-pointer transition-colors hover:bg-muted/50",
+            "group flex items-center gap-3 p-3 border-b cursor-pointer transition-colors hover:bg-muted/50",
             activeChatId === chat.id && "bg-muted"
           )}
           onClick={() => handleChatClick(chat.id)}
@@ -67,7 +86,7 @@ export function ChatList() {
             </p>
           </div>
 
-          {/* Unread badge and delete button */}
+          {/* Unread badge and actions */}
           <div className="flex items-center gap-2 flex-shrink-0">
             {chat.unread > 0 && (
               <div className="bg-primary text-primary-foreground rounded-full min-w-[20px] h-5 flex items-center justify-center text-xs font-medium px-1.5">
@@ -75,14 +94,32 @@ export function ChatList() {
               </div>
             )}
 
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive hover:text-destructive-foreground"
-              onClick={(e) => handleDeleteChat(e, chat.id)}
-            >
-              <Trash2 className="h-3 w-3" />
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <MoreVertical className="h-3 w-3" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                <DropdownMenuItem onClick={(e) => handleClearHistory(e, chat.id)}>
+                  <Eraser className="mr-2 h-4 w-4" />
+                  <span>{t('chat.clearHistory')}</span>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="text-red-600 focus:text-red-600"
+                  onClick={(e) => handleDeleteChat(e, chat.id)}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  <span>{t('chat.deleteChat')}</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       ))}

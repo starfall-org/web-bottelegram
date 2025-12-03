@@ -54,6 +54,7 @@ export interface Translation {
     botName: string
     botUsername: string
     botDescription: string
+    botShortDescription: string
     botCommands: string
     status: string
     deleteWebhook: string
@@ -88,6 +89,8 @@ export interface Translation {
     moreOptions: string
     deleteChat: string
     deleteChatConfirm: string
+    clearHistory: string
+    clearHistoryConfirm: string
     enterChatId: string
     noToken: string
     toggleTheme: string
@@ -133,6 +136,15 @@ export interface Translation {
     connectionNote1: string
     connectionNote2: string
     connectionNote3: string
+
+    // Connection helpers
+    quickSwitchBots: string
+    selectSavedBot: string
+    switchBot: string
+
+    // Bot profile editor
+    botProfile: string
+    botProfileDesc: string
     
     // Appearance tab
     theme: string
@@ -193,6 +205,9 @@ export interface Translation {
     confirmClearData: string
     enterToken: string
     enterTokenToTest: string
+    botInfoUpdated: string
+    botInfoUpdateFailed: string
+    switchedBot: string
   }
 }
 
@@ -246,6 +261,7 @@ export const translations: Record<Language, Translation> = {
       botName: 'Tên',
       botUsername: 'Username',
       botDescription: 'Mô tả',
+      botShortDescription: 'Mô tả ngắn',
       botCommands: 'Danh sách lệnh',
       status: 'Trạng thái',
       deleteWebhook: 'Xóa webhook',
@@ -277,6 +293,8 @@ export const translations: Record<Language, Translation> = {
       moreOptions: 'Thêm tùy chọn',
       deleteChat: 'Xóa cuộc trò chuyện',
       deleteChatConfirm: 'Xóa cuộc trò chuyện này?',
+      clearHistory: 'Xóa lịch sử',
+      clearHistoryConfirm: 'Xóa toàn bộ lịch sử chat của cuộc trò chuyện này?',
       enterChatId: 'Nhập chat ID hoặc @username',
       noToken: 'Chưa có token',
       toggleTheme: 'Đổi giao diện',
@@ -320,6 +338,13 @@ export const translations: Record<Language, Translation> = {
       connectionNote1: 'Nếu nhận lỗi 409 khi polling, hãy xóa webhook trước',
       connectionNote2: 'Nếu bị lỗi CORS, hãy thêm proxy prefix',
       connectionNote3: 'Token sẽ được lưu trong localStorage của trình duyệt',
+
+      quickSwitchBots: 'Chuyển nhanh giữa các bot đã lưu',
+      selectSavedBot: 'Chọn bot đã lưu',
+      switchBot: 'Chuyển bot',
+
+      botProfile: 'Hồ sơ bot',
+      botProfileDesc: 'Đổi tên, mô tả và mô tả ngắn của bot',
 
       theme: 'Chế độ hiển thị',
       themeDesc: 'Tùy chỉnh màu sắc và ngôn ngữ hiển thị',
@@ -375,6 +400,9 @@ export const translations: Record<Language, Translation> = {
       confirmClearData: 'Bạn có chắc muốn xóa tất cả dữ liệu? Thao tác này không thể hoàn tác.',
       enterToken: 'Vui lòng nhập Bot Token',
       enterTokenToTest: 'Vui lòng nhập Bot Token để kiểm tra',
+      botInfoUpdated: 'Đã cập nhật thông tin bot!',
+      botInfoUpdateFailed: 'Cập nhật thông tin bot thất bại',
+      switchedBot: 'Đã chuyển bot',
     },
   },
 
@@ -427,6 +455,7 @@ export const translations: Record<Language, Translation> = {
       botName: 'Name',
       botUsername: 'Username',
       botDescription: 'Description',
+      botShortDescription: 'Short description',
       botCommands: 'Commands',
       status: 'Status',
       deleteWebhook: 'Delete webhook',
@@ -458,6 +487,8 @@ export const translations: Record<Language, Translation> = {
       moreOptions: 'More options',
       deleteChat: 'Delete chat',
       deleteChatConfirm: 'Delete this chat?',
+      clearHistory: 'Clear history',
+      clearHistoryConfirm: 'Clear all chat history for this conversation?',
       enterChatId: 'Enter chat ID or @username',
       noToken: 'No token',
       toggleTheme: 'Toggle theme',
@@ -501,6 +532,13 @@ export const translations: Record<Language, Translation> = {
       connectionNote1: 'If you get 409 error while polling, delete webhook first',
       connectionNote2: 'If you encounter CORS errors, add proxy prefix',
       connectionNote3: 'Token will be saved in browser localStorage',
+
+      quickSwitchBots: 'Quickly switch between saved bots',
+      selectSavedBot: 'Select saved bot',
+      switchBot: 'Switch bot',
+
+      botProfile: 'Bot profile',
+      botProfileDesc: 'Change bot name, description and short description',
 
       theme: 'Display Mode',
       themeDesc: 'Customize colors and display language',
@@ -556,6 +594,9 @@ export const translations: Record<Language, Translation> = {
       confirmClearData: 'Are you sure you want to delete all data? This action cannot be undone.',
       enterToken: 'Please enter Bot Token',
       enterTokenToTest: 'Please enter Bot Token to test',
+      botInfoUpdated: 'Bot info updated!',
+      botInfoUpdateFailed: 'Failed to update bot info',
+      switchedBot: 'Switched bot',
     },
   },
 }

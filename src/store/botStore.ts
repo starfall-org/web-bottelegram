@@ -127,13 +127,15 @@ export interface BotState {
   updatePreferences: (prefs: Partial<BotState['preferences']>) => void
   setLastUpdateId: (updateId: number) => void
   
-  // Chat actions - these now work with current bot
-  getOrCreateChat: (chatId: string, initialData?: Partial<Chat>) => Chat
-  addMessage: (chatId: string, message: Message) => boolean
-  removeMessage: (chatId: string, messageId: number | string) => boolean
-  updateMessage: (chatId: string, messageId: number | string, patch: Partial<Message>) => boolean
-  upsertMember: (chatId: string, member: Partial<ChatMember> & { id: string }) => ChatMember | null
-  removeMember: (chatId: string, userId: string) => boolean
+   // Chat actions - these now work with current bot
+    getOrCreateChat: (chatId: string, initialData?: Partial<Chat>) => Chat
+    addMessage: (chatId: string, message: Message) => boolean
+    removeMessage: (chatId: string, messageId: number | string) => boolean
+    updateMessage: (chatId: string, messageId: number | string, patch: Partial<Message>) => boolean
+    upsertMember: (chatId: string, member: Partial<ChatMember> & { id: string }) => ChatMember | null
+    removeMember: (chatId: string, userId: string) => boolean
+    clearChatHistory: (chatId: string) => boolean
+    deleteChat: (chatId: string) => boolean
   
   // Sticker storage
   addRecentSticker: (sticker: StickerEntry) => void
@@ -464,6 +466,66 @@ export const useBotStore = create<BotState>()(
         }
 
         return result
+      },
+
+      // Clear all messages of a specific chat (local only)
+      clearChatHistory: (chatId: string) => {
+        const state = get()
+        if (!state.token) return false
+
+        const currentBotData = state.botDataMap.get(state.token) || createDefaultBotData()
+        const chat = currentBotData.chats.get(chatId)
+        if (!chat) return false
+
+        const updatedChat: Chat = {
+          ...chat,
+          messages: [],
+          messageIds: new Set(),
+          lastText: '',
+          lastDate: 0,
+          unread: 0
+        }
+
+        const updatedChats = new Map(currentBotData.chats).set(chatId, updatedChat)
+        const updatedBotData = { ...currentBotData, chats: updatedChats }
+
+        set((state: BotState) => ({
+          botDataMap: new Map(state.botDataMap).set(state.token, updatedBotData)
+        }))
+
+        return true
+      },
+
+      // Delete a chat entirely from current bot (local only)
+      deleteChat: (chatId: string) => {
+        const state = get()
+        if (!state.token) return false
+
+        const currentBotData = state.botDataMap.get(state.token) || createDefaultBotData()
+
+        const updatedChats = new Map(currentBotData.chats)
+        const existed = updatedChats.delete(chatId)
+
+        if (!existed) return false
+
+        let nextActiveChatId = currentBotData.activeChatId
+        if (nextActiveChatId === chatId) {
+          const remaining = Array.from(updatedChats.values() as Iterable<Chat>)
+            .sort((a: Chat, b: Chat) => (b.lastDate || 0) - (a.lastDate || 0))
+          nextActiveChatId = remaining.length > 0 ? remaining[0].id : null
+        }
+
+        const updatedBotData = {
+          ...currentBotData,
+          chats: updatedChats,
+          activeChatId: nextActiveChatId
+        }
+
+        set((state: BotState) => ({
+          botDataMap: new Map(state.botDataMap).set(state.token, updatedBotData)
+        }))
+
+        return true
       },
 
       addRecentSticker: (sticker: StickerEntry) => {

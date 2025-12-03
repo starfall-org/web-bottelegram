@@ -13,6 +13,7 @@ export function useBotConnection() {
     getCurrentLastUpdateId,
     setLastUpdateId,
     addMessage,
+    updateMessage,
     getOrCreateChat,
     addRecentSticker
   } = useBotStore()
@@ -196,8 +197,28 @@ export function useBotConnection() {
         reply_preview: message.reply_to_message?.text?.substring(0, 50)
       }
 
-      // Add message to store
-      addMessage(chatId, newMessage)
+      // Add or update message to store
+      if (_isEdited) {
+        const patch: Partial<Message> = {
+          type: messageType,
+          text,
+          mediaUrl,
+          fileName,
+          ...(messageType === 'sticker' ? { stickerFormat, emoji: stickerEmoji } : {})
+        }
+        // If reply info is present in the edited payload, keep it in sync
+        if (message.reply_to_message) {
+          patch.reply_to = message.reply_to_message.message_id
+          patch.reply_preview = message.reply_to_message.text?.substring(0, 50)
+        }
+        const ok = updateMessage(chatId, message.message_id, patch)
+        if (!ok) {
+          // Fallback: in case original message wasn't in local state (e.g. reload), add it
+          addMessage(chatId, newMessage)
+        }
+      } else {
+        addMessage(chatId, newMessage)
+      }
     }
 
     // Initialize bot connection

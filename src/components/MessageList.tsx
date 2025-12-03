@@ -22,6 +22,8 @@ interface MessageItemProps {
   onReply?: (messageId: number | string) => void;
   onScrollToMessage?: (messageId: number | string) => void;
   showSenderName?: boolean;
+  // Display name of the author of the replied-to message
+  replySenderName?: string;
 }
 
 function MessageItem({
@@ -30,6 +32,7 @@ function MessageItem({
   onReply,
   onScrollToMessage,
   showSenderName = false,
+  replySenderName,
 }: MessageItemProps) {
   const isOwn = message.side === "right";
   const { t } = useTranslation();
@@ -202,7 +205,7 @@ function MessageItem({
                 onPointerDown={(e) => e.stopPropagation()}
               >
                 <div className="font-medium text-primary mb-0.5">
-                  {message.fromName || t("chat.you")}
+                  {replySenderName || t("chat.you")}
                 </div>
                 <div className="text-muted-foreground truncate">
                   {message.reply_preview}
@@ -326,6 +329,7 @@ function MessageItem({
 
 export function MessageList({ chatId }: MessageListProps) {
   const { getCurrentChats, setReplyTo, removeMessage } = useBotStore();
+  const { t } = useTranslation();
   const chats = getCurrentChats();
   const chat = chats?.get(chatId);
 
@@ -353,6 +357,7 @@ export function MessageList({ chatId }: MessageListProps) {
   }
 
   const isGroupChat = chat.type === "group" || chat.type === "supergroup";
+  const idMap = new Map(chat.messages.map((m: Message) => [m.id, m]));
 
   const handleDeleteMessage = async (
     messageId: number | string,
@@ -397,16 +402,23 @@ export function MessageList({ chatId }: MessageListProps) {
 
   return (
     <div className="space-y-3">
-      {chat.messages.map((message: Message) => (
-        <MessageItem
-          key={message.id}
-          message={message}
-          onDelete={handleDeleteMessage}
-          onReply={handleReplyToMessage}
-          onScrollToMessage={handleScrollToMessage}
-          showSenderName={isGroupChat}
-        />
-      ))}
+      {chat.messages.map((message: Message) => {
+        const replied = message.reply_to ? idMap.get(message.reply_to) : undefined;
+        const replySenderName =
+          replied ? (replied.side === "right" ? t("chat.you") : (replied.fromName || "Unknown")) : undefined;
+
+        return (
+          <MessageItem
+            key={message.id}
+            message={message}
+            onDelete={handleDeleteMessage}
+            onReply={handleReplyToMessage}
+            onScrollToMessage={handleScrollToMessage}
+            showSenderName={isGroupChat}
+            replySenderName={replySenderName}
+          />
+        );
+      })}
     </div>
   );
 }

@@ -44,11 +44,19 @@ export function SettingsDialog() {
   const [statusMessage, setStatusMessage] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [activeTab, setActiveTab] = useState('connection')
+
+  // Quick switch + Bot profile states
+  const [selectedBotToken, setSelectedBotToken] = useState('')
+  const [botName, setBotName] = useState('')
+  const [botUsernameInput, setBotUsernameInput] = useState('')
+  const [botDescription, setBotDescription] = useState('')
+  const [botShortDescription, setBotShortDescription] = useState('')
   
   const {
     token,
     setToken,
     getCurrentBotInfo,
+    setBotInfo,
     botDataMap,
     clearBotData,
     isConnected,
@@ -68,8 +76,17 @@ export function SettingsDialog() {
       setTokenInput(token)
       setProxyInput(localStorage.getItem('cors_proxy') || '')
       setStatusMessage('')
+
+      // Initialize quick switch selection
+      setSelectedBotToken(token || '')
+
+      // Initialize bot profile editor with current info
+      setBotName(botInfo.name || '')
+      setBotUsernameInput(botInfo.username || '')
+      setBotDescription(botInfo.description || '')
+      setBotShortDescription(botInfo.shortDescription || '')
     }
-  }, [open, token])
+  }, [open, token, botInfo])
 
   const showStatus = (message: string, _type: 'success' | 'error' | 'info' = 'info') => {
     setStatusMessage(message)
@@ -138,6 +155,30 @@ export function SettingsDialog() {
       showStatus(t('messages.webhookDeleteFailed'), 'error')
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  // Quick switch between saved bots (local only)
+  const handleSwitchBot = () => {
+    if (!selectedBotToken) return
+    setToken(selectedBotToken)
+    setTokenInput(selectedBotToken)
+    localStorage.setItem('bot_token', selectedBotToken)
+    showStatus(t('messages.switchedBot'), 'success')
+  }
+
+  // Update current bot info (local only)
+  const handleUpdateBotInfo = () => {
+    try {
+      setBotInfo({
+        name: botName || null,
+        username: botUsernameInput || null,
+        description: botDescription || null,
+        shortDescription: botShortDescription || null
+      })
+      showStatus(t('messages.botInfoUpdated'), 'success')
+    } catch {
+      showStatus(t('messages.botInfoUpdateFailed'), 'error')
     }
   }
 
@@ -286,6 +327,112 @@ export function SettingsDialog() {
                     <li>{t('settings.connectionNote2')}</li>
                     <li>{t('settings.connectionNote3')}</li>
                   </ul>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Quick Switch Bots */}
+            {botDataMap.size > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Bot className="h-5 w-5" />
+                    {t('settings.quickSwitchBots')}
+                  </CardTitle>
+                  <CardDescription>
+                    {t('settings.selectSavedBot')}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="md:col-span-2 space-y-2">
+                      <Label htmlFor="saved-bots">{t('settings.selectSavedBot')}</Label>
+                      <select
+                        id="saved-bots"
+                        value={selectedBotToken}
+                        onChange={(e) => setSelectedBotToken(e.target.value)}
+                        className="w-full h-9 px-3 rounded-md border bg-background text-sm"
+                      >
+                        {Array.from(botDataMap.entries()).map((entry) => {
+                          const [botToken, data] = entry as [string, BotData]
+                          const label =
+                            data.botInfo?.name ||
+                            data.botInfo?.username ||
+                            `Bot ${botToken.slice(0, 4)}…${botToken.slice(-4)}`
+                          return (
+                            <option key={botToken} value={botToken}>
+                              {label}
+                            </option>
+                          )
+                        })}
+                      </select>
+                    </div>
+                    <div className="flex items-end">
+                      <Button className="w-full" onClick={handleSwitchBot}>
+                        {t('settings.switchBot')}
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Bot Profile Editor (local-only) */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <User className="h-5 w-5" />
+                  {t('settings.botProfile')}
+                </CardTitle>
+                <CardDescription>
+                  {t('settings.botProfileDesc')}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="bot-name">{t('bot.botName')}</Label>
+                    <Input
+                      id="bot-name"
+                      value={botName}
+                      onChange={(e) => setBotName(e.target.value)}
+                      placeholder="My Telegram Bot"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="bot-username">{t('bot.botUsername')}</Label>
+                    <Input
+                      id="bot-username"
+                      value={botUsernameInput}
+                      onChange={(e) => setBotUsernameInput(e.target.value)}
+                      placeholder="@mybot"
+                    />
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <Label htmlFor="bot-short-desc">{t('bot.botShortDescription')}</Label>
+                    <Input
+                      id="bot-short-desc"
+                      value={botShortDescription}
+                      onChange={(e) => setBotShortDescription(e.target.value)}
+                      placeholder=""
+                    />
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <Label htmlFor="bot-desc">{t('bot.botDescription')}</Label>
+                    <textarea
+                      id="bot-desc"
+                      value={botDescription}
+                      onChange={(e) => setBotDescription(e.target.value)}
+                      rows={3}
+                      className="w-full px-3 py-2 rounded-md border bg-background text-sm"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end">
+                  <Button onClick={handleUpdateBotInfo}>
+                    {t('common.save')}
+                  </Button>
                 </div>
               </CardContent>
             </Card>

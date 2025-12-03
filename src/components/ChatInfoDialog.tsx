@@ -14,7 +14,7 @@ import { MoreVertical, Users, User, Info, Shield, Crown } from 'lucide-react'
 import { useTranslation } from '@/i18n/useTranslation'
 
 export function ChatInfoDialog() {
-  const { getCurrentActiveChatId, getCurrentChats } = useBotStore()
+  const { getCurrentActiveChatId, getCurrentChats, clearChatHistory, deleteChat } = useBotStore()
   const activeChatId = getCurrentActiveChatId()
   const chats = getCurrentChats()
   const chat = activeChatId ? chats?.get(activeChatId) : null
@@ -24,6 +24,18 @@ export function ChatInfoDialog() {
 
   const isGroup = chat.type === 'group' || chat.type === 'supergroup'
   const membersList = Array.from(chat.members.values())
+
+  const handleClearHistory = () => {
+    if (confirm(t('chat.clearHistoryConfirm'))) {
+      clearChatHistory(chat.id)
+    }
+  }
+
+  const handleDeleteChat = () => {
+    if (confirm(t('chat.deleteChatConfirm'))) {
+      deleteChat(chat.id)
+    }
+  }
 
   return (
     <Dialog>
@@ -126,6 +138,26 @@ export function ChatInfoDialog() {
                 </div>
               </div>
             )}
+          </div>
+
+          <Separator className="my-4" />
+          <div className="w-full mt-2 space-y-2">
+            <h3 className="text-sm font-semibold text-destructive">{t('settings.dangerZone')}</h3>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                className="border-destructive/50 text-destructive hover:bg-destructive/10"
+                onClick={handleClearHistory}
+              >
+                {t('chat.clearHistory')}
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleDeleteChat}
+              >
+                {t('chat.deleteChat')}
+              </Button>
+            </div>
           </div>
         </ScrollArea>
       </DialogContent>
