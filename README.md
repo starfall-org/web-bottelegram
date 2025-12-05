@@ -115,6 +115,7 @@ Language can be switched in Settings > Appearance > Language.
 ## Settings Features
 
 ### Connection Tab
+
 - Bot token configuration
 - CORS proxy setup
 - Connection testing
@@ -123,17 +124,20 @@ Language can be switched in Settings > Appearance > Language.
 - Data clearing
 
 ### Appearance Tab
+
 - Theme selection (Light/Dark/System)
 - Language switching
 - Real-time theme preview
 
 ### Preferences Tab
+
 - Auto-scroll behavior
 - Notification sounds
 - Push notifications
 - Application preferences
 
 ### About Tab
+
 - Version information
 - Framework details
 - Polling status

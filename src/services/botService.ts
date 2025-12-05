@@ -1,594 +1,724 @@
 import { Bot, GrammyError, HttpError, InputFile } from "grammy";
 
 export interface BotConfig {
-  token: string;
-  proxyPrefix?: string;
+    token: string;
+    proxyPrefix?: string;
 }
 
 export interface TelegramUpdate {
-  update_id: number;
-  message?: any;
-  edited_message?: any;
-  channel_post?: any;
-  edited_channel_post?: any;
+    update_id: number;
+    message?: any;
+    edited_message?: any;
+    channel_post?: any;
+    edited_channel_post?: any;
 }
 
 export class BotService {
-  private bot: Bot | null = null;
-  private config: BotConfig | null = null;
-  private isPolling = false;
-  private lastUpdateId = 0;
-  private pollingInterval: number | null = null;
-  private updateCallback: ((updates: TelegramUpdate[]) => void) | null = null;
-
-  constructor() {}
-
-  setConfig(config: BotConfig) {
-    this.config = config;
-    if (this.bot) {
-      this.stop();
-    }
-    this.bot = new Bot(config.token);
-    this.setupBot();
-  }
-
-  private setupBot() {
-    if (!this.bot) return;
-
-    this.bot.command("start", (ctx) =>
-      ctx.reply(
-        "Attention! This bot is logging in Bottlegram service. Your messages will be watched by human."
-      )
-    );
-
-    this.bot.catch((err) => {
-      const ctx = err.ctx;
-      console.error(`Error while handling update ${ctx.update.update_id}:`);
-      const e = err.error;
-      if (e instanceof GrammyError) {
-        console.error("Error in request:", e.description);
-      } else if (e instanceof HttpError) {
-        console.error("Could not contact Telegram:", e);
-      } else {
-        console.error("Unknown error:", e);
-      }
-    });
-  }
-
-  async getMe() {
-    if (!this.bot) throw new Error("Bot not initialized");
-
-    try {
-      const me = await this.bot.api.getMe();
-      return { ok: true, result: me };
-    } catch (error) {
-      return {
-        ok: false,
-        description: error instanceof Error ? error.message : "Unknown error",
-      };
-    }
-  }
-
-  async getUpdates(
-    offset?: number,
-    timeout = 0
-  ): Promise<{
-    ok: boolean;
-    result?: TelegramUpdate[];
-    description?: string;
-    error_code?: number;
-  }> {
-    if (!this.bot) throw new Error("Bot not initialized");
-
-    try {
-      const updates = await this.bot.api.getUpdates({
-        offset,
-        timeout,
-        allowed_updates: [
-          "message",
-          "edited_message",
-          "channel_post",
-          "edited_channel_post",
-        ],
-      });
-      return { ok: true, result: updates };
-    } catch (error: any) {
-      return {
-        ok: false,
-        description: error.description || error.message || "Unknown error",
-        error_code: error.error_code || 0,
-      };
-    }
-  }
-
-  async sendMessage(
-    chatId: string | number,
-    text: string,
-    options: {
-      reply_to_message_id?: number;
-      parse_mode?: "HTML" | "Markdown" | "MarkdownV2";
-    } = {}
-  ) {
-    if (!this.bot) throw new Error("Bot not initialized");
-
-    try {
-      console.debug(`[BotService] Sending message to ${chatId}:`, text);
-      const message = await this.bot.api.sendMessage(chatId, text, options);
-      console.debug("[BotService] Message sent:", message);
-      return { ok: true, result: message };
-    } catch (error: any) {
-      console.error("[BotService] Send message error:", error);
-      return {
-        ok: false,
-        description: error.description || error.message || "Unknown error",
-      };
-    }
-  }
-
-  async sendPhoto(
-    chatId: string | number,
-    photo: string | InputFile,
-    options: {
-      caption?: string;
-      reply_to_message_id?: number;
-    } = {}
-  ) {
-    if (!this.bot) throw new Error("Bot not initialized");
-
-    try {
-      const message = await this.bot.api.sendPhoto(chatId, photo, options);
-      return { ok: true, result: message };
-    } catch (error: any) {
-      return {
-        ok: false,
-        description: error.description || error.message || "Unknown error",
-      };
-    }
-  }
-
-  async sendVideo(
-    chatId: string | number,
-    video: string | InputFile,
-    options: {
-      caption?: string;
-      reply_to_message_id?: number;
-    } = {}
-  ) {
-    if (!this.bot) throw new Error("Bot not initialized");
-
-    try {
-      const message = await this.bot.api.sendVideo(chatId, video, options);
-      return { ok: true, result: message };
-    } catch (error: any) {
-      return {
-        ok: false,
-        description: error.description || error.message || "Unknown error",
-      };
-    }
-  }
-
-  async sendAudio(
-    chatId: string | number,
-    audio: string | InputFile,
-    options: {
-      caption?: string;
-      reply_to_message_id?: number;
-    } = {}
-  ) {
-    if (!this.bot) throw new Error("Bot not initialized");
-
-    try {
-      const message = await this.bot.api.sendAudio(chatId, audio, options);
-      return { ok: true, result: message };
-    } catch (error: any) {
-      return {
-        ok: false,
-        description: error.description || error.message || "Unknown error",
-      };
-    }
-  }
-
-  async sendDocument(
-    chatId: string | number,
-    document: string | InputFile,
-    options: {
-      caption?: string;
-      reply_to_message_id?: number;
-    } = {}
-  ) {
-    if (!this.bot) throw new Error("Bot not initialized");
-
-    try {
-      const message = await this.bot.api.sendDocument(
-        chatId,
-        document,
-        options
-      );
-      return { ok: true, result: message };
-    } catch (error: any) {
-      return {
-        ok: false,
-        description: error.description || error.message || "Unknown error",
-      };
-    }
-  }
-
-  async editMessageText(
-    chatId: string | number,
-    messageId: number,
-    text: string,
-    options: {
-      parse_mode?: "HTML" | "Markdown" | "MarkdownV2";
-    } = {}
-  ) {
-    if (!this.bot) throw new Error("Bot not initialized");
-
-    try {
-      const result = await this.bot.api.editMessageText(chatId, messageId, text, options);
-      return { ok: true, result };
-    } catch (error: any) {
-      return {
-        ok: false,
-        description: error.description || error.message || "Unknown error",
-      };
-    }
-  }
-
-  async sendSticker(chatId: string | number, sticker: string | InputFile) {
-    if (!this.bot) throw new Error("Bot not initialized");
-
-    try {
-      const message = await this.bot.api.sendSticker(chatId, sticker);
-      return { ok: true, result: message };
-    } catch (error: any) {
-      return {
-        ok: false,
-        description: error.description || error.message || "Unknown error",
-      };
-    }
-  }
-
-  async deleteMessage(chatId: string | number, messageId: number) {
-    if (!this.bot) throw new Error("Bot not initialized");
-
-    try {
-      const result = await this.bot.api.deleteMessage(chatId, messageId);
-      return { ok: true, result };
-    } catch (error: any) {
-      return {
-        ok: false,
-        description: error.description || error.message || "Unknown error",
-      };
-    }
-  }
-
-  async sendChatAction(chatId: string | number, action: string) {
-    if (!this.bot) throw new Error("Bot not initialized");
-
-    try {
-      const result = await this.bot.api.sendChatAction(chatId, action as any);
-      return { ok: true, result };
-    } catch (error: any) {
-      return {
-        ok: false,
-        description: error.description || error.message || "Unknown error",
-      };
-    }
-  }
-
-  async getFile(fileId: string) {
-    if (!this.bot) throw new Error("Bot not initialized");
-
-    try {
-      const file = await this.bot.api.getFile(fileId);
-      return { ok: true, result: file };
-    } catch (error: any) {
-      return {
-        ok: false,
-        description: error.description || error.message || "Unknown error",
-      };
-    }
-  }
-
-  async getChat(chatId: string | number) {
-    if (!this.bot) throw new Error("Bot not initialized");
-
-    try {
-      const chat = await this.bot.api.getChat(chatId);
-      return { ok: true, result: chat };
-    } catch (error: any) {
-      return {
-        ok: false,
-        description: error.description || error.message || "Unknown error",
-      };
-    }
-  }
-
-  async getChatAdministrators(chatId: string | number) {
-    if (!this.bot) throw new Error("Bot not initialized");
-
-    try {
-      const admins = await this.bot.api.getChatAdministrators(chatId);
-      return { ok: true, result: admins };
-    } catch (error: any) {
-      return {
-        ok: false,
-        description: error.description || error.message || "Unknown error",
-      };
-    }
-  }
-
-  async banChatMember(
-    chatId: string | number,
-    userId: number,
-    options: {
-      until_date?: number;
-      revoke_messages?: boolean;
-    } = {}
-  ) {
-    if (!this.bot) throw new Error("Bot not initialized");
-
-    try {
-      const result = await this.bot.api.banChatMember(chatId, userId, options);
-      return { ok: true, result };
-    } catch (error: any) {
-      return {
-        ok: false,
-        description: error.description || error.message || "Unknown error",
-      };
-    }
-  }
-
-  async promoteChatMember(
-    chatId: string | number,
-    userId: number,
-    permissions: any = {}
-  ) {
-    if (!this.bot) throw new Error("Bot not initialized");
-
-    try {
-      const result = await this.bot.api.promoteChatMember(chatId, userId, {
-        can_manage_chat: permissions.can_manage_chat !== false,
-        can_delete_messages: permissions.can_delete_messages !== false,
-        can_manage_video_chats: permissions.can_manage_video_chats !== false,
-        can_restrict_members: permissions.can_restrict_members !== false,
-        can_promote_members: permissions.can_promote_members || false,
-        can_change_info: permissions.can_change_info !== false,
-        can_invite_users: permissions.can_invite_users !== false,
-        can_pin_messages: permissions.can_pin_messages !== false,
-        is_anonymous: permissions.is_anonymous || false,
-      });
-      return { ok: true, result };
-    } catch (error: any) {
-      return {
-        ok: false,
-        description: error.description || error.message || "Unknown error",
-      };
-    }
-  }
-
-  async deleteWebhook(dropPendingUpdates = false) {
-    if (!this.bot) throw new Error("Bot not initialized");
-
-    try {
-      const result = await this.bot.api.deleteWebhook({
-        drop_pending_updates: dropPendingUpdates,
-      });
-      return { ok: true, result };
-    } catch (error: any) {
-      return {
-        ok: false,
-        description: error.description || error.message || "Unknown error",
-      };
-    }
-  }
-
-  async getMyCommands() {
-    if (!this.bot) throw new Error("Bot not initialized");
-
-    try {
-      const commands = await this.bot.api.getMyCommands();
-      return { ok: true, result: commands };
-    } catch (error: any) {
-      return {
-        ok: false,
-        description: error.description || error.message || "Unknown error",
-      };
-    }
-  }
-
-  async setMyCommands(
-    commands: Array<{ command: string; description: string }>,
-    options: { scope?: any; language_code?: string } = {}
-  ) {
-    if (!this.bot) throw new Error("Bot not initialized");
-
-    try {
-      const result = await this.bot.api.setMyCommands(commands as any, options as any);
-      return { ok: true, result };
-    } catch (error: any) {
-      return {
-        ok: false,
-        description: error.description || error.message || "Unknown error",
-      };
-    }
-  }
-
-  async setMyName(name?: string, language_code?: string) {
-    if (!this.bot) throw new Error("Bot not initialized");
-
-    try {
-      const result = await this.bot.api.setMyName({ name, language_code } as any);
-      return { ok: true, result };
-    } catch (error: any) {
-      return {
-        ok: false,
-        description: error.description || error.message || "Unknown error",
-      };
-    }
-  }
-
-  async setMyDescription(description?: string, language_code?: string) {
-    if (!this.bot) throw new Error("Bot not initialized");
-
-    try {
-      const result = await this.bot.api.setMyDescription({ description, language_code } as any);
-      return { ok: true, result };
-    } catch (error: any) {
-      return {
-        ok: false,
-        description: error.description || error.message || "Unknown error",
-      };
-    }
-  }
-
-  async setMyShortDescription(short_description?: string, language_code?: string) {
-    if (!this.bot) throw new Error("Bot not initialized");
-
-    try {
-      const result = await this.bot.api.setMyShortDescription({ short_description, language_code } as any);
-      return { ok: true, result };
-    } catch (error: any) {
-      return {
-        ok: false,
-        description: error.description || error.message || "Unknown error",
-      };
-    }
-  }
-
-  async getMyDescription(language_code?: string) {
-    if (!this.bot) throw new Error("Bot not initialized");
-
-    try {
-      const result = await this.bot.api.getMyDescription({ language_code } as any);
-      return { ok: true, result };
-    } catch (error: any) {
-      return {
-        ok: false,
-        description: error.description || error.message || "Unknown error",
-      };
-    }
-  }
-
-  async getMyShortDescription(language_code?: string) {
-    if (!this.bot) throw new Error("Bot not initialized");
-
-    try {
-      const result = await this.bot.api.getMyShortDescription({ language_code } as any);
-      return { ok: true, result };
-    } catch (error: any) {
-      return {
-        ok: false,
-        description: error.description || error.message || "Unknown error",
-      };
-    }
-  }
-
-  getFileUrl(filePath: string): string {
-    if (!this.config) throw new Error("Bot not configured");
-
-    const baseUrl = `https://api.telegram.org/file/bot${this.config.token}/${filePath}`;
-    return this.config.proxyPrefix
-      ? `${this.config.proxyPrefix.replace(/\/+$/, "")}/${baseUrl}`
-      : baseUrl;
-  }
-
-  async startPolling(
-    updateCallback?: (updates: TelegramUpdate[]) => void,
-    statusCallback?: (
-      status: "idle" | "polling" | "error",
-      error?: string | null
-    ) => void
-  ) {
-    if (!this.bot) throw new Error("Bot not initialized");
-    if (this.isPolling) return;
-
-    this.updateCallback = updateCallback || null;
-    this.isPolling = true;
-
-    if (statusCallback) statusCallback("polling");
-
-    const poll = async () => {
-      if (!this.isPolling) return;
-
-      try {
-        console.debug("[BotService] Polling for updates...");
-        const response = await this.getUpdates(this.lastUpdateId + 1, 30);
-
-        if (response.ok) {
-          if (statusCallback) statusCallback("polling");
-
-          if (response.result && response.result.length > 0) {
-            const updates = response.result;
-            console.debug(`[BotService] Received ${updates.length} updates`);
-
-            // Update lastUpdateId
-            this.lastUpdateId = updates[updates.length - 1].update_id;
-
-            // Call update callback if provided
-            if (this.updateCallback) {
-              this.updateCallback(updates);
-            }
-          }
-        } else {
-          console.error("[BotService] Polling failed:", response.description);
-          if (statusCallback) statusCallback("error", response.description);
-
-          // Handle 409 Conflict specifically
-          if (response.error_code === 409) {
-            console.error("[BotService] Conflict detected, stopping polling");
+    private bot: Bot | null = null;
+    private config: BotConfig | null = null;
+    private isRunning = false;
+    private updateCallback: ((updates: TelegramUpdate[]) => void) | null = null;
+    private statusCallback:
+        | ((
+              status: "idle" | "polling" | "error",
+              error?: string | null,
+          ) => void)
+        | null = null;
+
+    constructor() {}
+
+    setConfig(config: BotConfig) {
+        this.config = config;
+        if (this.bot) {
             this.stop();
-            if (statusCallback)
-              statusCallback(
-                "error",
-                "Conflict: Another bot instance is running"
-              );
-            return;
-          }
         }
-      } catch (error: any) {
-        console.error("[BotService] Polling error:", error);
-        if (statusCallback)
-          statusCallback("error", error.message || "Unknown error");
-        // Continue polling even if there's an error, unless stopped
-      }
 
-      // Schedule next poll
-      if (this.isPolling) {
-        this.pollingInterval = setTimeout(poll, 1000) as any;
-      }
-    };
+        // Create bot with custom API root for CORS proxy support
+        const botOptions: any = {};
 
-    // Start polling
-    poll();
-  }
+        if (config.proxyPrefix) {
+            // Format: proxy should forward to https://api.telegram.org
+            // e.g., proxyPrefix = "https://cors-proxy.example.com"
+            // will call: https://cors-proxy.example.com/bot{token}/method
+            const apiRoot = config.proxyPrefix.replace(/\/+$/, "");
+            botOptions.client = {
+                apiRoot: apiRoot,
+            };
+            console.debug("[BotService] Using proxy apiRoot:", apiRoot);
+        }
 
-  stop() {
-    this.isPolling = false;
-    if (this.pollingInterval) {
-      clearTimeout(this.pollingInterval);
-      this.pollingInterval = null;
+        this.bot = new Bot(config.token, botOptions);
+        this.setupBot();
     }
-    if (this.bot) {
-      try {
-        this.bot.stop();
-      } catch (error) {
-        console.error("Error stopping bot:", error);
-      }
+
+    private setupBot() {
+        if (!this.bot) return;
+
+        // Handle all updates via middleware
+        this.bot.on("message", (ctx) => {
+            if (this.updateCallback) {
+                const update: TelegramUpdate = {
+                    update_id: ctx.update.update_id,
+                    message: ctx.update.message,
+                };
+                this.updateCallback([update]);
+            }
+        });
+
+        this.bot.on("edited_message", (ctx) => {
+            if (this.updateCallback) {
+                const update: TelegramUpdate = {
+                    update_id: ctx.update.update_id,
+                    edited_message: ctx.update.edited_message,
+                };
+                this.updateCallback([update]);
+            }
+        });
+
+        this.bot.on("channel_post", (ctx) => {
+            if (this.updateCallback) {
+                const update: TelegramUpdate = {
+                    update_id: ctx.update.update_id,
+                    channel_post: ctx.update.channel_post,
+                };
+                this.updateCallback([update]);
+            }
+        });
+
+        this.bot.on("edited_channel_post", (ctx) => {
+            if (this.updateCallback) {
+                const update: TelegramUpdate = {
+                    update_id: ctx.update.update_id,
+                    edited_channel_post: ctx.update.edited_channel_post,
+                };
+                this.updateCallback([update]);
+            }
+        });
+
+        // Error handler
+        this.bot.catch((err) => {
+            const ctx = err.ctx;
+            console.error(
+                `[BotService] Error while handling update ${ctx.update.update_id}:`,
+            );
+            const e = err.error;
+            if (e instanceof GrammyError) {
+                console.error("[BotService] Grammy error:", e.description);
+                if (this.statusCallback) {
+                    this.statusCallback("error", e.description);
+                }
+            } else if (e instanceof HttpError) {
+                console.error("[BotService] HTTP error:", e);
+                if (this.statusCallback) {
+                    this.statusCallback("error", e.message);
+                }
+            } else {
+                console.error("[BotService] Unknown error:", e);
+                if (this.statusCallback) {
+                    this.statusCallback("error", String(e));
+                }
+            }
+        });
     }
-  }
 
-  isRunning(): boolean {
-    return this.isPolling;
-  }
+    async getUpdates(
+        offset?: number,
+        timeout = 30,
+    ): Promise<{
+        ok: boolean;
+        result?: TelegramUpdate[];
+        description?: string;
+        error_code?: number;
+    }> {
+        if (!this.bot) throw new Error("Bot not initialized");
 
-  setLastUpdateId(updateId: number) {
-    this.lastUpdateId = updateId;
-  }
+        try {
+            const updates = await this.bot.api.getUpdates({
+                offset,
+                timeout,
+                allowed_updates: [
+                    "message",
+                    "edited_message",
+                    "channel_post",
+                    "edited_channel_post",
+                ],
+            });
+            return { ok: true, result: updates };
+        } catch (error: any) {
+            return {
+                ok: false,
+                description:
+                    error.description || error.message || "Unknown error",
+                error_code: error.error_code || 0,
+            };
+        }
+    }
 
-  getLastUpdateId(): number {
-    return this.lastUpdateId;
-  }
+    async getMe() {
+        if (!this.bot) throw new Error("Bot not initialized");
+
+        try {
+            const me = await this.bot.api.getMe();
+            return { ok: true, result: me };
+        } catch (error) {
+            return {
+                ok: false,
+                description:
+                    error instanceof Error ? error.message : "Unknown error",
+            };
+        }
+    }
+
+    async sendMessage(
+        chatId: number | string,
+        text: string,
+        options?: {
+            parse_mode?: "HTML" | "Markdown" | "MarkdownV2";
+            reply_to_message_id?: number;
+        },
+    ) {
+        if (!this.bot) throw new Error("Bot not initialized");
+
+        try {
+            const message = await this.bot.api.sendMessage(chatId, text, {
+                parse_mode: options?.parse_mode,
+                reply_parameters: options?.reply_to_message_id
+                    ? { message_id: options.reply_to_message_id }
+                    : undefined,
+            });
+            return { ok: true, result: message };
+        } catch (error) {
+            return {
+                ok: false,
+                description:
+                    error instanceof Error ? error.message : "Unknown error",
+            };
+        }
+    }
+
+    async sendPhoto(
+        chatId: number | string,
+        photo: string | File,
+        options?: { caption?: string; reply_to_message_id?: number },
+    ) {
+        if (!this.bot) throw new Error("Bot not initialized");
+
+        try {
+            let input;
+            if (typeof photo === "string") {
+                input = photo;
+            } else {
+                // Convert File to Uint8Array for InputFile compatibility
+                const arrayBuffer = await photo.arrayBuffer();
+                const uint8Array = new Uint8Array(arrayBuffer);
+                input = new InputFile(uint8Array, photo.name || "photo.jpg");
+            }
+            const message = await this.bot.api.sendPhoto(chatId, input, {
+                caption: options?.caption,
+                reply_parameters: options?.reply_to_message_id
+                    ? { message_id: options.reply_to_message_id }
+                    : undefined,
+            });
+            return { ok: true, result: message };
+        } catch (error) {
+            return {
+                ok: false,
+                description:
+                    error instanceof Error ? error.message : "Unknown error",
+            };
+        }
+    }
+
+    async sendVideo(
+        chatId: number | string,
+        video: string | File,
+        options?: { caption?: string; reply_to_message_id?: number },
+    ) {
+        if (!this.bot) throw new Error("Bot not initialized");
+
+        try {
+            let input;
+            if (typeof video === "string") {
+                input = video;
+            } else {
+                const arrayBuffer = await video.arrayBuffer();
+                const uint8Array = new Uint8Array(arrayBuffer);
+                input = new InputFile(uint8Array, video.name || "video.mp4");
+            }
+            const message = await this.bot.api.sendVideo(chatId, input, {
+                caption: options?.caption,
+                reply_parameters: options?.reply_to_message_id
+                    ? { message_id: options.reply_to_message_id }
+                    : undefined,
+            });
+            return { ok: true, result: message };
+        } catch (error) {
+            return {
+                ok: false,
+                description:
+                    error instanceof Error ? error.message : "Unknown error",
+            };
+        }
+    }
+
+    async sendAudio(
+        chatId: number | string,
+        audio: string | File,
+        options?: { caption?: string; reply_to_message_id?: number },
+    ) {
+        if (!this.bot) throw new Error("Bot not initialized");
+
+        try {
+            let input;
+            if (typeof audio === "string") {
+                input = audio;
+            } else {
+                const arrayBuffer = await audio.arrayBuffer();
+                const uint8Array = new Uint8Array(arrayBuffer);
+                input = new InputFile(uint8Array, audio.name || "audio.mp3");
+            }
+            const message = await this.bot.api.sendAudio(chatId, input, {
+                caption: options?.caption,
+                reply_parameters: options?.reply_to_message_id
+                    ? { message_id: options.reply_to_message_id }
+                    : undefined,
+            });
+            return { ok: true, result: message };
+        } catch (error) {
+            return {
+                ok: false,
+                description:
+                    error instanceof Error ? error.message : "Unknown error",
+            };
+        }
+    }
+
+    async sendDocument(
+        chatId: number | string,
+        document: string | File,
+        options?: { caption?: string; reply_to_message_id?: number },
+    ) {
+        if (!this.bot) throw new Error("Bot not initialized");
+
+        try {
+            let input;
+            if (typeof document === "string") {
+                input = document;
+            } else {
+                const arrayBuffer = await document.arrayBuffer();
+                const uint8Array = new Uint8Array(arrayBuffer);
+                input = new InputFile(uint8Array, document.name || "document");
+            }
+            const message = await this.bot.api.sendDocument(chatId, input, {
+                caption: options?.caption,
+                reply_parameters: options?.reply_to_message_id
+                    ? { message_id: options.reply_to_message_id }
+                    : undefined,
+            });
+            return { ok: true, result: message };
+        } catch (error) {
+            return {
+                ok: false,
+                description:
+                    error instanceof Error ? error.message : "Unknown error",
+            };
+        }
+    }
+
+    async editMessageText(
+        chatId: number | string,
+        messageId: number,
+        text: string,
+        options?: { parse_mode?: "HTML" | "Markdown" | "MarkdownV2" },
+    ) {
+        if (!this.bot) throw new Error("Bot not initialized");
+
+        try {
+            const result = await this.bot.api.editMessageText(
+                chatId,
+                messageId,
+                text,
+                { parse_mode: options?.parse_mode },
+            );
+            return { ok: true, result };
+        } catch (error) {
+            return {
+                ok: false,
+                description:
+                    error instanceof Error ? error.message : "Unknown error",
+            };
+        }
+    }
+
+    async sendSticker(chatId: number | string, sticker: string) {
+        if (!this.bot) throw new Error("Bot not initialized");
+
+        try {
+            const message = await this.bot.api.sendSticker(chatId, sticker);
+            return { ok: true, result: message };
+        } catch (error) {
+            return {
+                ok: false,
+                description:
+                    error instanceof Error ? error.message : "Unknown error",
+            };
+        }
+    }
+
+    async deleteMessage(chatId: number | string, messageId: number) {
+        if (!this.bot) throw new Error("Bot not initialized");
+
+        try {
+            const result = await this.bot.api.deleteMessage(chatId, messageId);
+            return { ok: true, result };
+        } catch (error) {
+            return {
+                ok: false,
+                description:
+                    error instanceof Error ? error.message : "Unknown error",
+            };
+        }
+    }
+
+    async sendChatAction(
+        chatId: number | string,
+        action:
+            | "typing"
+            | "upload_photo"
+            | "upload_video"
+            | "upload_voice"
+            | "upload_document",
+    ) {
+        if (!this.bot) throw new Error("Bot not initialized");
+
+        try {
+            const result = await this.bot.api.sendChatAction(chatId, action);
+            return { ok: true, result };
+        } catch (error) {
+            return {
+                ok: false,
+                description:
+                    error instanceof Error ? error.message : "Unknown error",
+            };
+        }
+    }
+
+    async getFile(fileId: string) {
+        if (!this.bot) throw new Error("Bot not initialized");
+
+        try {
+            const file = await this.bot.api.getFile(fileId);
+            return { ok: true, result: file };
+        } catch (error) {
+            return {
+                ok: false,
+                description:
+                    error instanceof Error ? error.message : "Unknown error",
+            };
+        }
+    }
+
+    async getChat(chatId: number | string) {
+        if (!this.bot) throw new Error("Bot not initialized");
+
+        try {
+            const chat = await this.bot.api.getChat(chatId);
+            return { ok: true, result: chat };
+        } catch (error) {
+            return {
+                ok: false,
+                description:
+                    error instanceof Error ? error.message : "Unknown error",
+            };
+        }
+    }
+
+    async getChatAdministrators(chatId: number | string) {
+        if (!this.bot) throw new Error("Bot not initialized");
+
+        try {
+            const admins = await this.bot.api.getChatAdministrators(chatId);
+            return { ok: true, result: admins };
+        } catch (error) {
+            return {
+                ok: false,
+                description:
+                    error instanceof Error ? error.message : "Unknown error",
+            };
+        }
+    }
+
+    async banChatMember(
+        chatId: number | string,
+        userId: number,
+        untilDate?: number,
+    ) {
+        if (!this.bot) throw new Error("Bot not initialized");
+
+        try {
+            const result = await this.bot.api.banChatMember(chatId, userId, {
+                until_date: untilDate,
+            });
+            return { ok: true, result };
+        } catch (error) {
+            return {
+                ok: false,
+                description:
+                    error instanceof Error ? error.message : "Unknown error",
+            };
+        }
+    }
+
+    async promoteChatMember(
+        chatId: number | string,
+        userId: number,
+        isAdmin: boolean,
+    ) {
+        if (!this.bot) throw new Error("Bot not initialized");
+
+        try {
+            const result = await this.bot.api.promoteChatMember(
+                chatId,
+                userId,
+                {
+                    can_manage_chat: isAdmin,
+                    can_delete_messages: isAdmin,
+                    can_manage_video_chats: isAdmin,
+                    can_restrict_members: isAdmin,
+                    can_promote_members: false,
+                    can_change_info: isAdmin,
+                    can_invite_users: isAdmin,
+                    can_pin_messages: isAdmin,
+                    is_anonymous: false,
+                },
+            );
+            return { ok: true, result };
+        } catch (error) {
+            return {
+                ok: false,
+                description:
+                    error instanceof Error ? error.message : "Unknown error",
+            };
+        }
+    }
+
+    async deleteWebhook(dropPendingUpdates = false) {
+        if (!this.bot) throw new Error("Bot not initialized");
+
+        try {
+            const result = await this.bot.api.deleteWebhook({
+                drop_pending_updates: dropPendingUpdates,
+            });
+            return { ok: true, result };
+        } catch (error) {
+            return {
+                ok: false,
+                description:
+                    error instanceof Error ? error.message : "Unknown error",
+            };
+        }
+    }
+
+    async getMyCommands() {
+        if (!this.bot) throw new Error("Bot not initialized");
+
+        try {
+            const commands = await this.bot.api.getMyCommands();
+            return { ok: true, result: commands };
+        } catch (error) {
+            return {
+                ok: false,
+                description:
+                    error instanceof Error ? error.message : "Unknown error",
+            };
+        }
+    }
+
+    async setMyCommands(
+        commands: Array<{ command: string; description: string }>,
+    ) {
+        if (!this.bot) throw new Error("Bot not initialized");
+
+        try {
+            const result = await this.bot.api.setMyCommands(commands);
+            return { ok: true, result };
+        } catch (error) {
+            return {
+                ok: false,
+                description:
+                    error instanceof Error ? error.message : "Unknown error",
+            };
+        }
+    }
+
+    async setMyName(name?: string) {
+        if (!this.bot) throw new Error("Bot not initialized");
+
+        try {
+            const result = await this.bot.api.setMyName(name || "");
+            return { ok: true, result };
+        } catch (error) {
+            return {
+                ok: false,
+                description:
+                    error instanceof Error ? error.message : "Unknown error",
+            };
+        }
+    }
+
+    async setMyDescription(description?: string) {
+        if (!this.bot) throw new Error("Bot not initialized");
+
+        try {
+            const result = await this.bot.api.setMyDescription(
+                description || "",
+            );
+            return { ok: true, result };
+        } catch (error) {
+            return {
+                ok: false,
+                description:
+                    error instanceof Error ? error.message : "Unknown error",
+            };
+        }
+    }
+
+    async setMyShortDescription(shortDescription?: string) {
+        if (!this.bot) throw new Error("Bot not initialized");
+
+        try {
+            const result = await this.bot.api.setMyShortDescription(
+                shortDescription || "",
+            );
+            return { ok: true, result };
+        } catch (error) {
+            return {
+                ok: false,
+                description:
+                    error instanceof Error ? error.message : "Unknown error",
+            };
+        }
+    }
+
+    async getMyDescription() {
+        if (!this.bot) throw new Error("Bot not initialized");
+
+        try {
+            const result = await this.bot.api.getMyDescription();
+            return { ok: true, result };
+        } catch (error) {
+            return {
+                ok: false,
+                description:
+                    error instanceof Error ? error.message : "Unknown error",
+            };
+        }
+    }
+
+    async getMyShortDescription() {
+        if (!this.bot) throw new Error("Bot not initialized");
+
+        try {
+            const result = await this.bot.api.getMyShortDescription();
+            return { ok: true, result };
+        } catch (error) {
+            return {
+                ok: false,
+                description:
+                    error instanceof Error ? error.message : "Unknown error",
+            };
+        }
+    }
+
+    getFileUrl(filePath: string): string {
+        if (!this.config) throw new Error("Bot not configured");
+
+        // Use proxy if configured, otherwise direct Telegram URL
+        if (this.config.proxyPrefix) {
+            const proxyBase = this.config.proxyPrefix.replace(/\/+$/, "");
+            return `${proxyBase}/file/bot${this.config.token}/${filePath}`;
+        }
+
+        const baseUrl = `https://api.telegram.org/file/bot${this.config.token}`;
+        return `${baseUrl}/${filePath}`;
+    }
+
+    /**
+     * Start polling for updates using grammy's built-in bot.start()
+     */
+    async start(
+        updateCallback?: (updates: TelegramUpdate[]) => void,
+        statusCallback?: (
+            status: "idle" | "polling" | "error",
+            error?: string | null,
+        ) => void,
+    ) {
+        if (!this.bot) throw new Error("Bot not initialized");
+        if (this.isRunning) {
+            console.debug("[BotService] Bot is already running");
+            return;
+        }
+
+        this.updateCallback = updateCallback || null;
+        this.statusCallback = statusCallback || null;
+        this.isRunning = true;
+
+        console.debug(
+            "[BotService] Starting grammy polling with bot.start()...",
+        );
+
+        if (statusCallback) statusCallback("polling");
+
+        // Start grammy's built-in polling (non-blocking)
+        this.bot.start({
+            allowed_updates: [
+                "message",
+                "edited_message",
+                "channel_post",
+                "edited_channel_post",
+            ],
+            onStart: (botInfo) => {
+                console.debug("[BotService] Bot started:", botInfo.username);
+            },
+        });
+    }
+
+    /**
+     * Stop the bot gracefully
+     */
+    async stop() {
+        if (!this.isRunning) return;
+
+        console.debug("[BotService] Stopping bot...");
+        this.isRunning = false;
+
+        if (this.bot) {
+            try {
+                await this.bot.stop();
+                console.debug("[BotService] Bot stopped successfully");
+            } catch (error) {
+                console.error("[BotService] Error stopping bot:", error);
+            }
+        }
+
+        if (this.statusCallback) {
+            this.statusCallback("idle");
+        }
+    }
+
+    /**
+     * Check if the bot is currently running
+     */
+    isPolling(): boolean {
+        return this.isRunning;
+    }
+
+    /**
+     * Alias for isPolling for backward compatibility
+     */
+    isActive(): boolean {
+        return this.isRunning;
+    }
 }
 
 // Global instance
