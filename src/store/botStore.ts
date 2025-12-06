@@ -16,6 +16,8 @@ import {
 } from "./defaults";
 import { partializeState, rehydrateState } from "./persistence";
 
+const DEFAULT_BOT_INFO: BotInfo = createDefaultBotInfo();
+
 // Re-export types for convenience
 export type {
     Message,
@@ -607,7 +609,7 @@ export const useBotStore = create<BotState>()(
             getCurrentBotInfo: (): BotInfo => {
                 const state = get();
                 const botData = state.getCurrentBotData();
-                return botData?.botInfo || createDefaultBotInfo();
+                return botData?.botInfo || DEFAULT_BOT_INFO;
             },
 
             getCurrentChats: (): Map<string, Chat> => {
