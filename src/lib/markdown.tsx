@@ -1,4 +1,146 @@
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
+
+// Lazy load syntax highlighter with only common languages
+const SyntaxHighlighter = lazy(() => 
+    import('react-syntax-highlighter/dist/esm/light').then(mod => ({ default: mod.default }))
+);
+
+// Lazy load only common languages
+const loadLanguage = async (lang: string) => {
+    const normalizedLang = lang.toLowerCase();
+    try {
+        switch (normalizedLang) {
+            case 'javascript':
+            case 'js':
+                return await import('react-syntax-highlighter/dist/esm/languages/hljs/javascript');
+            case 'typescript':
+            case 'ts':
+                return await import('react-syntax-highlighter/dist/esm/languages/hljs/typescript');
+            case 'python':
+            case 'py':
+                return await import('react-syntax-highlighter/dist/esm/languages/hljs/python');
+            case 'java':
+                return await import('react-syntax-highlighter/dist/esm/languages/hljs/java');
+            case 'cpp':
+            case 'c++':
+                return await import('react-syntax-highlighter/dist/esm/languages/hljs/cpp');
+            case 'c':
+                return await import('react-syntax-highlighter/dist/esm/languages/hljs/c');
+            case 'csharp':
+            case 'cs':
+                return await import('react-syntax-highlighter/dist/esm/languages/hljs/csharp');
+            case 'go':
+                return await import('react-syntax-highlighter/dist/esm/languages/hljs/go');
+            case 'rust':
+                return await import('react-syntax-highlighter/dist/esm/languages/hljs/rust');
+            case 'php':
+                return await import('react-syntax-highlighter/dist/esm/languages/hljs/php');
+            case 'ruby':
+                return await import('react-syntax-highlighter/dist/esm/languages/hljs/ruby');
+            case 'swift':
+                return await import('react-syntax-highlighter/dist/esm/languages/hljs/swift');
+            case 'kotlin':
+                return await import('react-syntax-highlighter/dist/esm/languages/hljs/kotlin');
+            case 'bash':
+            case 'sh':
+                return await import('react-syntax-highlighter/dist/esm/languages/hljs/bash');
+            case 'sql':
+                return await import('react-syntax-highlighter/dist/esm/languages/hljs/sql');
+            case 'json':
+                return await import('react-syntax-highlighter/dist/esm/languages/hljs/json');
+            case 'xml':
+            case 'html':
+                return await import('react-syntax-highlighter/dist/esm/languages/hljs/xml');
+            case 'css':
+                return await import('react-syntax-highlighter/dist/esm/languages/hljs/css');
+            case 'markdown':
+            case 'md':
+                return await import('react-syntax-highlighter/dist/esm/languages/hljs/markdown');
+            default:
+                return null;
+        }
+    } catch {
+        return null;
+    }
+};
+
+// Lazy load styles
+const loadStyles = () => Promise.all([
+    import('react-syntax-highlighter/dist/esm/styles/hljs').then(mod => mod.vs2015),
+    import('react-syntax-highlighter/dist/esm/styles/hljs').then(mod => mod.github)
+]);
+
+// Cache for loaded styles and languages
+let stylesCache: { dark: any; light: any } | null = null;
+const languageCache = new Map<string, any>();
+
+// Helper to get current theme
+function getCurrentTheme(): 'light' | 'dark' {
+    const root = window.document.documentElement;
+    const dataTheme = root.getAttribute('data-theme');
+    if (dataTheme === 'dark' || dataTheme === 'light') {
+        return dataTheme;
+    }
+    // Fallback to checking class
+    if (root.classList.contains('dark')) return 'dark';
+    if (root.classList.contains('light')) return 'light';
+    // Default to dark
+    return 'dark';
+}
+
+// Code block component with lazy loading
+function CodeBlock({ language, code }: { language: string; code: string }) {
+    const [styles, setStyles] = React.useState<{ dark: any; light: any } | null>(stylesCache);
+    const [langDef, setLangDef] = React.useState<any>(languageCache.get(language));
+    const isDark = getCurrentTheme() === 'dark';
+
+    React.useEffect(() => {
+        if (!styles) {
+            loadStyles().then(([dark, light]) => {
+                const loadedStyles = { dark, light };
+                stylesCache = loadedStyles;
+                setStyles(loadedStyles);
+            });
+        }
+        
+        if (!langDef && !languageCache.has(language)) {
+            loadLanguage(language).then(lang => {
+                if (lang) {
+                    languageCache.set(language, lang.default);
+                    setLangDef(lang.default);
+                }
+            });
+        }
+    }, [styles, language, langDef]);
+
+    if (!styles) {
+        return (
+            <pre className="px-2 py-1 bg-muted rounded text-sm font-mono overflow-x-auto whitespace-pre my-2">
+                {code}
+            </pre>
+        );
+    }
+
+    return (
+        <Suspense fallback={
+            <pre className="px-2 py-1 bg-muted rounded text-sm font-mono overflow-x-auto whitespace-pre my-2">
+                {code}
+            </pre>
+        }>
+            <SyntaxHighlighter
+                language={language}
+                style={isDark ? styles.dark : styles.light}
+                customStyle={{
+                    margin: 0,
+                    borderRadius: '0.5rem',
+                    fontSize: '0.875rem',
+                }}
+            >
+                {code}
+            </SyntaxHighlighter>
+        </Suspense>
+    );
+}
 
 // Parse Telegram Markdown/HTML to React elements
 export function parseMarkdown(text: string, parseMode?: 'Markdown' | 'MarkdownV2' | 'HTML'): React.ReactNode {
@@ -50,7 +192,18 @@ function parseHTML(text: string): React.ReactNode {
         } else if (tag === 'code') {
             parts.push(<code key={match.index} className="px-1 py-0.5 bg-muted rounded text-sm font-mono">{content}</code>);
         } else if (tag === 'pre') {
-            parts.push(<pre key={match.index} className="px-2 py-1 bg-muted rounded text-sm font-mono overflow-x-auto">{content}</pre>);
+            // Check if content has language specification
+            const codeMatch = content.match(/^(\w+)\n([\s\S]*)$/);
+            if (codeMatch) {
+                const [, language, code] = codeMatch;
+                parts.push(
+                    <div key={match.index} className="my-2">
+                        <CodeBlock language={language} code={code} />
+                    </div>
+                );
+            } else {
+                parts.push(<pre key={match.index} className="px-2 py-1 bg-muted rounded text-sm font-mono overflow-x-auto whitespace-pre">{content}</pre>);
+            }
         } else if (tag.startsWith('a href=')) {
             const href = tag.match(/href="([^"]+)"/)?.[1];
             parts.push(<a key={match.index} href={href} target="_blank" rel="noopener noreferrer" className="text-primary underline">{content}</a>);
@@ -115,7 +268,19 @@ function parseMarkdownV2(text: string): React.ReactNode {
                     element = <code key={key++} className="px-1 py-0.5 bg-muted rounded text-sm font-mono">{unescapeMarkdown(content)}</code>;
                     break;
                 case 'pre':
-                    element = <pre key={key++} className="px-2 py-1 bg-muted rounded text-sm font-mono overflow-x-auto whitespace-pre">{unescapeMarkdown(content)}</pre>;
+                    // Check if content has language specification (e.g., ```python\ncode```)
+                    const unescapedContent = unescapeMarkdown(content);
+                    const codeMatch = unescapedContent.match(/^(\w+)\n([\s\S]*)$/);
+                    if (codeMatch) {
+                        const [, language, code] = codeMatch;
+                        element = (
+                            <div key={key++} className="my-2">
+                                <CodeBlock language={language} code={code} />
+                            </div>
+                        );
+                    } else {
+                        element = <pre key={key++} className="px-2 py-1 bg-muted rounded text-sm font-mono overflow-x-auto whitespace-pre">{unescapedContent}</pre>;
+                    }
                     break;
                 case 'link':
                     const url = match[2];

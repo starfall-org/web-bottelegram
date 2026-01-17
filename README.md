@@ -9,6 +9,7 @@ A modern, React-based Telegram bot client built with TypeScript, shadcn/ui, and 
 - **Multi-chat interface** with sidebar and message history
 - **Real-time messaging** via Telegram Bot API polling with Grammy.js
 - **Media support** for photos, videos, audio, documents, and stickers
+- **Markdown & Code Highlighting** with syntax highlighting for code blocks
 - **Inline message replies** and message deletion
 - **Bot profile-based storage** using localStorage with Zustand persistence
 - **Local notifications** with visual toasts and browser notifications
@@ -26,6 +27,7 @@ A modern, React-based Telegram bot client built with TypeScript, shadcn/ui, and 
 - **Zustand** for state management
 - **Grammy.js** for Telegram Bot API
 - **Lucide React** for icons
+- **React Syntax Highlighter** for code block highlighting
 
 ## Project Structure
 
@@ -94,6 +96,29 @@ Preview the production build locally.
 5. Click "Save & Connect" or "Test Connection"
 6. The bot will start polling for updates and display incoming messages
 7. Use the "Appearance" tab to switch themes (Light/Dark/System) and languages (Vietnamese/English)
+
+### Markdown Support
+
+The application supports Telegram's markdown formats:
+
+- **HTML Mode**: `<b>bold</b>`, `<i>italic</i>`, `<code>code</code>`, `<pre>code block</pre>`
+- **MarkdownV2**: `**bold**`, `__italic__`, `` `code` ``, ` ```language\ncode\n``` `
+- **Markdown (legacy)**: `*bold*`, `_italic_`, `` `code` ``
+
+#### Code Blocks with Syntax Highlighting
+
+Send code blocks with language specification for automatic syntax highlighting:
+
+```
+```python
+def hello():
+    print("Hello, World!")
+```
+```
+
+Supported languages include: python, javascript, typescript, java, c, cpp, go, rust, php, ruby, and many more.
+
+The syntax highlighting automatically adapts to your selected theme (light/dark).
 
 ## Storage
 

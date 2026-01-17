@@ -255,7 +255,7 @@ export function InputArea({ className, isDraggingGlobal = false }: InputAreaProp
     };
 
     const handleSend = async () => {
-        console.log('[InputArea] handleSend called, selectedFiles:', selectedFiles.length);
+        console.log('[InputArea] handleSend called, selectedFiles:', selectedFiles.length, 'message:', message.trim(), 'inlineKeyboard:', inlineKeyboard.length);
         
         // If there are files, send files with caption
         if (selectedFiles.length > 0) {
@@ -265,7 +265,10 @@ export function InputArea({ className, isDraggingGlobal = false }: InputAreaProp
         }
 
         const textToSend = message.trim();
-        if (!textToSend || !activeChatId || !isConnected) return;
+        if (!textToSend || !activeChatId || !isConnected) {
+            console.log('[InputArea] Cannot send - textToSend:', textToSend, 'activeChatId:', activeChatId, 'isConnected:', isConnected);
+            return;
+        }
 
         // If editing
         if (editingMessageId) {
@@ -305,7 +308,15 @@ export function InputArea({ className, isDraggingGlobal = false }: InputAreaProp
         const replyToId = replyTo ? parseInt(replyTo) : undefined;
 
         try {
-            const response = await botService.sendMessage(
+            console.log('[InputArea] Sending message with options:', {
+                chatId: activeChatId,
+                text: textToSend,
+                replyToId,
+                inlineKeyboard,
+                parseMode: preferences.parseMode !== 'None' ? preferences.parseMode : undefined
+            });
+            
+            let response = await botService.sendMessage(
                 activeChatId,
                 textToSend,
                 {
@@ -315,7 +326,23 @@ export function InputArea({ className, isDraggingGlobal = false }: InputAreaProp
                 },
             );
 
+            // If failed with parse mode, retry without it
+            if (!response.ok && preferences.parseMode !== 'None') {
+                console.log('[InputArea] Failed with parse mode, retrying without parse mode...');
+                response = await botService.sendMessage(
+                    activeChatId,
+                    textToSend,
+                    {
+                        reply_to_message_id: replyToId,
+                        reply_markup: inlineKeyboard.length > 0 ? { inline_keyboard: inlineKeyboard } : undefined,
+                    },
+                );
+            }
+
+            console.log('[InputArea] Response from sendMessage:', response);
+
             if (response.ok && response.result) {
+                console.log('[InputArea] Message sent successfully:', response.result);
                 const sentMessage = response.result;
                 const newMessage = {
                     id: sentMessage.message_id,
@@ -333,9 +360,17 @@ export function InputArea({ className, isDraggingGlobal = false }: InputAreaProp
                 setReplyTo(null);
                 setInlineKeyboard([]);
                 setShowKeyboardBuilder(false);
+            } else {
+                console.error('[InputArea] Failed to send message:', response);
+                alert(`Không thể gửi tin nhắn: ${response.description || 'Unknown error'}`);
+                // Restore message so user can edit
+                setMessage(textToSend);
             }
         } catch (error) {
-            console.error("Failed to send message:", error);
+            console.error("[InputArea] Error sending message:", error);
+            alert(`Lỗi khi gửi tin nhắn: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            // Restore message so user can edit
+            setMessage(textToSend);
         }
     };
 
@@ -573,6 +608,7 @@ export function InputArea({ className, isDraggingGlobal = false }: InputAreaProp
                                                             placeholder="Ví dụ: Xem thêm"
                                                             value={btn.text}
                                                             onChange={(e) => updateKeyboardButton(rowIdx, btnIdx, 'text', e.target.value)}
+                                                            onKeyDown={(e) => e.stopPropagation()}
                                                             className="w-full px-2 py-1.5 text-sm border rounded bg-background"
                                                         />
                                                     </div>
@@ -607,6 +643,7 @@ export function InputArea({ className, isDraggingGlobal = false }: InputAreaProp
                                                                 const field = btn.url ? 'url' : 'callback_data';
                                                                 updateKeyboardButton(rowIdx, btnIdx, field, e.target.value);
                                                             }}
+                                                            onKeyDown={(e) => e.stopPropagation()}
                                                             className="w-full px-2 py-1.5 text-sm border rounded bg-background font-mono"
                                                         />
                                                     </div>
@@ -806,7 +843,17 @@ export function InputArea({ className, isDraggingGlobal = false }: InputAreaProp
 
                     {/* Send Button */}
                     <Button
-                        onClick={handleSend}
+                        onClick={() => {
+                            console.log('[InputArea] Send button clicked');
+                            console.log('[InputArea] State:', {
+                                message: message.trim(),
+                                selectedFiles: selectedFiles.length,
+                                isConnected,
+                                activeChatId,
+                                isSendingFiles
+                            });
+                            handleSend();
+                        }}
                         disabled={
                             (!message.trim() && selectedFiles.length === 0) ||
                             !isConnected ||

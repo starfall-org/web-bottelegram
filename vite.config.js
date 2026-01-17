@@ -10,25 +10,48 @@ export default defineConfig({
     emptyOutDir: true,
     rollupOptions: {
       output: {
-        manualChunks: {
-          // React core
-          'react-vendor': ['react', 'react-dom'],
-          // UI library
-          'radix-ui': [
-            '@radix-ui/react-dialog',
-            '@radix-ui/react-dropdown-menu',
-            '@radix-ui/react-scroll-area',
-            '@radix-ui/react-tabs',
-            '@radix-ui/react-switch',
-            '@radix-ui/react-separator',
-            '@radix-ui/react-label',
-            '@radix-ui/react-slot',
-            '@radix-ui/react-checkbox',
-          ],
+        manualChunks: (id) => {
+          // React core (excluding scheduler which is bundled with react-dom)
+          if (id.includes('node_modules/react/') && !id.includes('node_modules/react-dom')) {
+            return 'react-vendor'
+          }
+          if (id.includes('node_modules/react-dom')) {
+            return 'react-dom-vendor'
+          }
+          // Radix UI components
+          if (id.includes('node_modules/@radix-ui')) {
+            return 'radix-ui'
+          }
           // Telegram bot library
-          'grammy': ['grammy'],
+          if (id.includes('node_modules/grammy')) {
+            return 'grammy'
+          }
           // Icons
-          'lucide': ['lucide-react'],
+          if (id.includes('node_modules/lucide-react')) {
+            return 'lucide'
+          }
+          // Syntax highlighter - split into separate chunks
+          if (id.includes('node_modules/react-syntax-highlighter')) {
+            // Split languages from core
+            if (id.includes('/languages/')) {
+              return 'syntax-languages'
+            }
+            return 'syntax-highlighter'
+          }
+          // Zustand state management
+          if (id.includes('node_modules/zustand')) {
+            return 'zustand'
+          }
+          // Split large components
+          if (id.includes('/src/components/ChatArea')) {
+            return 'chat-area'
+          }
+          if (id.includes('/src/components/MessageList')) {
+            return 'message-list'
+          }
+          if (id.includes('/src/lib/markdown')) {
+            return 'markdown'
+          }
         },
       },
     },

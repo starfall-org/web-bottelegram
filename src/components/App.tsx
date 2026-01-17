@@ -1,9 +1,8 @@
-import { useEffect, useState, lazy, Suspense } from 'react'
+import { useEffect, lazy, Suspense } from 'react'
 import { useBotStore } from '@/store/botStore'
 import { useBotConnection } from '@/hooks/useBotConnection'
 import { ThemeProvider } from '@/components/ThemeProvider'
-import { LoadingPage } from '@/components/LoadingSpinner'
-import { useTranslation } from '@/i18n/useTranslation'
+import { LoadingSpinner } from '@/components/LoadingSpinner'
 
 // Lazy load components that aren't needed immediately
 const Sidebar = lazy(() => import('@/components/Sidebar').then(m => ({ default: m.Sidebar })))
@@ -11,9 +10,7 @@ const ChatArea = lazy(() => import('@/components/ChatArea').then(m => ({ default
 const CallbackNotification = lazy(() => import('@/components/CallbackNotification').then(m => ({ default: m.CallbackNotification })))
 
 export function App() {
-  const [isInitializing, setIsInitializing] = useState(true)
   const { theme } = useBotStore()
-  const t = useTranslation()
   
   // Initialize bot connection and polling
   useBotConnection()
@@ -30,22 +27,13 @@ export function App() {
     }
   }, [theme])
 
-  useEffect(() => {
-    // Simulate initialization time and ensure all components are loaded
-    const timer = setTimeout(() => {
-      setIsInitializing(false)
-    }, 800)
-
-    return () => clearTimeout(timer)
-  }, [])
-
-  if (isInitializing) {
-    return <LoadingPage message={t.t('app.initializing')} />
-  }
-
   return (
     <ThemeProvider>
-      <Suspense fallback={<LoadingPage message={t.t('app.loading')} />}>
+      <Suspense fallback={
+        <div className="flex h-screen items-center justify-center bg-background">
+          <LoadingSpinner />
+        </div>
+      }>
         <div className="flex h-screen bg-background text-foreground">
           <Sidebar />
           <ChatArea />

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useBotStore } from "@/store/botStore";
 import { useBotConnection } from "@/hooks/useBotConnection";
 import { useTranslation } from "@/i18n/useTranslation";
@@ -15,7 +15,25 @@ interface SidebarProps {
 }
 
 export function Sidebar({ className }: SidebarProps) {
-  const [isHidden, setIsHidden] = useState(false);
+  // Default to hidden on small screens
+  const [isHidden, setIsHidden] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth < 768; // md breakpoint
+    }
+    return false;
+  });
+
+  // Update isHidden when window is resized
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 768) {
+        setIsHidden(true);
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
   const [openChatInput, setOpenChatInput] = useState("");
   const { theme, setTheme } = useTheme();
   const { isConnected, pollingStatus, lastError, botInfo } = useBotConnection();
@@ -48,23 +66,23 @@ export function Sidebar({ className }: SidebarProps) {
 
   return (
     <>
-      {/* Mobile menu button */}
-      <Button
-        variant="ghost"
-        size="icon"
-        className="fixed top-4 left-4 z-50 md:hidden"
-        onClick={() => setIsHidden(!isHidden)}
-      >
-        <Menu className="h-4 w-4" />
-      </Button>
+      {/* Toggle button - always visible */}
+      {isHidden && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="fixed top-4 left-4 z-50"
+          onClick={() => setIsHidden(false)}
+        >
+          <Menu className="h-4 w-4" />
+        </Button>
+      )}
 
       <aside
         className={cn(
           "w-full max-w-[300px] border-r bg-card flex flex-col transition-transform duration-300 ease-in-out",
-          "md:relative md:translate-x-0",
-          isHidden
-            ? "-translate-x-full absolute inset-y-0 left-0 z-40"
-            : "translate-x-0 absolute inset-y-0 left-0 z-40 md:relative",
+          "absolute inset-y-0 left-0 z-40 md:relative",
+          isHidden && "-translate-x-full",
           className
         )}
       >
@@ -122,8 +140,8 @@ export function Sidebar({ className }: SidebarProps) {
             <Button
               variant="ghost"
               size="icon"
-              className="md:hidden"
               onClick={() => setIsHidden(true)}
+              title="Close sidebar"
             >
               <X className="h-4 w-4" />
             </Button>
@@ -160,7 +178,7 @@ export function Sidebar({ className }: SidebarProps) {
         </div>
       </aside>
 
-      {/* Mobile overlay */}
+      {/* Overlay when sidebar is open on small screens */}
       {!isHidden && (
         <div
           className="fixed inset-0 bg-black/50 z-30 md:hidden"

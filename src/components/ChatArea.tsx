@@ -14,6 +14,8 @@ export function ChatArea() {
   const messagesContainerRef = useRef<HTMLDivElement>(null)
   const [isDraggingFile, setIsDraggingFile] = useState(false)
   const dragCounterRef = useRef(0)
+  const prevActiveChatIdRef = useRef<string | null>(null)
+  const prevMessageCountRef = useRef<number>(0)
 
   const [openChatInput, setOpenChatInput] = useState('')
   const [openChatTitle, setOpenChatTitle] = useState('')
@@ -61,14 +63,24 @@ export function ChatArea() {
   // Auto scroll to bottom when chat opens or changes
   useEffect(() => {
     if (activeChatId && activeChat) {
-      // Scroll immediately when chat opens
-      scrollToBottom(false)
+      // Check if chat actually changed
+      const chatChanged = prevActiveChatIdRef.current !== activeChatId
+      
+      if (chatChanged) {
+        // Reset message count when switching chats
+        prevMessageCountRef.current = activeChat.messages?.length || 0
+        prevActiveChatIdRef.current = activeChatId
+        
+        // Scroll immediately when chat opens
+        scrollToBottom(false)
+      }
     }
-  }, [activeChatId])
+  }, [activeChatId, activeChat])
 
   // Auto scroll when new messages arrive
   useEffect(() => {
     if (activeChat?.messages && messagesContainerRef.current) {
+      const currentMessageCount = activeChat.messages.length
       const { scrollTop, scrollHeight, clientHeight } = messagesContainerRef.current
       const isNearBottom = scrollTop + clientHeight >= scrollHeight - 100
       
@@ -76,14 +88,23 @@ export function ChatArea() {
       if (isNearBottom) {
         scrollToBottom(true)
         
-        // Play notification sound for new messages (if enabled)
-        const lastMessage = activeChat.messages[activeChat.messages.length - 1]
-        if (lastMessage && lastMessage.side === 'left') {
-          playNotificationSound()
+        // Only play sound if this is a NEW message (not just switching chats)
+        // Check if message count increased AND we're on the same chat
+        const isNewMessage = currentMessageCount > prevMessageCountRef.current && 
+                            prevActiveChatIdRef.current === activeChatId
+        
+        if (isNewMessage) {
+          const lastMessage = activeChat.messages[activeChat.messages.length - 1]
+          if (lastMessage && lastMessage.side === 'left') {
+            playNotificationSound()
+          }
         }
       }
+      
+      // Update the previous message count
+      prevMessageCountRef.current = currentMessageCount
     }
-  }, [activeChat?.messages?.length])
+  }, [activeChat?.messages?.length, activeChatId])
 
   const playNotificationSound = () => {
     // Simple notification sound using Web Audio API
