@@ -138,20 +138,33 @@ export function useBotConnection() {
             const messageId = callbackQuery.message?.message_id;
             const callbackData = callbackQuery.callback_data;
             const callbackId = callbackQuery.id;
+            const fromUser = callbackQuery.from;
 
-            // Answer the callback query to remove loading state
-            try {
-                await botService.answerCallbackQuery(callbackId, {
-                    text: `Received: ${callbackData}`,
-                    show_alert: false,
-                });
-            } catch (e) {
-                console.warn("Failed to answer callback query:", e);
-            }
+            // Create a notification message for the user
+            const notificationText = `🔔 Callback nhận được từ ${fromUser?.first_name || 'User'}:\n` +
+                `📝 Data: ${callbackData}\n` +
+                `💬 Chat: ${chatId}\n` +
+                `📨 Message: ${messageId}`;
 
-            // You can add custom logic here to handle different callback data
-            // For example, update the message or perform actions based on callback_data
-            console.log(`Callback from chat ${chatId}, message ${messageId}: ${callbackData}`);
+            // Show notification in console
+            console.log(notificationText);
+
+            // Dispatch custom event for web app to handle
+            // This will show the notification UI where user can manually respond
+            const customEvent = new CustomEvent('telegram-callback-query', {
+                detail: {
+                    callbackId,
+                    callbackData,
+                    chatId,
+                    messageId,
+                    from: fromUser,
+                    timestamp: Date.now()
+                }
+            });
+            window.dispatchEvent(customEvent);
+
+            // NOTE: We don't auto-answer here anymore
+            // User will manually answer via the notification UI
         };
 
         const processMessage = async (message: any, isEdited = false) => {

@@ -5,6 +5,7 @@ import { Sidebar } from '@/components/Sidebar'
 import { ChatArea } from '@/components/ChatArea'
 import { ThemeProvider } from '@/components/ThemeProvider'
 import { LoadingPage } from '@/components/LoadingSpinner'
+import { CallbackNotification } from '@/components/CallbackNotification'
 import { useTranslation } from '@/i18n/useTranslation'
 
 export function App() {
@@ -45,6 +46,7 @@ export function App() {
       <div className="flex h-screen bg-background text-foreground">
         <Sidebar />
         <ChatArea />
+        <CallbackNotification />
       </div>
     </ThemeProvider>
   )

@@ -111,8 +111,6 @@ export function ChatArea() {
   // Global drag and drop handler
   useEffect(() => {
     const handleDragEnter = (e: DragEvent) => {
-      e.preventDefault()
-      e.stopPropagation()
       dragCounterRef.current++
       if (e.dataTransfer?.types.includes('Files')) {
         setIsDraggingFile(true)
@@ -120,8 +118,6 @@ export function ChatArea() {
     }
 
     const handleDragLeave = (e: DragEvent) => {
-      e.preventDefault()
-      e.stopPropagation()
       dragCounterRef.current--
       if (dragCounterRef.current === 0) {
         setIsDraggingFile(false)
@@ -129,17 +125,14 @@ export function ChatArea() {
     }
 
     const handleDragOver = (e: DragEvent) => {
+      // Prevent default to allow drop
       e.preventDefault()
-      e.stopPropagation()
     }
 
     const handleDrop = (e: DragEvent) => {
-      e.preventDefault()
-      e.stopPropagation()
+      // Reset drag state but don't prevent default - let InputArea handle the actual drop
       dragCounterRef.current = 0
       setIsDraggingFile(false)
-      
-      // This will be handled by InputArea's drop handler
     }
 
     document.addEventListener('dragenter', handleDragEnter)

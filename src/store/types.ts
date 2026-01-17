@@ -117,6 +117,7 @@ export interface BotState {
     autoScroll: boolean
     sound: boolean
     push: boolean
+    parseMode: 'MarkdownV2' | 'Markdown' | 'HTML' | 'None'
   }
 
   // Actions

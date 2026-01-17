@@ -82,6 +82,7 @@ export function InputArea({ className, isDraggingGlobal = false }: InputAreaProp
         isConnected,
         addMessage,
         updateMessage,
+        preferences,
     } = useBotStore();
 
     const activeChatId = getCurrentActiveChatId();
@@ -142,6 +143,14 @@ export function InputArea({ className, isDraggingGlobal = false }: InputAreaProp
     useEffect(() => {
         if (editingMsg && editingMsg.text != null) {
             setMessage(editingMsg.text);
+            // Load existing keyboard if any
+            if (editingMsg.reply_markup && editingMsg.reply_markup.length > 0) {
+                setInlineKeyboard(editingMsg.reply_markup);
+                setShowKeyboardBuilder(true);
+            } else {
+                setInlineKeyboard([]);
+                setShowKeyboardBuilder(false);
+            }
             if (textareaRef.current) {
                 textareaRef.current.style.height = "auto";
                 textareaRef.current.style.height =
@@ -149,8 +158,19 @@ export function InputArea({ className, isDraggingGlobal = false }: InputAreaProp
                 textareaRef.current.focus();
             }
             setIsFocused(true);
+        } else {
+            // Reset keyboard when not editing
+            if (!editingMessageId) {
+                setInlineKeyboard([]);
+                setShowKeyboardBuilder(false);
+            }
         }
-    }, [editingMessageId]);
+    }, [editingMessageId, editingMsg]);
+
+    // Debug: Log selectedFiles changes
+    useEffect(() => {
+        console.log('[InputArea] selectedFiles changed:', selectedFiles.length, selectedFiles);
+    }, [selectedFiles]);
 
     // Sync Telegram chat action "typing" while input is focused
     useEffect(() => {
@@ -213,13 +233,8 @@ export function InputArea({ className, isDraggingGlobal = false }: InputAreaProp
         }
     };
 
-    // Drag and drop handlers - now handles global drops
+    // Drag and drop handlers - simplified
     const handleDragOver = (e: React.DragEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-    };
-
-    const handleDragLeave = (e: React.DragEvent) => {
         e.preventDefault();
         e.stopPropagation();
     };
@@ -229,36 +244,22 @@ export function InputArea({ className, isDraggingGlobal = false }: InputAreaProp
         e.stopPropagation();
 
         const files = Array.from(e.dataTransfer.files);
+        console.log('[InputArea] Files dropped:', files.length, files);
         if (files.length > 0) {
-            setSelectedFiles((prev) => [...prev, ...files]);
+            setSelectedFiles((prev) => {
+                const newFiles = [...prev, ...files];
+                console.log('[InputArea] Updated selectedFiles:', newFiles.length);
+                return newFiles;
+            });
         }
     };
 
-    // Listen for drops anywhere in the component
-    useEffect(() => {
-        const dropZone = dropZoneRef.current;
-        if (!dropZone) return;
-
-        const handleDropCapture = (e: DragEvent) => {
-            e.preventDefault();
-            e.stopPropagation();
-            
-            const files = Array.from(e.dataTransfer?.files || []);
-            if (files.length > 0) {
-                setSelectedFiles((prev) => [...prev, ...files]);
-            }
-        };
-
-        dropZone.addEventListener('drop', handleDropCapture, true);
-
-        return () => {
-            dropZone.removeEventListener('drop', handleDropCapture, true);
-        };
-    }, []);
-
     const handleSend = async () => {
+        console.log('[InputArea] handleSend called, selectedFiles:', selectedFiles.length);
+        
         // If there are files, send files with caption
         if (selectedFiles.length > 0) {
+            console.log('[InputArea] Sending files...');
             await sendSelectedFiles();
             return;
         }
@@ -273,13 +274,22 @@ export function InputArea({ className, isDraggingGlobal = false }: InputAreaProp
                 activeChatId,
                 msgId,
                 textToSend,
+                {
+                    parse_mode: preferences.parseMode !== 'None' ? preferences.parseMode : undefined,
+                    reply_markup: inlineKeyboard.length > 0 ? { inline_keyboard: inlineKeyboard } : undefined,
+                }
             );
 
             if (response.ok) {
-                updateMessage(activeChatId, msgId, { text: textToSend });
+                updateMessage(activeChatId, msgId, { 
+                    text: textToSend,
+                    reply_markup: inlineKeyboard.length > 0 ? inlineKeyboard : undefined,
+                });
             }
             setEditingMessageId(null);
             setMessage("");
+            setInlineKeyboard([]);
+            setShowKeyboardBuilder(false);
             if (textareaRef.current) {
                 textareaRef.current.style.height = "auto";
             }
@@ -301,6 +311,7 @@ export function InputArea({ className, isDraggingGlobal = false }: InputAreaProp
                 {
                     reply_to_message_id: replyToId,
                     reply_markup: inlineKeyboard.length > 0 ? { inline_keyboard: inlineKeyboard } : undefined,
+                    parse_mode: preferences.parseMode !== 'None' ? preferences.parseMode : undefined,
                 },
             );
 
@@ -373,12 +384,15 @@ export function InputArea({ className, isDraggingGlobal = false }: InputAreaProp
     };
 
     const addKeyboardRow = () => {
-        setInlineKeyboard([...inlineKeyboard, []]);
+        setInlineKeyboard([...inlineKeyboard, [{ text: "Nút mới", callback_data: "action" }]]);
     };
 
     const addKeyboardButton = (rowIndex: number) => {
         const newKeyboard = [...inlineKeyboard];
-        newKeyboard[rowIndex] = [...newKeyboard[rowIndex], { text: "Button", callback_data: "data" }];
+        if (!newKeyboard[rowIndex]) {
+            newKeyboard[rowIndex] = [];
+        }
+        newKeyboard[rowIndex] = [...newKeyboard[rowIndex], { text: "Nút mới", callback_data: "action" }];
         setInlineKeyboard(newKeyboard);
     };
 
@@ -405,7 +419,6 @@ export function InputArea({ className, isDraggingGlobal = false }: InputAreaProp
                 className,
             )}
             onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
             onDrop={handleDrop}
         >
             {/* Global Drag overlay - covers entire chat area */}
@@ -449,13 +462,20 @@ export function InputArea({ className, isDraggingGlobal = false }: InputAreaProp
                     <div className="flex-1 min-w-0">
                         <p className="text-xs text-muted-foreground">
                             {t("chat.editing")}
+                            {editingMsg.reply_markup && editingMsg.reply_markup.length > 0 && 
+                                <span className="ml-2 text-primary">• Có {editingMsg.reply_markup.reduce((sum, row) => sum + row.length, 0)} nút</span>
+                            }
                         </p>
                         <p className="text-sm truncate">{editingMsg.text}</p>
                     </div>
                     <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => setEditingMessageId(null)}
+                        onClick={() => {
+                            setEditingMessageId(null);
+                            setInlineKeyboard([]);
+                            setShowKeyboardBuilder(false);
+                        }}
                         className="h-6 w-6 p-0"
                     >
                         <X className="h-3 w-3" />
@@ -466,17 +486,20 @@ export function InputArea({ className, isDraggingGlobal = false }: InputAreaProp
             {/* Inline Keyboard Builder */}
             {showKeyboardBuilder && (
                 <div className="px-4 py-3 border-b bg-muted/30">
-                    <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-medium">Inline Keyboard</span>
+                    <div className="flex items-center justify-between mb-3">
+                        <div>
+                            <span className="text-sm font-semibold">Inline Keyboard</span>
+                            <p className="text-xs text-muted-foreground">Thêm nút tương tác vào tin nhắn</p>
+                        </div>
                         <div className="flex gap-1">
                             <Button
                                 variant="outline"
                                 size="sm"
                                 onClick={addKeyboardRow}
-                                className="h-7 px-2 text-xs"
+                                className="h-8 px-3 text-xs"
                             >
                                 <Plus className="h-3 w-3 mr-1" />
-                                Add Row
+                                Thêm hàng
                             </Button>
                             <Button
                                 variant="ghost"
@@ -485,63 +508,115 @@ export function InputArea({ className, isDraggingGlobal = false }: InputAreaProp
                                     setShowKeyboardBuilder(false);
                                     setInlineKeyboard([]);
                                 }}
-                                className="h-7 px-2 text-xs"
+                                className="h-8 px-2"
                             >
-                                <X className="h-3 w-3" />
+                                <X className="h-4 w-4" />
                             </Button>
                         </div>
                     </div>
-                    <div className="space-y-2 max-h-48 overflow-y-auto">
-                        {inlineKeyboard.map((row, rowIdx) => (
-                            <div key={rowIdx} className="space-y-1">
-                                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                    <span>Row {rowIdx + 1}</span>
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => addKeyboardButton(rowIdx)}
-                                        className="h-5 px-1 text-xs"
-                                    >
-                                        + Button
-                                    </Button>
-                                </div>
-                                <div className="flex flex-wrap gap-2">
-                                    {row.map((btn, btnIdx) => (
-                                        <div key={btnIdx} className="flex gap-1 items-center p-2 border rounded bg-background">
-                                            <input
-                                                type="text"
-                                                placeholder="Text"
-                                                value={btn.text}
-                                                onChange={(e) => updateKeyboardButton(rowIdx, btnIdx, 'text', e.target.value)}
-                                                className="w-20 px-1 py-0.5 text-xs border rounded"
-                                            />
-                                            <input
-                                                type="text"
-                                                placeholder="callback_data or url"
-                                                value={btn.callback_data || btn.url || ''}
-                                                onChange={(e) => {
-                                                    const val = e.target.value;
-                                                    if (val.startsWith('http')) {
-                                                        updateKeyboardButton(rowIdx, btnIdx, 'url', val);
-                                                    } else {
-                                                        updateKeyboardButton(rowIdx, btnIdx, 'callback_data', val);
-                                                    }
-                                                }}
-                                                className="w-32 px-1 py-0.5 text-xs border rounded"
-                                            />
+                    <div className="space-y-3 max-h-64 overflow-y-auto">
+                        {inlineKeyboard.length === 0 ? (
+                            <div className="text-center py-6 text-muted-foreground text-sm">
+                                <span className="text-2xl block mb-2">⌨️</span>
+                                Chưa có nút nào. Click "Thêm hàng" để bắt đầu.
+                            </div>
+                        ) : (
+                            inlineKeyboard.map((row, rowIdx) => (
+                                <div key={rowIdx} className="space-y-2 p-3 border rounded-lg bg-background/50">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-xs font-medium text-muted-foreground">
+                                            Hàng {rowIdx + 1}
+                                        </span>
+                                        <div className="flex gap-1">
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => addKeyboardButton(rowIdx)}
+                                                className="h-6 px-2 text-xs"
+                                            >
+                                                <Plus className="h-3 w-3 mr-1" />
+                                                Nút
+                                            </Button>
                                             <Button
                                                 variant="ghost"
                                                 size="sm"
-                                                onClick={() => removeKeyboardButton(rowIdx, btnIdx)}
-                                                className="h-5 w-5 p-0"
+                                                onClick={() => {
+                                                    const newKeyboard = [...inlineKeyboard];
+                                                    newKeyboard.splice(rowIdx, 1);
+                                                    setInlineKeyboard(newKeyboard);
+                                                }}
+                                                className="h-6 px-2 text-xs text-destructive"
                                             >
                                                 <X className="h-3 w-3" />
                                             </Button>
                                         </div>
-                                    ))}
+                                    </div>
+                                    <div className="flex flex-wrap gap-2">
+                                        {row.map((btn, btnIdx) => (
+                                            <div key={btnIdx} className="flex flex-col gap-1.5 p-2 border rounded-md bg-card min-w-[200px]">
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-xs font-medium">Nút {btnIdx + 1}</span>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => removeKeyboardButton(rowIdx, btnIdx)}
+                                                        className="h-5 w-5 p-0 text-destructive hover:text-destructive"
+                                                    >
+                                                        <X className="h-3 w-3" />
+                                                    </Button>
+                                                </div>
+                                                <div className="space-y-1.5">
+                                                    <div>
+                                                        <label className="text-xs text-muted-foreground">Văn bản hiển thị</label>
+                                                        <input
+                                                            type="text"
+                                                            placeholder="Ví dụ: Xem thêm"
+                                                            value={btn.text}
+                                                            onChange={(e) => updateKeyboardButton(rowIdx, btnIdx, 'text', e.target.value)}
+                                                            className="w-full px-2 py-1.5 text-sm border rounded bg-background"
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="text-xs text-muted-foreground">Loại nút</label>
+                                                        <select
+                                                            value={btn.url ? 'url' : 'callback'}
+                                                            onChange={(e) => {
+                                                                const newKeyboard = [...inlineKeyboard];
+                                                                if (e.target.value === 'url') {
+                                                                    newKeyboard[rowIdx][btnIdx] = { text: btn.text, url: '' };
+                                                                } else {
+                                                                    newKeyboard[rowIdx][btnIdx] = { text: btn.text, callback_data: '' };
+                                                                }
+                                                                setInlineKeyboard(newKeyboard);
+                                                            }}
+                                                            className="w-full px-2 py-1.5 text-sm border rounded bg-background"
+                                                        >
+                                                            <option value="callback">Callback (Xử lý bởi bot)</option>
+                                                            <option value="url">Link (Mở URL)</option>
+                                                        </select>
+                                                    </div>
+                                                    <div>
+                                                        <label className="text-xs text-muted-foreground">
+                                                            {btn.url ? 'URL' : 'Callback Data'}
+                                                        </label>
+                                                        <input
+                                                            type="text"
+                                                            placeholder={btn.url ? "https://example.com" : "action_name"}
+                                                            value={btn.callback_data || btn.url || ''}
+                                                            onChange={(e) => {
+                                                                const field = btn.url ? 'url' : 'callback_data';
+                                                                updateKeyboardButton(rowIdx, btnIdx, field, e.target.value);
+                                                            }}
+                                                            className="w-full px-2 py-1.5 text-sm border rounded bg-background font-mono"
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
+                            ))
+                        )}
                     </div>
                 </div>
             )}
@@ -635,10 +710,17 @@ export function InputArea({ className, isDraggingGlobal = false }: InputAreaProp
                 isConnected &&
                 activeChatId &&
                 !selectedFiles.length && (
-                    <div className="px-4 py-1 border-b">
+                    <div className="px-4 py-1 border-b flex items-center justify-between">
                         <p className="text-xs text-muted-foreground">
                             {t("chat.composing")}
                         </p>
+                        <span className="text-xs text-muted-foreground">
+                            {preferences.parseMode !== 'None' && (
+                                <span className="px-2 py-0.5 bg-primary/10 text-primary rounded text-[10px] font-medium">
+                                    {preferences.parseMode}
+                                </span>
+                            )}
+                        </span>
                     </div>
                 )}
 
@@ -717,7 +799,7 @@ export function InputArea({ className, isDraggingGlobal = false }: InputAreaProp
                         onClick={() => setShowKeyboardBuilder(!showKeyboardBuilder)}
                         aria-pressed={showKeyboardBuilder}
                         aria-label="Inline Keyboard"
-                        title="Add inline keyboard buttons"
+                        title="Thêm nút tương tác (Inline Keyboard)"
                     >
                         <span className="text-sm">⌨️</span>
                     </Button>

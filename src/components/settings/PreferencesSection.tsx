@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
-import { Bell, Trash2, Sparkles, Volume2, BellRing } from "lucide-react";
+import { Bell, Trash2, Sparkles, Volume2, BellRing, FileText } from "lucide-react";
 import { SectionHeader, SettingRow } from "./SettingsComponents";
 
 interface PreferencesSectionProps {
@@ -11,6 +11,7 @@ interface PreferencesSectionProps {
         autoScroll: boolean;
         sound: boolean;
         push: boolean;
+        parseMode: 'MarkdownV2' | 'Markdown' | 'HTML' | 'None';
     };
     updatePreferences: (prefs: Partial<PreferencesSectionProps["preferences"]>) => void;
     handleClearAllData: () => void;
@@ -72,6 +73,35 @@ export function PreferencesSection({
                         }
                     />
                 </SettingRow>
+
+                <SettingRow
+                    icon={FileText}
+                    title="Định dạng tin nhắn"
+                    description="Chọn cách hiển thị và gửi tin nhắn"
+                    className="px-4 hover:bg-muted/50 transition-colors"
+                >
+                    <select
+                        value={preferences.parseMode}
+                        onChange={(e) =>
+                            updatePreferences({ parseMode: e.target.value as any })
+                        }
+                        className="px-3 py-1.5 text-sm border rounded-md bg-background"
+                    >
+                        <option value="MarkdownV2">MarkdownV2 (Mặc định)</option>
+                        <option value="Markdown">Markdown (Legacy)</option>
+                        <option value="HTML">HTML</option>
+                        <option value="None">Plain Text</option>
+                    </select>
+                </SettingRow>
+            </div>
+
+            <div className="p-3 rounded-lg bg-muted/30 text-xs space-y-2">
+                <p className="font-medium">Hướng dẫn định dạng:</p>
+                <div className="space-y-1 text-muted-foreground">
+                    <p><strong>MarkdownV2:</strong> **bold** __italic__ ~~strike~~ `code` ```pre``` [link](url)</p>
+                    <p><strong>Markdown:</strong> *bold* _italic_ `code` [link](url)</p>
+                    <p><strong>HTML:</strong> &lt;b&gt;bold&lt;/b&gt; &lt;i&gt;italic&lt;/i&gt; &lt;code&gt;code&lt;/code&gt; &lt;a href="url"&gt;link&lt;/a&gt;</p>
+                </div>
             </div>
 
             <Separator />

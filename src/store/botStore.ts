@@ -49,6 +49,7 @@ export const useBotStore = create<BotState>()(
                 autoScroll: true,
                 sound: true,
                 push: true,
+                parseMode: 'MarkdownV2',
             },
 
             // Actions

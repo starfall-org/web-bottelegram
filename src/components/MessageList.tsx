@@ -24,6 +24,7 @@ import { useTranslation } from "@/i18n/useTranslation";
 import { UserInfoDialog } from "@/components/UserInfoDialog";
 import { botService } from "@/services/botService";
 import { InlineKeyboard } from "@/components/InlineKeyboard";
+import { parseMarkdown } from "@/lib/markdown";
 
 interface MessageListProps {
     chatId: string;
@@ -56,7 +57,7 @@ function MessageItem({
 }: MessageItemProps) {
     const isOwn = message.side === "right";
     const { t } = useTranslation();
-    const { setEditingMessageId, setReplyTo } = useBotStore();
+    const { setEditingMessageId, setReplyTo, preferences } = useBotStore();
 
     const handleCallbackClick = async (callbackData: string) => {
         console.log("[MessageItem] Callback button clicked:", callbackData);
@@ -221,9 +222,12 @@ function MessageItem({
 
             default:
                 return (
-                    <p className="whitespace-pre-wrap break-words">
-                        {message.text}
-                    </p>
+                    <div className="whitespace-pre-wrap break-words">
+                        {preferences.parseMode !== 'None' && message.text
+                            ? parseMarkdown(message.text, preferences.parseMode)
+                            : message.text
+                        }
+                    </div>
                 );
         }
     };
