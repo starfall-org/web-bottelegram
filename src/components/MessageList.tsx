@@ -44,7 +44,7 @@ interface MessageItemProps {
 
 function MessageItem({
     message,
-    chatId,
+    chatId: _chatId,
     onDelete,
     onReply,
     onScrollToMessage,

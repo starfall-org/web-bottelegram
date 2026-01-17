@@ -63,7 +63,6 @@ const getFilePreviewUrl = (file: File): string | null => {
 export function InputArea({ className, isDraggingGlobal = false }: InputAreaProps) {
     const [message, setMessage] = useState("");
     const [isFocused, setIsFocused] = useState(false);
-    const [isDragging, setIsDragging] = useState(false);
     const [showKeyboardBuilder, setShowKeyboardBuilder] = useState(false);
     const [inlineKeyboard, setInlineKeyboard] = useState<Array<Array<{ text: string; callback_data?: string; url?: string }>>>([]);
     const chatActionTimer = useRef<number | null>(null);

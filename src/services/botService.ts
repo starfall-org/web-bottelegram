@@ -187,7 +187,7 @@ export class BotService {
             parse_mode?: "HTML" | "Markdown" | "MarkdownV2";
             reply_to_message_id?: number;
             reply_markup?: {
-                inline_keyboard?: Array<Array<{
+                inline_keyboard: Array<Array<{
                     text: string;
                     callback_data?: string;
                     url?: string;
@@ -204,7 +204,7 @@ export class BotService {
                 reply_parameters: options?.reply_to_message_id
                     ? { message_id: options.reply_to_message_id }
                     : undefined,
-                reply_markup: options?.reply_markup,
+                reply_markup: options?.reply_markup as any,
             });
             return { ok: true, result: message };
         } catch (error) {
@@ -352,7 +352,7 @@ export class BotService {
         options?: {
             parse_mode?: "HTML" | "Markdown" | "MarkdownV2";
             reply_markup?: {
-                inline_keyboard?: Array<Array<{
+                inline_keyboard: Array<Array<{
                     text: string;
                     callback_data?: string;
                     url?: string;
@@ -370,7 +370,7 @@ export class BotService {
                 text,
                 {
                     parse_mode: options?.parse_mode,
-                    reply_markup: options?.reply_markup,
+                    reply_markup: options?.reply_markup as any,
                 },
             );
             return { ok: true, result };
