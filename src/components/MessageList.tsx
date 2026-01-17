@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { useTranslation } from "@/i18n/useTranslation";
 import { UserInfoDialog } from "@/components/UserInfoDialog";
 import { botService } from "@/services/botService";
+import { InlineKeyboard } from "@/components/InlineKeyboard";
 
 interface MessageListProps {
     chatId: string;
@@ -30,6 +31,7 @@ interface MessageListProps {
 
 interface MessageItemProps {
     message: Message;
+    chatId: string;
     onDelete?: (messageId: number | string, deleteForAll?: boolean) => void;
     onReply?: (messageId: number | string) => void;
     onScrollToMessage?: (messageId: number | string) => void;
@@ -42,6 +44,7 @@ interface MessageItemProps {
 
 function MessageItem({
     message,
+    chatId,
     onDelete,
     onReply,
     onScrollToMessage,
@@ -54,6 +57,13 @@ function MessageItem({
     const isOwn = message.side === "right";
     const { t } = useTranslation();
     const { setEditingMessageId, setReplyTo } = useBotStore();
+
+    const handleCallbackClick = async (callbackData: string) => {
+        console.log("[MessageItem] Callback button clicked:", callbackData);
+        // Note: In a real bot, the callback_query would be sent automatically by Telegram client
+        // Here we just log it. The bot will receive callback_query updates when users click buttons
+        // in the actual Telegram app
+    };
 
     const handleDelete = (deleteForAll = false) => {
         if (onDelete) {
@@ -284,6 +294,11 @@ function MessageItem({
 
                         <div className="mb-2">{renderContent()}</div>
 
+                        <InlineKeyboard
+                            buttons={message.reply_markup || []}
+                            onCallbackClick={handleCallbackClick}
+                        />
+
                         <div className="flex items-center justify-between text-xs text-muted-foreground">
                             <span>{formatTime(message.date)}</span>
                         </div>
@@ -298,7 +313,7 @@ function MessageItem({
         <div
             id={`message-${message.id}`}
             className={cn(
-                "group flex flex-col gap-1",
+                "group flex flex-col gap-1 message-new",
                 isOwn ? "items-end" : "items-start",
             )}
         >
@@ -356,6 +371,11 @@ function MessageItem({
                         )}
 
                         <div className="mb-2">{renderContent()}</div>
+
+                        <InlineKeyboard
+                            buttons={message.reply_markup || []}
+                            onCallbackClick={handleCallbackClick}
+                        />
 
                         <div className="flex items-center justify-between text-xs text-muted-foreground">
                             <span>{formatTime(message.date)}</span>
@@ -739,6 +759,7 @@ export function MessageList({ chatId }: MessageListProps) {
                         <MessageItem
                             key={message.id}
                             message={message}
+                            chatId={chatId}
                             onDelete={handleDeleteMessage}
                             onReply={handleReplyToMessage}
                             onScrollToMessage={handleScrollToMessage}

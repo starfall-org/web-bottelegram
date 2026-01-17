@@ -11,11 +11,45 @@ import { useSendSticker } from "@/components/input/useSendSticker";
 
 interface InputAreaProps {
     className?: string;
+    isDraggingGlobal?: boolean;
 }
 
 // Helper to check if file is image
 const isImageFile = (file: File) => {
     return file.type.startsWith("image/");
+};
+
+// Helper to check if file is video
+const isVideoFile = (file: File) => {
+    return file.type.startsWith("video/");
+};
+
+// Helper to check if file is audio
+const isAudioFile = (file: File) => {
+    return file.type.startsWith("audio/");
+};
+
+// Helper to get file icon
+const getFileIcon = (file: File): string => {
+    if (isImageFile(file)) return "🖼️";
+    if (isVideoFile(file)) return "🎬";
+    if (isAudioFile(file)) return "🎵";
+    if (file.type.includes("pdf")) return "📕";
+    if (file.type.includes("zip") || file.type.includes("rar") || file.type.includes("7z")) return "📦";
+    if (file.type.includes("text")) return "📝";
+    if (file.type.includes("word") || file.name.endsWith(".doc") || file.name.endsWith(".docx")) return "📘";
+    if (file.type.includes("excel") || file.name.endsWith(".xls") || file.name.endsWith(".xlsx")) return "📊";
+    if (file.type.includes("powerpoint") || file.name.endsWith(".ppt") || file.name.endsWith(".pptx")) return "📙";
+    return "📄";
+};
+
+// Helper to format file size
+const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return "0 B";
+    const k = 1024;
+    const sizes = ["B", "KB", "MB", "GB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + " " + sizes[i];
 };
 
 // Helper to create object URL for preview
@@ -26,14 +60,17 @@ const getFilePreviewUrl = (file: File): string | null => {
     return null;
 };
 
-export function InputArea({ className }: InputAreaProps) {
+export function InputArea({ className, isDraggingGlobal = false }: InputAreaProps) {
     const [message, setMessage] = useState("");
     const [isFocused, setIsFocused] = useState(false);
     const [isDragging, setIsDragging] = useState(false);
+    const [showKeyboardBuilder, setShowKeyboardBuilder] = useState(false);
+    const [inlineKeyboard, setInlineKeyboard] = useState<Array<Array<{ text: string; callback_data?: string; url?: string }>>>([]);
     const chatActionTimer = useRef<number | null>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const stickerPanelRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const dropZoneRef = useRef<HTMLDivElement>(null);
     const { t } = useTranslation();
 
     const {
@@ -177,31 +214,48 @@ export function InputArea({ className }: InputAreaProps) {
         }
     };
 
-    // Drag and drop handlers
+    // Drag and drop handlers - now handles global drops
     const handleDragOver = (e: React.DragEvent) => {
         e.preventDefault();
         e.stopPropagation();
-        if (!isDragging) {
-            setIsDragging(true);
-        }
     };
 
     const handleDragLeave = (e: React.DragEvent) => {
         e.preventDefault();
         e.stopPropagation();
-        setIsDragging(false);
     };
 
     const handleDrop = (e: React.DragEvent) => {
         e.preventDefault();
         e.stopPropagation();
-        setIsDragging(false);
 
         const files = Array.from(e.dataTransfer.files);
         if (files.length > 0) {
             setSelectedFiles((prev) => [...prev, ...files]);
         }
     };
+
+    // Listen for drops anywhere in the component
+    useEffect(() => {
+        const dropZone = dropZoneRef.current;
+        if (!dropZone) return;
+
+        const handleDropCapture = (e: DragEvent) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const files = Array.from(e.dataTransfer?.files || []);
+            if (files.length > 0) {
+                setSelectedFiles((prev) => [...prev, ...files]);
+            }
+        };
+
+        dropZone.addEventListener('drop', handleDropCapture, true);
+
+        return () => {
+            dropZone.removeEventListener('drop', handleDropCapture, true);
+        };
+    }, []);
 
     const handleSend = async () => {
         // If there are files, send files with caption
@@ -247,6 +301,7 @@ export function InputArea({ className }: InputAreaProps) {
                 textToSend,
                 {
                     reply_to_message_id: replyToId,
+                    reply_markup: inlineKeyboard.length > 0 ? { inline_keyboard: inlineKeyboard } : undefined,
                 },
             );
 
@@ -262,9 +317,12 @@ export function InputArea({ className }: InputAreaProps) {
                     fromName: sentMessage.from?.first_name || t("chat.you"),
                     reply_to: replyToId,
                     reply_preview: replyMessage?.text?.substring(0, 50),
+                    reply_markup: inlineKeyboard.length > 0 ? inlineKeyboard : undefined,
                 };
                 addMessage(activeChatId, newMessage);
                 setReplyTo(null);
+                setInlineKeyboard([]);
+                setShowKeyboardBuilder(false);
             }
         } catch (error) {
             console.error("Failed to send message:", error);
@@ -315,24 +373,52 @@ export function InputArea({ className }: InputAreaProps) {
         setReplyTo(null);
     };
 
+    const addKeyboardRow = () => {
+        setInlineKeyboard([...inlineKeyboard, []]);
+    };
+
+    const addKeyboardButton = (rowIndex: number) => {
+        const newKeyboard = [...inlineKeyboard];
+        newKeyboard[rowIndex] = [...newKeyboard[rowIndex], { text: "Button", callback_data: "data" }];
+        setInlineKeyboard(newKeyboard);
+    };
+
+    const updateKeyboardButton = (rowIndex: number, btnIndex: number, field: 'text' | 'callback_data' | 'url', value: string) => {
+        const newKeyboard = [...inlineKeyboard];
+        newKeyboard[rowIndex][btnIndex] = { ...newKeyboard[rowIndex][btnIndex], [field]: value };
+        setInlineKeyboard(newKeyboard);
+    };
+
+    const removeKeyboardButton = (rowIndex: number, btnIndex: number) => {
+        const newKeyboard = [...inlineKeyboard];
+        newKeyboard[rowIndex].splice(btnIndex, 1);
+        if (newKeyboard[rowIndex].length === 0) {
+            newKeyboard.splice(rowIndex, 1);
+        }
+        setInlineKeyboard(newKeyboard);
+    };
+
     return (
         <div
+            ref={dropZoneRef}
             className={cn(
                 "border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 relative",
                 className,
-                isDragging && "ring-2 ring-primary ring-inset",
             )}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
         >
-            {/* Drag overlay */}
-            {isDragging && (
-                <div className="absolute inset-0 z-50 flex items-center justify-center bg-primary/10 backdrop-blur-sm border-2 border-dashed border-primary rounded-lg">
-                    <div className="text-center">
-                        <Paperclip className="h-8 w-8 mx-auto mb-2 text-primary" />
-                        <p className="text-sm font-medium text-primary">
+            {/* Global Drag overlay - covers entire chat area */}
+            {isDraggingGlobal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-primary/10 backdrop-blur-sm pointer-events-none">
+                    <div className="text-center pointer-events-none">
+                        <Paperclip className="h-12 w-12 mx-auto mb-3 text-primary animate-bounce" />
+                        <p className="text-lg font-medium text-primary">
                             Thả file vào đây để gửi
+                        </p>
+                        <p className="text-sm text-muted-foreground mt-1">
+                            Hỗ trợ tất cả loại file
                         </p>
                     </div>
                 </div>
@@ -378,6 +464,89 @@ export function InputArea({ className }: InputAreaProps) {
                 </div>
             )}
 
+            {/* Inline Keyboard Builder */}
+            {showKeyboardBuilder && (
+                <div className="px-4 py-3 border-b bg-muted/30">
+                    <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium">Inline Keyboard</span>
+                        <div className="flex gap-1">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={addKeyboardRow}
+                                className="h-7 px-2 text-xs"
+                            >
+                                <Plus className="h-3 w-3 mr-1" />
+                                Add Row
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                    setShowKeyboardBuilder(false);
+                                    setInlineKeyboard([]);
+                                }}
+                                className="h-7 px-2 text-xs"
+                            >
+                                <X className="h-3 w-3" />
+                            </Button>
+                        </div>
+                    </div>
+                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                        {inlineKeyboard.map((row, rowIdx) => (
+                            <div key={rowIdx} className="space-y-1">
+                                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                    <span>Row {rowIdx + 1}</span>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => addKeyboardButton(rowIdx)}
+                                        className="h-5 px-1 text-xs"
+                                    >
+                                        + Button
+                                    </Button>
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                    {row.map((btn, btnIdx) => (
+                                        <div key={btnIdx} className="flex gap-1 items-center p-2 border rounded bg-background">
+                                            <input
+                                                type="text"
+                                                placeholder="Text"
+                                                value={btn.text}
+                                                onChange={(e) => updateKeyboardButton(rowIdx, btnIdx, 'text', e.target.value)}
+                                                className="w-20 px-1 py-0.5 text-xs border rounded"
+                                            />
+                                            <input
+                                                type="text"
+                                                placeholder="callback_data or url"
+                                                value={btn.callback_data || btn.url || ''}
+                                                onChange={(e) => {
+                                                    const val = e.target.value;
+                                                    if (val.startsWith('http')) {
+                                                        updateKeyboardButton(rowIdx, btnIdx, 'url', val);
+                                                    } else {
+                                                        updateKeyboardButton(rowIdx, btnIdx, 'callback_data', val);
+                                                    }
+                                                }}
+                                                className="w-32 px-1 py-0.5 text-xs border rounded"
+                                            />
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => removeKeyboardButton(rowIdx, btnIdx)}
+                                                className="h-5 w-5 p-0"
+                                            >
+                                                <X className="h-3 w-3" />
+                                            </Button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             {/* File Preview Area - Integrated into input */}
             {selectedFiles.length > 0 && (
                 <div className="px-3 pt-3 border-b bg-muted/30">
@@ -413,6 +582,8 @@ export function InputArea({ className }: InputAreaProps) {
                             const previewUrl = isImage
                                 ? getFilePreviewUrl(file)
                                 : null;
+                            const fileIcon = getFileIcon(file);
+                            const fileSize = formatFileSize(file.size);
 
                             return (
                                 <div
@@ -420,7 +591,7 @@ export function InputArea({ className }: InputAreaProps) {
                                     className="relative group flex-shrink-0"
                                 >
                                     {isImage && previewUrl ? (
-                                        <div className="w-16 h-16 rounded-lg overflow-hidden border bg-muted">
+                                        <div className="w-20 h-20 rounded-lg overflow-hidden border bg-muted">
                                             <img
                                                 src={previewUrl}
                                                 alt={file.name}
@@ -428,15 +599,15 @@ export function InputArea({ className }: InputAreaProps) {
                                             />
                                         </div>
                                     ) : (
-                                        <div className="w-16 h-16 rounded-lg border bg-muted flex flex-col items-center justify-center p-1">
-                                            <span className="text-lg">📄</span>
-                                            <p className="text-[10px] text-center truncate w-full">
-                                                {file.name.length > 8
-                                                    ? file.name.substring(
-                                                          0,
-                                                          8,
-                                                      ) + "..."
+                                        <div className="w-20 h-20 rounded-lg border bg-muted flex flex-col items-center justify-center p-2">
+                                            <span className="text-2xl mb-1">{fileIcon}</span>
+                                            <p className="text-[9px] text-center truncate w-full font-medium">
+                                                {file.name.length > 10
+                                                    ? file.name.substring(0, 10) + "..."
                                                     : file.name}
+                                            </p>
+                                            <p className="text-[8px] text-muted-foreground">
+                                                {fileSize}
                                             </p>
                                         </div>
                                     )}
@@ -449,6 +620,10 @@ export function InputArea({ className }: InputAreaProps) {
                                     >
                                         <X className="h-3 w-3" />
                                     </Button>
+                                    {/* File name tooltip on hover */}
+                                    <div className="absolute bottom-0 left-0 right-0 bg-black/75 text-white text-[8px] p-1 rounded-b-lg opacity-0 group-hover:opacity-100 transition-opacity truncate">
+                                        {file.name}
+                                    </div>
                                 </div>
                             );
                         })}
@@ -534,6 +709,20 @@ export function InputArea({ className }: InputAreaProps) {
                         <Smile className="h-4 w-4" />
                     </Button>
 
+                    {/* Keyboard Builder Button */}
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        disabled={!isConnected || !activeChatId || selectedFiles.length > 0}
+                        className="shrink-0"
+                        onClick={() => setShowKeyboardBuilder(!showKeyboardBuilder)}
+                        aria-pressed={showKeyboardBuilder}
+                        aria-label="Inline Keyboard"
+                        title="Add inline keyboard buttons"
+                    >
+                        <span className="text-sm">⌨️</span>
+                    </Button>
+
                     {/* Send Button */}
                     <Button
                         onClick={handleSend}
@@ -577,7 +766,7 @@ export function InputArea({ className }: InputAreaProps) {
                 onChange={handleFileChange}
                 className="hidden"
                 multiple
-                accept="image/*,video/*,audio/*,document/*"
+                accept="*/*"
             />
         </div>
     );

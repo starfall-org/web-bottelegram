@@ -11,6 +11,7 @@ export interface TelegramUpdate {
     edited_message?: any;
     channel_post?: any;
     edited_channel_post?: any;
+    callback_query?: any;
 }
 
 export class BotService {
@@ -90,6 +91,16 @@ export class BotService {
                 const update: TelegramUpdate = {
                     update_id: ctx.update.update_id,
                     edited_channel_post: ctx.update.edited_channel_post,
+                };
+                this.updateCallback([update]);
+            }
+        });
+
+        this.bot.on("callback_query", (ctx) => {
+            if (this.updateCallback) {
+                const update: TelegramUpdate = {
+                    update_id: ctx.update.update_id,
+                    callback_query: ctx.update.callback_query,
                 };
                 this.updateCallback([update]);
             }
@@ -175,6 +186,14 @@ export class BotService {
         options?: {
             parse_mode?: "HTML" | "Markdown" | "MarkdownV2";
             reply_to_message_id?: number;
+            reply_markup?: {
+                inline_keyboard?: Array<Array<{
+                    text: string;
+                    callback_data?: string;
+                    url?: string;
+                    web_app?: { url: string };
+                }>>;
+            };
         },
     ) {
         if (!this.bot) throw new Error("Bot not initialized");
@@ -185,6 +204,7 @@ export class BotService {
                 reply_parameters: options?.reply_to_message_id
                     ? { message_id: options.reply_to_message_id }
                     : undefined,
+                reply_markup: options?.reply_markup,
             });
             return { ok: true, result: message };
         } catch (error) {
@@ -329,7 +349,17 @@ export class BotService {
         chatId: number | string,
         messageId: number,
         text: string,
-        options?: { parse_mode?: "HTML" | "Markdown" | "MarkdownV2" },
+        options?: {
+            parse_mode?: "HTML" | "Markdown" | "MarkdownV2";
+            reply_markup?: {
+                inline_keyboard?: Array<Array<{
+                    text: string;
+                    callback_data?: string;
+                    url?: string;
+                    web_app?: { url: string };
+                }>>;
+            };
+        },
     ) {
         if (!this.bot) throw new Error("Bot not initialized");
 
@@ -338,7 +368,10 @@ export class BotService {
                 chatId,
                 messageId,
                 text,
-                { parse_mode: options?.parse_mode },
+                {
+                    parse_mode: options?.parse_mode,
+                    reply_markup: options?.reply_markup,
+                },
             );
             return { ok: true, result };
         } catch (error) {
@@ -630,6 +663,32 @@ export class BotService {
         }
     }
 
+    async answerCallbackQuery(
+        callbackQueryId: string,
+        options?: {
+            text?: string;
+            show_alert?: boolean;
+            url?: string;
+            cache_time?: number;
+        },
+    ) {
+        if (!this.bot) throw new Error("Bot not initialized");
+
+        try {
+            const result = await this.bot.api.answerCallbackQuery(
+                callbackQueryId,
+                options,
+            );
+            return { ok: true, result };
+        } catch (error) {
+            return {
+                ok: false,
+                description:
+                    error instanceof Error ? error.message : "Unknown error",
+            };
+        }
+    }
+
     getFileUrl(filePath: string): string {
         if (!this.config) throw new Error("Bot not configured");
 
@@ -676,6 +735,7 @@ export class BotService {
                 "edited_message",
                 "channel_post",
                 "edited_channel_post",
+                "callback_query",
             ],
             onStart: (botInfo) => {
                 console.debug("[BotService] Bot started:", botInfo.username);

@@ -1,3 +1,10 @@
+export interface InlineKeyboardButton {
+  text: string
+  callback_data?: string
+  url?: string
+  web_app?: { url: string }
+}
+
 export interface Message {
   id: number | string
   type: 'text' | 'photo' | 'video' | 'audio' | 'voice' | 'document' | 'sticker'
@@ -14,6 +21,7 @@ export interface Message {
   fromUsername?: string
   reply_to?: number | string
   reply_preview?: string
+  reply_markup?: InlineKeyboardButton[][]
 }
 
 export interface Member {

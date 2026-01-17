@@ -125,8 +125,33 @@ export function useBotConnection() {
                     processMessage(update.channel_post);
                 } else if (update.edited_channel_post) {
                     processMessage(update.edited_channel_post, true);
+                } else if (update.callback_query) {
+                    processCallbackQuery(update.callback_query);
                 }
             });
+        };
+
+        const processCallbackQuery = async (callbackQuery: any) => {
+            console.log("[useBotConnection] Callback query received:", callbackQuery);
+            
+            const chatId = callbackQuery.message?.chat?.id?.toString();
+            const messageId = callbackQuery.message?.message_id;
+            const callbackData = callbackQuery.callback_data;
+            const callbackId = callbackQuery.id;
+
+            // Answer the callback query to remove loading state
+            try {
+                await botService.answerCallbackQuery(callbackId, {
+                    text: `Received: ${callbackData}`,
+                    show_alert: false,
+                });
+            } catch (e) {
+                console.warn("Failed to answer callback query:", e);
+            }
+
+            // You can add custom logic here to handle different callback data
+            // For example, update the message or perform actions based on callback_data
+            console.log(`Callback from chat ${chatId}, message ${messageId}: ${callbackData}`);
         };
 
         const processMessage = async (message: any, isEdited = false) => {
@@ -308,6 +333,7 @@ export function useBotConnection() {
                 fromUsername: message.from?.username,
                 reply_to: message.reply_to_message?.message_id,
                 reply_preview: message.reply_to_message?.text?.substring(0, 50),
+                reply_markup: message.reply_markup?.inline_keyboard || undefined,
             };
 
             // Add or update message to store

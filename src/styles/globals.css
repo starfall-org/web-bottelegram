@@ -95,8 +95,23 @@
   }
 }
 
+@keyframes slideInMessage {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .message-pulse {
   animation: pulse 1s ease-in-out;
+}
+
+.message-new {
+  animation: slideInMessage 0.3s ease-out;
 }
 
 /* Chat specific styles */

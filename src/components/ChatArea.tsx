@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useRef, useState, useEffect } from 'react'
 import { useBotStore } from '@/store/botStore'
 import { useTranslation } from '@/i18n/useTranslation'
 import { MessageList } from '@/components/MessageList'
@@ -6,12 +6,14 @@ import { InputArea } from '@/components/InputArea'
 import { ChatInfoDialog } from '@/components/ChatInfoDialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Wifi, WifiOff, ArrowDown } from 'lucide-react'
+import { Wifi, WifiOff, ArrowDown, Paperclip } from 'lucide-react'
 import { botService } from '@/services/botService'
 
 export function ChatArea() {
   const [showNewMessageButton, setShowNewMessageButton] = useState(false)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
+  const [isDraggingFile, setIsDraggingFile] = useState(false)
+  const dragCounterRef = useRef(0)
 
   const [openChatInput, setOpenChatInput] = useState('')
   const [openChatTitle, setOpenChatTitle] = useState('')
@@ -33,9 +35,12 @@ export function ChatArea() {
   const botInfo = getCurrentBotInfo()
   const activeChat = activeChatId ? chats?.get(activeChatId) : null
 
-  const scrollToBottom = () => {
+  const scrollToBottom = (smooth = false) => {
     if (messagesContainerRef.current) {
-      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight
+      messagesContainerRef.current.scrollTo({
+        top: messagesContainerRef.current.scrollHeight,
+        behavior: smooth ? 'smooth' : 'auto'
+      })
       setShowNewMessageButton(false)
     }
   }
@@ -52,6 +57,103 @@ export function ChatArea() {
       setShowNewMessageButton(false)
     }
   }
+
+  // Auto scroll to bottom when chat opens or changes
+  useEffect(() => {
+    if (activeChatId && activeChat) {
+      // Scroll immediately when chat opens
+      scrollToBottom(false)
+    }
+  }, [activeChatId])
+
+  // Auto scroll when new messages arrive
+  useEffect(() => {
+    if (activeChat?.messages && messagesContainerRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } = messagesContainerRef.current
+      const isNearBottom = scrollTop + clientHeight >= scrollHeight - 100
+      
+      // Only auto-scroll if user is already near the bottom
+      if (isNearBottom) {
+        scrollToBottom(true)
+        
+        // Play notification sound for new messages (if enabled)
+        const lastMessage = activeChat.messages[activeChat.messages.length - 1]
+        if (lastMessage && lastMessage.side === 'left') {
+          playNotificationSound()
+        }
+      }
+    }
+  }, [activeChat?.messages?.length])
+
+  const playNotificationSound = () => {
+    // Simple notification sound using Web Audio API
+    try {
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
+      const oscillator = audioContext.createOscillator()
+      const gainNode = audioContext.createGain()
+      
+      oscillator.connect(gainNode)
+      gainNode.connect(audioContext.destination)
+      
+      oscillator.frequency.value = 800
+      oscillator.type = 'sine'
+      
+      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime)
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1)
+      
+      oscillator.start(audioContext.currentTime)
+      oscillator.stop(audioContext.currentTime + 0.1)
+    } catch (e) {
+      // Ignore audio errors
+    }
+  }
+
+  // Global drag and drop handler
+  useEffect(() => {
+    const handleDragEnter = (e: DragEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      dragCounterRef.current++
+      if (e.dataTransfer?.types.includes('Files')) {
+        setIsDraggingFile(true)
+      }
+    }
+
+    const handleDragLeave = (e: DragEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      dragCounterRef.current--
+      if (dragCounterRef.current === 0) {
+        setIsDraggingFile(false)
+      }
+    }
+
+    const handleDragOver = (e: DragEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+    }
+
+    const handleDrop = (e: DragEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      dragCounterRef.current = 0
+      setIsDraggingFile(false)
+      
+      // This will be handled by InputArea's drop handler
+    }
+
+    document.addEventListener('dragenter', handleDragEnter)
+    document.addEventListener('dragleave', handleDragLeave)
+    document.addEventListener('dragover', handleDragOver)
+    document.addEventListener('drop', handleDrop)
+
+    return () => {
+      document.removeEventListener('dragenter', handleDragEnter)
+      document.removeEventListener('dragleave', handleDragLeave)
+      document.removeEventListener('dragover', handleDragOver)
+      document.removeEventListener('drop', handleDrop)
+    }
+  }, [])
 
   const handleOpenChat = async () => {
     setOpenChatError(null)
@@ -181,6 +283,21 @@ export function ChatArea() {
 
   return (
     <main className="flex-1 flex flex-col relative">
+      {/* Global Drag Overlay */}
+      {isDraggingFile && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-primary/10 backdrop-blur-sm pointer-events-none">
+          <div className="text-center">
+            <Paperclip className="h-16 w-16 mx-auto mb-4 text-primary animate-bounce" />
+            <p className="text-2xl font-semibold text-primary mb-2">
+              Thả file vào đây để gửi
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Hỗ trợ tất cả loại file
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Chat Header */}
       <div className="sticky top-0 z-20 border-b px-4 py-3 md:p-4 flex items-center justify-between bg-background/90 backdrop-blur supports-[backdrop-filter]:bg-background/60 shadow-sm">
         <div className="flex items-center gap-3">
@@ -229,7 +346,7 @@ export function ChatArea() {
           <div className="pointer-events-none absolute bottom-20 left-0 right-0 h-16 bg-gradient-to-t from-background/90 via-background/60 to-transparent" />
           <Button
             className="fixed bottom-24 right-4 md:right-6 rounded-full shadow-lg z-30 animate-slideIn"
-            onClick={scrollToBottom}
+            onClick={() => scrollToBottom(true)}
             size="sm"
             aria-label={t('chat.newMessage')}
           >
@@ -240,7 +357,7 @@ export function ChatArea() {
       )}
 
       {/* Input Area */}
-      <InputArea />
+      <InputArea isDraggingGlobal={isDraggingFile} />
     </main>
   )
 }
