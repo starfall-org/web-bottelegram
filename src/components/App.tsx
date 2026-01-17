@@ -1,12 +1,14 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, lazy, Suspense } from 'react'
 import { useBotStore } from '@/store/botStore'
 import { useBotConnection } from '@/hooks/useBotConnection'
-import { Sidebar } from '@/components/Sidebar'
-import { ChatArea } from '@/components/ChatArea'
 import { ThemeProvider } from '@/components/ThemeProvider'
 import { LoadingPage } from '@/components/LoadingSpinner'
-import { CallbackNotification } from '@/components/CallbackNotification'
 import { useTranslation } from '@/i18n/useTranslation'
+
+// Lazy load components that aren't needed immediately
+const Sidebar = lazy(() => import('@/components/Sidebar').then(m => ({ default: m.Sidebar })))
+const ChatArea = lazy(() => import('@/components/ChatArea').then(m => ({ default: m.ChatArea })))
+const CallbackNotification = lazy(() => import('@/components/CallbackNotification').then(m => ({ default: m.CallbackNotification })))
 
 export function App() {
   const [isInitializing, setIsInitializing] = useState(true)
@@ -43,11 +45,13 @@ export function App() {
 
   return (
     <ThemeProvider>
-      <div className="flex h-screen bg-background text-foreground">
-        <Sidebar />
-        <ChatArea />
-        <CallbackNotification />
-      </div>
+      <Suspense fallback={<LoadingPage message={t.t('app.loading')} />}>
+        <div className="flex h-screen bg-background text-foreground">
+          <Sidebar />
+          <ChatArea />
+          <CallbackNotification />
+        </div>
+      </Suspense>
     </ThemeProvider>
   )
 }

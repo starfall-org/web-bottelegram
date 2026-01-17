@@ -145,6 +145,9 @@ export const rehydrateState = (state?: BotState) => {
         // Ensure other required properties exist
         if (!state.preferences) {
             state.preferences = createDefaultPreferences();
+        } else if (!state.preferences.parseMode) {
+            // Add parseMode if missing from old saved state
+            state.preferences.parseMode = 'MarkdownV2';
         }
 
         if (!state.language) {

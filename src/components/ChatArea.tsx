@@ -117,7 +117,7 @@ export function ChatArea() {
       }
     }
 
-    const handleDragLeave = (e: DragEvent) => {
+    const handleDragLeave = (_e: DragEvent) => {
       dragCounterRef.current--
       if (dragCounterRef.current === 0) {
         setIsDraggingFile(false)
@@ -129,7 +129,7 @@ export function ChatArea() {
       e.preventDefault()
     }
 
-    const handleDrop = (e: DragEvent) => {
+    const handleDrop = (_e: DragEvent) => {
       // Reset drag state but don't prevent default - let InputArea handle the actual drop
       dragCounterRef.current = 0
       setIsDraggingFile(false)

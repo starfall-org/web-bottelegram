@@ -42,5 +42,6 @@ export const createDefaultBotData = (): BotData => ({
 export const createDefaultPreferences = () => ({
   autoScroll: true,
   sound: true,
-  push: true
+  push: true,
+  parseMode: 'MarkdownV2' as const
 })

@@ -7,7 +7,32 @@ export default defineConfig({
   root: 'src',
   build: {
     outDir: '../dist',
-    emptyOutDir: true
+    emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // React core
+          'react-vendor': ['react', 'react-dom'],
+          // UI library
+          'radix-ui': [
+            '@radix-ui/react-dialog',
+            '@radix-ui/react-dropdown-menu',
+            '@radix-ui/react-scroll-area',
+            '@radix-ui/react-tabs',
+            '@radix-ui/react-switch',
+            '@radix-ui/react-separator',
+            '@radix-ui/react-label',
+            '@radix-ui/react-slot',
+            '@radix-ui/react-checkbox',
+          ],
+          // Telegram bot library
+          'grammy': ['grammy'],
+          // Icons
+          'lucide': ['lucide-react'],
+        },
+      },
+    },
+    chunkSizeWarningLimit: 600,
   },
   server: {
     host: '0.0.0.0',

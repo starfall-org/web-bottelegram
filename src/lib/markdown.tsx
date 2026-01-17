@@ -138,7 +138,7 @@ function parseMarkdownV2(text: string): React.ReactNode {
     replacements.sort((a, b) => a.start - b.start);
     
     // Build result
-    replacements.forEach((replacement, index) => {
+    replacements.forEach((replacement) => {
         // Add text before this replacement
         if (replacement.start > lastIndex) {
             parts.push(unescapeMarkdown(processedText.substring(lastIndex, replacement.start)));
