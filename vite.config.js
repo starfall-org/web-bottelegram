@@ -11,12 +11,9 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: (id) => {
-          // React core (excluding scheduler which is bundled with react-dom)
-          if (id.includes('node_modules/react/') && !id.includes('node_modules/react-dom')) {
+          // React core and React DOM should be in the same chunk to avoid dependency issues
+          if (id.includes('node_modules/react/') || id.includes('node_modules/react-dom')) {
             return 'react-vendor'
-          }
-          if (id.includes('node_modules/react-dom')) {
-            return 'react-dom-vendor'
           }
           // Radix UI components
           if (id.includes('node_modules/@radix-ui')) {
