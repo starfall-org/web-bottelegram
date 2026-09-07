@@ -195,9 +195,9 @@
 
 .telegram-chat-surface {
   background:
-    linear-gradient(110deg, rgb(218 226 151 / .76), rgb(113 187 137 / .74) 50%, rgb(228 225 170 / .72)),
+    linear-gradient(110deg, rgb(73 126 76 / .52), rgb(42 111 69 / .54) 50%, rgb(91 132 77 / .50)),
     url('/images/chat-wallpaper-doodles.png') center / 560px auto;
-  background-blend-mode: color, multiply;
+  background-blend-mode: normal;
 }
 
 .telegram-chat-pane {
