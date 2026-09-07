@@ -21,6 +21,20 @@ export class MtProtoGateway {
     private updateCallback: ((updates: any[]) => void) | null = null;
 
     /**
+     * mtcute treats string peers as usernames. Chat IDs are kept as strings in
+     * the UI/store (so they can also represent @usernames), therefore turn a
+     * numeric ID back into a number before handing it to mtcute.
+     */
+    private toPeerId(chatId: number | string): number | string {
+        if (typeof chatId !== "string" || !/^-?\d+$/.test(chatId)) {
+            return chatId;
+        }
+
+        const numericChatId = Number(chatId);
+        return Number.isSafeInteger(numericChatId) ? numericChatId : chatId;
+    }
+
+    /**
      * Create (and swap in) the MTProto client synchronously so that
      * callers can use it right after configure() resolves; the old
      * client is disconnected in the background.
@@ -202,7 +216,7 @@ export class MtProtoGateway {
 
     async sendMessage(chatId: number | string, text: string, options?: any) {
         try {
-            const result = await this.client.sendText(chatId, text, {
+            const result = await this.client.sendText(this.toPeerId(chatId), text, {
                 replyTo: options?.reply_to_message_id,
                 replyMarkup: options?.reply_markup?.inline_keyboard
                     ? this.toReplyMarkup(options.reply_markup)
@@ -217,7 +231,7 @@ export class MtProtoGateway {
     async editMessageText(chatId: number | string, messageId: number, text: string, options?: any) {
         try {
             const result = await this.client.editMessage({
-                chatId,
+                chatId: this.toPeerId(chatId),
                 message: messageId,
                 text,
                 replyMarkup: options?.reply_markup?.inline_keyboard
@@ -232,7 +246,7 @@ export class MtProtoGateway {
 
     async deleteMessage(chatId: number | string, messageId: number) {
         try {
-            await this.client.deleteMessagesById(chatId, [messageId]);
+            await this.client.deleteMessagesById(this.toPeerId(chatId), [messageId]);
             return { ok: true, result: true };
         } catch (error: any) {
             return { ok: false, description: error?.message || "Failed to delete message" };
@@ -248,7 +262,7 @@ export class MtProtoGateway {
                 upload_voice: "upload_voice",
                 upload_document: "upload_document",
             };
-            await this.client.sendTyping(chatId, (action && statusMap[action]) || "typing");
+            await this.client.sendTyping(this.toPeerId(chatId), (action && statusMap[action]) || "typing");
             return { ok: true, result: true };
         } catch (error: any) {
             return { ok: false, description: error?.message || "Failed to send chat action" };
@@ -257,7 +271,7 @@ export class MtProtoGateway {
 
     async getChat(chatId: number | string) {
         try {
-            const chat = await this.client.getChat(chatId);
+            const chat = await this.client.getChat(this.toPeerId(chatId));
             return {
                 ok: true,
                 result: {
@@ -277,7 +291,7 @@ export class MtProtoGateway {
 
     async getChatAdministrators(chatId: number | string) {
         try {
-            const members = await this.client.getChatMembers(chatId, { type: "admins" });
+            const members = await this.client.getChatMembers(this.toPeerId(chatId), { type: "admins" });
             return {
                 ok: true,
                 result: members.map((m: any) => ({
@@ -297,7 +311,7 @@ export class MtProtoGateway {
 
     async banChatMember(chatId: number | string, userId: number, untilDate?: number) {
         try {
-            await this.client.banChatMember({ chatId, participantId: userId, untilDate });
+            await this.client.banChatMember({ chatId: this.toPeerId(chatId), participantId: userId, untilDate });
             return { ok: true, result: true };
         } catch (error: any) {
             return { ok: false, description: error?.message || "Failed to ban member" };
@@ -307,7 +321,7 @@ export class MtProtoGateway {
     async promoteChatMember(chatId: number | string, userId: number, isAdmin: boolean) {
         try {
             if (isAdmin) {
-                await this.client.editAdminRights({ chatId, userId, rights: {
+                await this.client.editAdminRights({ chatId: this.toPeerId(chatId), userId, rights: {
                     changeInfo: true,
                     deleteMessages: true,
                     manageVideoChats: true,
@@ -319,7 +333,7 @@ export class MtProtoGateway {
                     editMessages: true,
                 } });
             } else {
-                await this.client.editAdminRights({ chatId, userId, rights: {} });
+                await this.client.editAdminRights({ chatId: this.toPeerId(chatId), userId, rights: {} });
             }
             return { ok: true, result: true };
         } catch (error: any) {
@@ -362,7 +376,7 @@ export class MtProtoGateway {
 
     async sendSticker(chatId: number | string, sticker: string) {
         try {
-            const result = await this.client.sendMedia(chatId, sticker, {});
+            const result = await this.client.sendMedia(this.toPeerId(chatId), sticker, {});
             return { ok: true, result: this.toBotMessage(result) };
         } catch (error: any) {
             return { ok: false, description: error?.message || "Failed to send sticker" };
@@ -376,7 +390,7 @@ export class MtProtoGateway {
                 input = new Uint8Array(await media.arrayBuffer());
                 input.fileName = media.name || "file";
             }
-            const result = await this.client.sendMedia(chatId, input, {
+            const result = await this.client.sendMedia(this.toPeerId(chatId), input, {
                 caption: options.caption,
                 replyTo: options.replyTo,
             });
