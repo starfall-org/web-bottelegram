@@ -3,6 +3,7 @@ import {
     createDefaultBotData,
     createDefaultBotInfo,
     createDefaultPreferences,
+    createDefaultMtprotoSettings,
 } from "./defaults";
 
 /**
@@ -105,6 +106,8 @@ export const deserializeBotDataMap = (
  */
 export const partializeState = (state: BotState) => ({
     token: state.token,
+    gateway: state.gateway,
+    mtproto: state.mtproto,
     theme: state.theme,
     language: state.language,
     preferences: state.preferences,
@@ -150,6 +153,12 @@ export const rehydrateState = (state?: BotState) => {
             state.preferences.parseMode = 'MarkdownV2';
         }
 
+        if (!state.gateway) {
+            state.gateway = "bot";
+        }
+        if (!state.mtproto) {
+            state.mtproto = createDefaultMtprotoSettings();
+        }
         if (!state.language) {
             state.language = "vi";
         }

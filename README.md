@@ -8,6 +8,7 @@ A modern, React-based Telegram bot client built with TypeScript, shadcn/ui, and 
 - **Multi-language Support** (Vietnamese & English)
 - **Multi-chat interface** with sidebar and message history
 - **Real-time messaging** via Telegram Bot API polling with Grammy.js
+- **Dual gateway support** — switch between **Bot Gateway** (Bot API over HTTP) and **MTProto Gateway** (direct MTProto via [mtcute](https://ref.mtcute.dev/modules/_mtcute_web)) in Settings → Connection
 - **Media support** for photos, videos, audio, documents, and stickers
 - **Markdown & Code Highlighting** with syntax highlighting for code blocks
 - **Inline message replies** and message deletion
@@ -18,6 +19,21 @@ A modern, React-based Telegram bot client built with TypeScript, shadcn/ui, and 
 - **CORS proxy support** for API access
 - **Comprehensive Settings** with tabbed configuration interface
 
+## Gateways
+
+The app can talk to Telegram in two ways. Open **Settings → Connection → Gateway** to switch:
+
+| | Bot Gateway | MTProto Gateway |
+|---|---|---|
+| Transport | Bot API over HTTPS (grammy) | MTProto over WebSocket (mtcute) |
+| Credentials | Bot token from [@BotFather](https://t.me/botfather) | API ID + API Hash from [my.telegram.org/apps](https://my.telegram.org/apps) + bot token |
+| Session storage | — | IndexedDB (per bot token) |
+| Notes | Needs a CORS proxy in the browser | Connects directly to Telegram DCs; no proxy needed |
+
+- Gateway selection and MTProto credentials are persisted in the app store.
+- Switching gateways while polling stops the current connection and restarts the new one automatically.
+- Incoming MTProto messages/edits/callback queries are converted into Bot-API-shaped updates, so the rest of the app (chat list, message rendering, stickers, file downloads) works identically on both gateways.
+
 ## Tech Stack
 
 - **React 18** with TypeScript
@@ -26,6 +42,7 @@ A modern, React-based Telegram bot client built with TypeScript, shadcn/ui, and 
 - **Tailwind CSS** for styling
 - **Zustand** for state management
 - **Grammy.js** for Telegram Bot API
+- **@mtcute/web** for the MTProto gateway alternative
 - **Lucide React** for icons
 - **React Syntax Highlighter** for code block highlighting
 

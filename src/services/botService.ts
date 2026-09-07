@@ -1,8 +1,14 @@
 import { Bot, GrammyError, HttpError, InputFile } from "grammy";
+import { mtProtoGateway } from "./mtprotoGateway";
+
+export type GatewayMode = "bot" | "mtproto";
 
 export interface BotConfig {
     token: string;
     proxyPrefix?: string;
+    // MTProto gateway settings
+    apiId?: number;
+    apiHash?: string;
 }
 
 export interface TelegramUpdate {
@@ -17,6 +23,11 @@ export interface TelegramUpdate {
 export class BotService {
     private bot: Bot | null = null;
     private config: BotConfig | null = null;
+    private mode: GatewayMode = "bot";
+    private latestUpdateCallback: ((updates: TelegramUpdate[]) => void) | null = null;
+    private latestStatusCallback:
+        | ((status: "idle" | "polling" | "error", error?: string | null) => void)
+        | null = null;
     private isRunning = false;
     private updateCallback: ((updates: TelegramUpdate[]) => void) | null = null;
     private statusCallback:
@@ -28,10 +39,41 @@ export class BotService {
 
     constructor() {}
 
+    setGatewayMode(mode: GatewayMode) {
+        if (mode === this.mode) return;
+        const wasRunning = this.isRunning;
+        if (wasRunning) {
+            void this.stop();
+        }
+        this.mode = mode;
+        if (this.config && wasRunning) {
+            void this.start(this.latestUpdateCallback || undefined, this.latestStatusCallback || undefined);
+        }
+    }
+
+    getGatewayMode(): GatewayMode {
+        return this.mode;
+    }
+
     setConfig(config: BotConfig) {
         this.config = config;
         if (this.bot) {
             this.stop();
+        }
+        if (this.mode === "mtproto") {
+            mtProtoGateway
+                .configure({
+                    apiId: config.apiId || 0,
+                    apiHash: config.apiHash || "",
+                    botToken: config.token,
+                })
+                .catch((error) => {
+                    console.error("[BotService] MTProto configure failed:", error);
+                    if (this.statusCallback) {
+                        this.statusCallback("error", error?.message || "MTProto configure failed");
+                    }
+                });
+            return;
         }
 
         // Create bot with custom API root for CORS proxy support
@@ -166,6 +208,9 @@ export class BotService {
     }
 
     async getMe() {
+        if (this.mode === "mtproto") {
+            return mtProtoGateway.getMe();
+        }
         if (!this.bot) throw new Error("Bot not initialized");
 
         try {
@@ -196,6 +241,9 @@ export class BotService {
             };
         },
     ) {
+        if (this.mode === "mtproto") {
+            return mtProtoGateway.sendMessage(chatId, text, options);
+        }
         if (!this.bot) throw new Error("Bot not initialized");
 
         try {
@@ -221,6 +269,9 @@ export class BotService {
         photo: string | File,
         options?: { caption?: string; reply_to_message_id?: number },
     ) {
+        if (this.mode === "mtproto") {
+            return mtProtoGateway.sendPhoto(chatId, photo, options);
+        }
         if (!this.bot) throw new Error("Bot not initialized");
 
         try {
@@ -254,6 +305,9 @@ export class BotService {
         video: string | File,
         options?: { caption?: string; reply_to_message_id?: number },
     ) {
+        if (this.mode === "mtproto") {
+            return mtProtoGateway.sendVideo(chatId, video, options);
+        }
         if (!this.bot) throw new Error("Bot not initialized");
 
         try {
@@ -286,6 +340,9 @@ export class BotService {
         audio: string | File,
         options?: { caption?: string; reply_to_message_id?: number },
     ) {
+        if (this.mode === "mtproto") {
+            return mtProtoGateway.sendAudio(chatId, audio, options);
+        }
         if (!this.bot) throw new Error("Bot not initialized");
 
         try {
@@ -318,6 +375,9 @@ export class BotService {
         document: string | File,
         options?: { caption?: string; reply_to_message_id?: number },
     ) {
+        if (this.mode === "mtproto") {
+            return mtProtoGateway.sendDocument(chatId, document, options);
+        }
         if (!this.bot) throw new Error("Bot not initialized");
 
         try {
@@ -361,6 +421,9 @@ export class BotService {
             };
         },
     ) {
+        if (this.mode === "mtproto") {
+            return mtProtoGateway.editMessageText(chatId, messageId, text, options);
+        }
         if (!this.bot) throw new Error("Bot not initialized");
 
         try {
@@ -384,6 +447,9 @@ export class BotService {
     }
 
     async sendSticker(chatId: number | string, sticker: string) {
+        if (this.mode === "mtproto") {
+            return mtProtoGateway.sendSticker(chatId, sticker);
+        }
         if (!this.bot) throw new Error("Bot not initialized");
 
         try {
@@ -399,6 +465,9 @@ export class BotService {
     }
 
     async deleteMessage(chatId: number | string, messageId: number) {
+        if (this.mode === "mtproto") {
+            return mtProtoGateway.deleteMessage(chatId, messageId);
+        }
         if (!this.bot) throw new Error("Bot not initialized");
 
         try {
@@ -422,6 +491,9 @@ export class BotService {
             | "upload_voice"
             | "upload_document",
     ) {
+        if (this.mode === "mtproto") {
+            return mtProtoGateway.sendChatAction(chatId, action);
+        }
         if (!this.bot) throw new Error("Bot not initialized");
 
         try {
@@ -437,6 +509,9 @@ export class BotService {
     }
 
     async getFile(fileId: string) {
+        if (this.mode === "mtproto") {
+            return mtProtoGateway.getFile(fileId);
+        }
         if (!this.bot) throw new Error("Bot not initialized");
 
         try {
@@ -452,6 +527,9 @@ export class BotService {
     }
 
     async getChat(chatId: number | string) {
+        if (this.mode === "mtproto") {
+            return mtProtoGateway.getChat(chatId);
+        }
         if (!this.bot) throw new Error("Bot not initialized");
 
         try {
@@ -467,6 +545,9 @@ export class BotService {
     }
 
     async getChatAdministrators(chatId: number | string) {
+        if (this.mode === "mtproto") {
+            return mtProtoGateway.getChatAdministrators(chatId);
+        }
         if (!this.bot) throw new Error("Bot not initialized");
 
         try {
@@ -486,6 +567,9 @@ export class BotService {
         userId: number,
         untilDate?: number,
     ) {
+        if (this.mode === "mtproto") {
+            return mtProtoGateway.banChatMember(chatId, userId, untilDate);
+        }
         if (!this.bot) throw new Error("Bot not initialized");
 
         try {
@@ -507,6 +591,9 @@ export class BotService {
         userId: number,
         isAdmin: boolean,
     ) {
+        if (this.mode === "mtproto") {
+            return mtProtoGateway.promoteChatMember(chatId, userId, isAdmin);
+        }
         if (!this.bot) throw new Error("Bot not initialized");
 
         try {
@@ -536,6 +623,9 @@ export class BotService {
     }
 
     async deleteWebhook(dropPendingUpdates = false) {
+        if (this.mode === "mtproto") {
+            return mtProtoGateway.deleteWebhook();
+        }
         if (!this.bot) throw new Error("Bot not initialized");
 
         try {
@@ -553,6 +643,9 @@ export class BotService {
     }
 
     async getMyCommands() {
+        if (this.mode === "mtproto") {
+            return mtProtoGateway.getMyCommands();
+        }
         if (!this.bot) throw new Error("Bot not initialized");
 
         try {
@@ -570,6 +663,9 @@ export class BotService {
     async setMyCommands(
         commands: Array<{ command: string; description: string }>,
     ) {
+        if (this.mode === "mtproto") {
+            return mtProtoGateway.setMyCommands(commands);
+        }
         if (!this.bot) throw new Error("Bot not initialized");
 
         try {
@@ -585,6 +681,9 @@ export class BotService {
     }
 
     async setMyName(name?: string) {
+        if (this.mode === "mtproto") {
+            return mtProtoGateway.setMyName(name);
+        }
         if (!this.bot) throw new Error("Bot not initialized");
 
         try {
@@ -600,6 +699,9 @@ export class BotService {
     }
 
     async setMyDescription(description?: string) {
+        if (this.mode === "mtproto") {
+            return mtProtoGateway.setMyDescription(description);
+        }
         if (!this.bot) throw new Error("Bot not initialized");
 
         try {
@@ -617,6 +719,9 @@ export class BotService {
     }
 
     async setMyShortDescription(shortDescription?: string) {
+        if (this.mode === "mtproto") {
+            return mtProtoGateway.setMyShortDescription(shortDescription);
+        }
         if (!this.bot) throw new Error("Bot not initialized");
 
         try {
@@ -634,6 +739,9 @@ export class BotService {
     }
 
     async getMyDescription() {
+        if (this.mode === "mtproto") {
+            return mtProtoGateway.getMyDescription();
+        }
         if (!this.bot) throw new Error("Bot not initialized");
 
         try {
@@ -649,6 +757,9 @@ export class BotService {
     }
 
     async getMyShortDescription() {
+        if (this.mode === "mtproto") {
+            return mtProtoGateway.getMyShortDescription();
+        }
         if (!this.bot) throw new Error("Bot not initialized");
 
         try {
@@ -672,6 +783,9 @@ export class BotService {
             cache_time?: number;
         },
     ) {
+        if (this.mode === "mtproto") {
+            return mtProtoGateway.answerCallbackQuery(callbackQueryId, options);
+        }
         if (!this.bot) throw new Error("Bot not initialized");
 
         try {
@@ -690,6 +804,9 @@ export class BotService {
     }
 
     getFileUrl(filePath: string): string {
+        if (this.mode === "mtproto") {
+            return mtProtoGateway.getFileUrl(filePath);
+        }
         if (!this.config) throw new Error("Bot not configured");
 
         // Use proxy if configured, otherwise direct Telegram URL
@@ -712,14 +829,34 @@ export class BotService {
             error?: string | null,
         ) => void,
     ) {
+        this.updateCallback = updateCallback || null;
+        this.statusCallback = statusCallback || null;
+        this.latestUpdateCallback = this.updateCallback;
+        this.latestStatusCallback = this.statusCallback;
+
+        if (this.mode === "mtproto") {
+            if (!this.config) throw new Error("Bot not configured");
+            this.isRunning = true;
+            if (statusCallback) statusCallback("polling");
+            try {
+                await mtProtoGateway.start((updates) => {
+                    if (this.updateCallback) this.updateCallback(updates);
+                });
+                console.debug("[BotService] MTProto gateway started");
+            } catch (error: any) {
+                console.error("[BotService] MTProto start failed:", error);
+                this.isRunning = false;
+                if (statusCallback) statusCallback("error", error?.message || "MTProto failed");
+            }
+            return;
+        }
+
         if (!this.bot) throw new Error("Bot not initialized");
         if (this.isRunning) {
             console.debug("[BotService] Bot is already running");
             return;
         }
 
-        this.updateCallback = updateCallback || null;
-        this.statusCallback = statusCallback || null;
         this.isRunning = true;
 
         console.debug(
@@ -751,6 +888,16 @@ export class BotService {
 
         console.debug("[BotService] Stopping bot...");
         this.isRunning = false;
+
+        if (this.mode === "mtproto") {
+            try {
+                await mtProtoGateway.stop();
+            } catch (error) {
+                console.error("[BotService] Error stopping MTProto gateway:", error);
+            }
+            if (this.statusCallback) this.statusCallback("idle");
+            return;
+        }
 
         if (this.bot) {
             try {

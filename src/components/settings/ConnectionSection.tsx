@@ -17,7 +17,7 @@ import {
     Zap,
 } from "lucide-react";
 import { SectionHeader } from "./SettingsComponents";
-import type { BotCommand } from "@/store/botStore";
+import type { BotCommand, GatewayMode } from "@/store/botStore";
 
 interface ConnectionSectionProps {
     t: (key: string) => string;
@@ -29,6 +29,12 @@ interface ConnectionSectionProps {
         username: string | null;
         commands?: BotCommand[];
     };
+    gateway: GatewayMode;
+    setGateway: (mode: GatewayMode) => void;
+    mtprotoApiId: string;
+    setMtprotoApiId: (value: string) => void;
+    mtprotoApiHash: string;
+    setMtprotoApiHash: (value: string) => void;
     tokenInput: string;
     setTokenInput: (value: string) => void;
     proxyInput: string;
@@ -59,6 +65,12 @@ export function ConnectionSection({
     isPolling,
     isLoading,
     botInfo,
+    gateway,
+    setGateway,
+    mtprotoApiId,
+    setMtprotoApiId,
+    mtprotoApiHash,
+    setMtprotoApiHash,
     tokenInput,
     setTokenInput,
     proxyInput,
@@ -137,6 +149,106 @@ export function ConnectionSection({
                     )}
                 </Badge>
             </div>
+
+            {/* Gateway Switcher */}
+            <div className="space-y-3">
+                <Label className="text-sm font-medium">{t("settings.gateway")}</Label>
+                <p className="text-xs text-muted-foreground">{t("settings.gatewayDesc")}</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {(
+                        [
+                            {
+                                value: "bot" as GatewayMode,
+                                icon: Wifi,
+                                title: t("settings.gatewayBot"),
+                                desc: t("settings.gatewayBotDesc"),
+                            },
+                            {
+                                value: "mtproto" as GatewayMode,
+                                icon: Shield,
+                                title: t("settings.gatewayMtproto"),
+                                desc: t("settings.gatewayMtprotoDesc"),
+                            },
+                        ]
+                    ).map((option) => {
+                        const selected = gateway === option.value;
+                        return (
+                            <button
+                                key={option.value}
+                                type="button"
+                                onClick={() => setGateway(option.value)}
+                                className={cn(
+                                    "flex items-start gap-3 p-4 rounded-xl border text-left transition-all duration-200",
+                                    selected
+                                        ? "border-primary bg-primary/5 ring-1 ring-primary"
+                                        : "border-border bg-muted/30 hover:bg-muted/60",
+                                )}
+                            >
+                                <div
+                                    className={cn(
+                                        "p-2 rounded-lg shrink-0",
+                                        selected ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground",
+                                    )}
+                                >
+                                    <option.icon className="h-4 w-4" />
+                                </div>
+                                <div className="min-w-0">
+                                    <div className="text-sm font-medium flex items-center gap-1.5">
+                                        {option.title}
+                                        {selected && <Check className="h-3.5 w-3.5 text-green-500" />}
+                                    </div>
+                                    <p className="text-xs text-muted-foreground mt-0.5">{option.desc}</p>
+                                </div>
+                            </button>
+                        );
+                    })}
+                </div>
+
+                {gateway === "mtproto" && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-xl border bg-muted/30">
+                        <div className="space-y-2">
+                            <Label htmlFor="mtproto-api-id" className="text-xs text-muted-foreground">
+                                {t("settings.gatewayApiId")} *
+                            </Label>
+                            <Input
+                                id="mtproto-api-id"
+                                inputMode="numeric"
+                                placeholder="123456"
+                                value={mtprotoApiId}
+                                onChange={(e) => setMtprotoApiId(e.target.value.replace(/[^0-9]/g, ""))}
+                                className="h-10 font-mono text-sm"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="mtproto-api-hash" className="text-xs text-muted-foreground">
+                                {t("settings.gatewayApiHash")} *
+                            </Label>
+                            <Input
+                                id="mtproto-api-hash"
+                                type="password"
+                                placeholder="0123456789abcdef0123456789abcdef"
+                                value={mtprotoApiHash}
+                                onChange={(e) => setMtprotoApiHash(e.target.value)}
+                                className="h-10 font-mono text-sm"
+                            />
+                        </div>
+                        <p className="text-xs text-muted-foreground sm:col-span-2">
+                            Lấy API ID/Hash tại{" "}
+                            <a
+                                href="https://my.telegram.org/apps"
+                                target="_blank"
+                                rel="noreferrer"
+                                className="underline hover:text-foreground"
+                            >
+                                my.telegram.org/apps
+                            </a>
+                            . Token bot vẫn được dùng để đăng nhập MTProto.
+                        </p>
+                    </div>
+                )}
+            </div>
+
+            <Separator />
 
             {/* Token Input */}
             <div className="space-y-3">

@@ -23,6 +23,10 @@ export default defineConfig({
           if (id.includes('node_modules/grammy')) {
             return 'grammy'
           }
+          // MTProto gateway library
+          if (id.includes('node_modules/@mtcute') || id.includes('node_modules/@fuman')) {
+            return 'mtcute'
+          }
           // Icons
           if (id.includes('node_modules/lucide-react')) {
             return 'lucide'

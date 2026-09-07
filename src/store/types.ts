@@ -95,9 +95,19 @@ export interface BotData {
   activeChatId: string | null
 }
 
+export interface MtProtoSettings {
+  apiId: number | null
+  apiHash: string
+}
+
+export type GatewayMode = 'bot' | 'mtproto'
+
 export interface BotState {
   // Current connection state
   token: string
+  // Gateway transport: Bot API (grammy) or MTProto (mtcute)
+  gateway: GatewayMode
+  mtproto: MtProtoSettings
   isConnected: boolean
   isPolling: boolean
   pollingStatus: 'idle' | 'polling' | 'error'
@@ -122,6 +132,8 @@ export interface BotState {
 
   // Actions
   setToken: (token: string) => void
+  setGateway: (gateway: GatewayMode) => void
+  setMtprotoSettings: (settings: Partial<MtProtoSettings>) => void
   setConnected: (connected: boolean) => void
   setPolling: (polling: boolean) => void
   setPollingStatus: (status: 'idle' | 'polling' | 'error') => void

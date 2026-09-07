@@ -134,6 +134,14 @@ export interface Translation {
         // Connection tab
         botConfig: string;
         botConfigDesc: string;
+        gateway: string;
+        gatewayDesc: string;
+        gatewayBot: string;
+        gatewayBotDesc: string;
+        gatewayMtproto: string;
+        gatewayMtprotoDesc: string;
+        gatewayApiId: string;
+        gatewayApiHash: string;
         proxy: string;
         proxyPlaceholder: string;
         proxyDesc: string;
@@ -347,6 +355,15 @@ export const translations: Record<Language, Translation> = {
             botConfig: "Cấu hình Bot",
             botConfigDesc:
                 "Nhập token và proxy để kết nối với Telegram Bot API",
+            gateway: "Đường truyền (Gateway)",
+            gatewayDesc: "Chọn cách kết nối tới Telegram: Bot API hoặc MTProto",
+            gatewayBot: "Bot Gateway",
+            gatewayBotDesc: "Bot API qua HTTP (grammy), dùng token từ @BotFather",
+            gatewayMtproto: "MTProto Gateway",
+            gatewayMtprotoDesc:
+                "Kết nối MTProto trực tiếp (mtcute), cần API ID/Hash từ my.telegram.org",
+            gatewayApiId: "API ID",
+            gatewayApiHash: "API Hash",
             proxy: "CORS Proxy (tùy chọn)",
             proxyPlaceholder: "https://cors-anywhere.herokuapp.com/",
             proxyDesc: "Sử dụng proxy nếu gặp lỗi CORS khi truy cập API",
@@ -558,6 +575,15 @@ export const translations: Record<Language, Translation> = {
             botConfig: "Bot Configuration",
             botConfigDesc:
                 "Enter token and proxy to connect to Telegram Bot API",
+            gateway: "Gateway",
+            gatewayDesc: "Choose how to connect to Telegram: Bot API or MTProto",
+            gatewayBot: "Bot Gateway",
+            gatewayBotDesc: "Bot API over HTTP (grammy), uses a token from @BotFather",
+            gatewayMtproto: "MTProto Gateway",
+            gatewayMtprotoDesc:
+                "Direct MTProto connection (mtcute), needs API ID/Hash from my.telegram.org",
+            gatewayApiId: "API ID",
+            gatewayApiHash: "API Hash",
             proxy: "CORS Proxy (optional)",
             proxyPlaceholder: "https://cors-anywhere.herokuapp.com/",
             proxyDesc:

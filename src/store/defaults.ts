@@ -1,4 +1,4 @@
-import type { Chat, BotInfo, BotData } from './types'
+import type { Chat, BotInfo, BotData, MtProtoSettings } from './types'
 
 export const createDefaultChat = (chatId: string, initialData: Partial<Chat> = {}): Chat => ({
   id: chatId,
@@ -44,4 +44,9 @@ export const createDefaultPreferences = () => ({
   sound: true,
   push: true,
   parseMode: 'MarkdownV2' as const
+})
+
+export const createDefaultMtprotoSettings = (): MtProtoSettings => ({
+  apiId: null,
+  apiHash: ''
 })

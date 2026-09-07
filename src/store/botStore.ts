@@ -3,6 +3,7 @@ import { persist } from "zustand/middleware";
 import type {
     BotState,
     BotInfo,
+    MtProtoSettings,
     BotData,
     Chat,
     ChatMember,
@@ -13,6 +14,7 @@ import {
     createDefaultBotData,
     createDefaultBotInfo,
     createDefaultChat,
+    createDefaultMtprotoSettings,
 } from "./defaults";
 import { partializeState, rehydrateState } from "./persistence";
 
@@ -22,6 +24,8 @@ const DEFAULT_BOT_INFO: BotInfo = createDefaultBotInfo();
 export type {
     Message,
     Member,
+    GatewayMode,
+    MtProtoSettings,
     ChatMember,
     Chat,
     BotCommand,
@@ -36,6 +40,8 @@ export const useBotStore = create<BotState>()(
         (set: any, get: any): BotState => ({
             // Initial state
             token: "",
+            gateway: "bot",
+            mtproto: createDefaultMtprotoSettings(),
             isConnected: false,
             isPolling: false,
             pollingStatus: "idle",
@@ -68,6 +74,11 @@ export const useBotStore = create<BotState>()(
                 }
             },
 
+            setGateway: (gateway: "bot" | "mtproto") => set({ gateway }),
+            setMtprotoSettings: (settings: Partial<MtProtoSettings>) =>
+                set((state: BotState) => ({
+                    mtproto: { ...state.mtproto, ...settings },
+                })),
             setConnected: (isConnected: boolean) => set({ isConnected }),
             setPolling: (isPolling: boolean) => set({ isPolling }),
             setPollingStatus: (pollingStatus: "idle" | "polling" | "error") =>

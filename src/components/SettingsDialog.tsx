@@ -46,6 +46,10 @@ export function SettingsDialog() {
     const [isLoading, setIsLoading] = useState(false);
     const [copiedToken, setCopiedToken] = useState(false);
 
+    // MTProto gateway inputs
+    const [mtprotoApiId, setMtprotoApiId] = useState("");
+    const [mtprotoApiHash, setMtprotoApiHash] = useState("");
+
     // Bot profile states
     const [botName, setBotName] = useState("");
     const [botUsernameInput, setBotUsernameInput] = useState("");
@@ -54,6 +58,10 @@ export function SettingsDialog() {
 
     const {
         token,
+        gateway,
+        setGateway,
+        mtproto,
+        setMtprotoSettings,
         setToken,
         getCurrentBotInfo,
         setBotInfo,
@@ -73,6 +81,8 @@ export function SettingsDialog() {
     useEffect(() => {
         if (open) {
             setTokenInput(token);
+            setMtprotoApiId(mtproto.apiId ? String(mtproto.apiId) : "");
+            setMtprotoApiHash(mtproto.apiHash || "");
             setProxyInput(localStorage.getItem("cors_proxy") || "");
             setToast(null);
             setBotName(botInfo.name || "");
@@ -97,12 +107,26 @@ export function SettingsDialog() {
         const proxyPrefix = proxyInput.trim() || undefined;
         if (!tok) return false;
         try {
-            botService.setConfig({ token: tok, proxyPrefix });
+            botService.setGatewayMode(gateway);
+            botService.setConfig({
+                token: tok,
+                proxyPrefix,
+                apiId: mtprotoApiId ? Number(mtprotoApiId) : undefined,
+                apiHash: mtprotoApiHash || undefined,
+            });
             return true;
         } catch {
             return false;
         }
-    }, [tokenInput, proxyInput]);
+    }, [tokenInput, proxyInput, mtprotoApiId, mtprotoApiHash, gateway]);
+
+    const handleGatewayChange = (mode: "bot" | "mtproto") => {
+        // Persist to the store; useBotConnection reacts to gateway/config
+        // changes and re-initializes the connection automatically.
+        setGateway(mode);
+        const apiIdNum = mtprotoApiId ? Number(mtprotoApiId) : null;
+        setMtprotoSettings({ apiId: apiIdNum, apiHash: mtprotoApiHash.trim() });
+    };
 
     const handleSaveConnection = async () => {
         if (!tokenInput.trim()) {
@@ -113,6 +137,10 @@ export function SettingsDialog() {
         try {
             setToken(tokenInput.trim());
             localStorage.setItem("bot_token", tokenInput.trim());
+            setMtprotoSettings({
+                apiId: mtprotoApiId ? Number(mtprotoApiId) : null,
+                apiHash: mtprotoApiHash.trim(),
+            });
             if (proxyInput.trim()) {
                 localStorage.setItem("cors_proxy", proxyInput.trim());
             } else {
@@ -283,6 +311,12 @@ export function SettingsDialog() {
                         isPolling={isPolling}
                         isLoading={isLoading}
                         botInfo={botInfo}
+                        gateway={gateway}
+                        setGateway={handleGatewayChange}
+                        mtprotoApiId={mtprotoApiId}
+                        setMtprotoApiId={setMtprotoApiId}
+                        mtprotoApiHash={mtprotoApiHash}
+                        setMtprotoApiHash={setMtprotoApiHash}
                         tokenInput={tokenInput}
                         setTokenInput={setTokenInput}
                         proxyInput={proxyInput}

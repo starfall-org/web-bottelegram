@@ -5,6 +5,8 @@ import { botService, type TelegramUpdate } from "@/services/botService";
 export function useBotConnection() {
     const {
         token,
+        gateway,
+        mtproto,
         setConnected,
         setPolling,
         setPollingStatus,
@@ -30,7 +32,13 @@ export function useBotConnection() {
                 // Configure bot service
                 const proxyPrefix =
                     localStorage.getItem("cors_proxy") || undefined;
-                botService.setConfig({ token, proxyPrefix });
+                botService.setGatewayMode(gateway);
+                botService.setConfig({
+                    token,
+                    proxyPrefix,
+                    apiId: mtproto.apiId || undefined,
+                    apiHash: mtproto.apiHash || undefined,
+                });
 
                 // Test connection by getting bot info
                 const response = await botService.getMe();
@@ -384,7 +392,7 @@ export function useBotConnection() {
             botService.stop();
             setPolling(false);
         };
-    }, [token]); // Re-run when token changes
+    }, [token, gateway, mtproto.apiId, mtproto.apiHash]); // Re-run on token/gateway/config change
 
     return {
         isConnected: useBotStore((state: BotState) => state.isConnected),
