@@ -682,7 +682,7 @@ export function MessageList({ chatId }: MessageListProps) {
     };
 
     return (
-        <div className="relative">
+        <div className="telegram-message-list relative mx-auto max-w-[720px]">
             {/* Selection Toolbar */}
             {isSelectionMode && (
                 <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/70 border-b p-3 mb-3 rounded-lg shadow-sm">
@@ -748,7 +748,7 @@ export function MessageList({ chatId }: MessageListProps) {
             )}
 
             {/* Message List */}
-            <div className="space-y-3">
+            <div className="space-y-2.5">
                 {chat.messages.map((message: Message) => {
                     const replied = message.reply_to
                         ? idMap.get(message.reply_to)

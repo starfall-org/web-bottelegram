@@ -508,6 +508,122 @@ export class BotService {
         }
     }
 
+    private async callMultipartApi(method: string, formData: FormData) {
+        if (!this.config) throw new Error("Bot not configured");
+
+        const apiRoot = this.config.proxyPrefix
+            ? this.config.proxyPrefix.replace(/\/+$/, "")
+            : "https://api.telegram.org";
+        const response = await fetch(
+            `${apiRoot}/bot${this.config.token}/${method}`,
+            { method: "POST", body: formData },
+        );
+        return response.json() as Promise<{
+            ok: boolean;
+            result?: boolean;
+            description?: string;
+        }>;
+    }
+
+    async getUserProfilePhotos(userId: number, limit = 1) {
+        if (this.mode === "mtproto") {
+            return {
+                ok: false,
+                description: "Profile photos are currently available through the Bot API gateway only",
+            };
+        }
+        if (!this.bot) throw new Error("Bot not initialized");
+
+        try {
+            const photos = await this.bot.api.getUserProfilePhotos(userId, {
+                limit,
+            });
+            return { ok: true, result: photos };
+        } catch (error) {
+            return {
+                ok: false,
+                description:
+                    error instanceof Error ? error.message : "Unknown error",
+            };
+        }
+    }
+
+    async getChatMember(chatId: number | string, userId: number) {
+        if (this.mode === "mtproto") {
+            return {
+                ok: false,
+                description: "Chat permissions are currently available through the Bot API gateway only",
+            };
+        }
+        if (!this.bot) throw new Error("Bot not initialized");
+
+        try {
+            const member = await this.bot.api.getChatMember(chatId, userId);
+            return { ok: true, result: member };
+        } catch (error) {
+            return {
+                ok: false,
+                description:
+                    error instanceof Error ? error.message : "Unknown error",
+            };
+        }
+    }
+
+    async setMyProfilePhoto(photo: File) {
+        if (this.mode === "mtproto") {
+            return {
+                ok: false,
+                description: "Changing the bot profile photo is currently available through the Bot API gateway only",
+            };
+        }
+        if (photo.type !== "image/jpeg") {
+            return {
+                ok: false,
+                description: "Telegram requires a JPG image for a bot profile photo",
+            };
+        }
+
+        try {
+            const formData = new FormData();
+            formData.append(
+                "photo",
+                JSON.stringify({ type: "static", photo: "attach://avatar" }),
+            );
+            formData.append("avatar", photo, photo.name || "bot-avatar.jpg");
+            return await this.callMultipartApi("setMyProfilePhoto", formData);
+        } catch (error) {
+            return {
+                ok: false,
+                description:
+                    error instanceof Error ? error.message : "Unknown error",
+            };
+        }
+    }
+
+    async setChatPhoto(chatId: number | string, photo: File) {
+        if (this.mode === "mtproto") {
+            return {
+                ok: false,
+                description: "Changing chat photos is currently available through the Bot API gateway only",
+            };
+        }
+        if (!this.bot) throw new Error("Bot not initialized");
+
+        try {
+            const result = await this.bot.api.setChatPhoto(
+                chatId,
+                new InputFile(photo, photo.name || "chat-avatar.jpg"),
+            );
+            return { ok: true, result };
+        } catch (error) {
+            return {
+                ok: false,
+                description:
+                    error instanceof Error ? error.message : "Unknown error",
+            };
+        }
+    }
+
     async getFile(fileId: string) {
         if (this.mode === "mtproto") {
             return mtProtoGateway.getFile(fileId);

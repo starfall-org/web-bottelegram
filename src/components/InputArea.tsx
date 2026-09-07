@@ -3,7 +3,7 @@ import { useBotStore } from "@/store/botStore";
 import { botService } from "@/services/botService";
 import { useTranslation } from "@/i18n/useTranslation";
 import { Button } from "@/components/ui/button";
-import { Send, Paperclip, Smile, X, Plus } from "lucide-react";
+import { Send, Paperclip, Smile, X, Plus, Mic, Keyboard } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { StickerPanel } from "@/components/input/StickerPanel";
 import { useSendFiles } from "@/components/input/useSendFiles";
@@ -474,7 +474,7 @@ export function InputArea({ className, isDraggingGlobal = false }: InputAreaProp
         <div
             ref={dropZoneRef}
             className={cn(
-                "border-t border-border/80 bg-background/72 backdrop-blur-xl supports-[backdrop-filter]:bg-background/55 relative",
+                "border-t border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/85 relative",
                 className,
             )}
             onDragOver={handleDragOver}
@@ -785,10 +785,10 @@ export function InputArea({ className, isDraggingGlobal = false }: InputAreaProp
                     </div>
                 )}
 
-            <div className="relative flex items-end gap-2 p-3 md:p-4">
+            <div className="telegram-composer__bar relative flex items-end gap-2 p-3 md:pb-5">
                 <div
                     className={cn(
-                        "flex items-end gap-2 w-full bg-card/60 border rounded-2xl px-2 py-2 shadow-sm transition-all",
+                        "flex min-h-[56px] w-full items-end gap-2 rounded-full border bg-card px-2 py-2 shadow-md transition-all",
                         isFocused
                             ? "ring-2 ring-ring ring-offset-2 ring-offset-background"
                             : "hover:shadow-md",
@@ -800,7 +800,7 @@ export function InputArea({ className, isDraggingGlobal = false }: InputAreaProp
                         size="icon"
                         onClick={handleFileSelect}
                         disabled={!isConnected || !activeChatId}
-                        className="shrink-0"
+                        className="h-10 w-10 shrink-0 rounded-full"
                     >
                         <Paperclip className="h-4 w-4" />
                     </Button>
@@ -828,7 +828,7 @@ export function InputArea({ className, isDraggingGlobal = false }: InputAreaProp
                             }
                             disabled={!isConnected || !activeChatId}
                             className={cn(
-                                "w-full min-h-[40px] max-h-[120px] px-0 py-1 bg-transparent text-sm",
+                                "w-full min-h-[40px] max-h-[120px] bg-transparent px-0 py-1.5 text-[17px] leading-6",
                                 "placeholder:text-muted-foreground",
                                 "focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0",
                                 "disabled:cursor-not-allowed disabled:opacity-50",
@@ -843,7 +843,7 @@ export function InputArea({ className, isDraggingGlobal = false }: InputAreaProp
                         variant="ghost"
                         size="icon"
                         disabled={!isConnected || !activeChatId}
-                        className="shrink-0"
+                        className="h-10 w-10 shrink-0 rounded-full"
                         onClick={toggleStickerPanel}
                         aria-pressed={showStickerPanel}
                         aria-label="Sticker"
@@ -856,13 +856,13 @@ export function InputArea({ className, isDraggingGlobal = false }: InputAreaProp
                         variant="ghost"
                         size="icon"
                         disabled={!isConnected || !activeChatId || selectedFiles.length > 0}
-                        className="shrink-0"
+                        className="hidden h-10 w-10 shrink-0 rounded-full sm:inline-flex"
                         onClick={() => setShowKeyboardBuilder(!showKeyboardBuilder)}
                         aria-pressed={showKeyboardBuilder}
                         aria-label="Inline Keyboard"
                         title="Thêm nút tương tác (Inline Keyboard)"
                     >
-                        <span className="text-sm">⌨️</span>
+                        <Keyboard className="h-5 w-5" />
                     </Button>
 
                     {/* Send Button */}
@@ -885,9 +885,13 @@ export function InputArea({ className, isDraggingGlobal = false }: InputAreaProp
                             isSendingFiles
                         }
                         size="icon"
-                        className="shrink-0"
+                        className="h-10 w-10 shrink-0 rounded-full bg-[#3390ec] hover:bg-[#2585dc]"
                     >
-                        <Send className="h-4 w-4" />
+                        {message.trim() || selectedFiles.length > 0 ? (
+                            <Send className="h-5 w-5" />
+                        ) : (
+                            <Mic className="h-5 w-5" />
+                        )}
                     </Button>
                 </div>
 

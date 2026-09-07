@@ -31,6 +31,7 @@ export interface Member {
   username?: string
   displayName: string
   avatarText: string
+  avatarUrl?: string
   status: string
   isAdmin: boolean
   isCreator: boolean
@@ -47,6 +48,7 @@ export interface Chat {
   type: 'private' | 'group' | 'supergroup' | 'channel'
   title: string
   avatarText: string
+  avatarUrl?: string
   messages: Message[]
   messageIds: Set<number | string>
   members: Map<string, ChatMember>
@@ -72,6 +74,7 @@ export interface BotInfo {
   id: number | null
   username: string | null
   name: string | null
+  avatarUrl?: string
   description: string | null
   shortDescription: string | null
   commands: Array<{ command: string; description: string }>

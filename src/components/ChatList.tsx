@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { MoreVertical, Trash2, Eraser } from "lucide-react";
 import { cn, snippet, formatTime } from "@/lib/utils";
+import { Avatar } from "@/components/Avatar";
 
 export function ChatList() {
   const { getCurrentActiveChatId, setActiveChatId, getSortedChats, deleteChat, clearChatHistory } =
@@ -56,32 +57,46 @@ export function ChatList() {
 
   return (
     <div className="flex-1 overflow-y-auto">
-      {sortedChats.map((chat: Chat) => (
-        <div
-          key={chat.id}
-          className={cn(
-            "group flex items-center gap-3 p-3 border-b cursor-pointer transition-colors hover:bg-muted/50",
-            activeChatId === chat.id && "bg-muted"
-          )}
-          onClick={() => handleChatClick(chat.id)}
-        >
+      {sortedChats.map((chat: Chat) => {
+        const isActive = activeChatId === chat.id;
+        return (
+          <div
+            key={chat.id}
+            className={cn(
+              "group mx-2 flex cursor-pointer items-center gap-3 rounded-[18px] px-3 py-3 transition-colors hover:bg-muted/70",
+              isActive && "bg-[#3390ec] text-white shadow-sm hover:bg-[#3390ec]"
+            )}
+            onClick={() => handleChatClick(chat.id)}
+          >
           {/* Avatar */}
-          <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-medium text-sm flex-shrink-0">
-            {chat.avatarText}
-          </div>
+          <Avatar
+            src={chat.avatarUrl}
+            alt={chat.title}
+            fallback={chat.avatarText}
+            className={cn(
+              "flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary/15 text-sm font-medium text-primary",
+              isActive && "bg-white/15 text-white"
+            )}
+          />
 
           {/* Chat Info */}
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between mb-1">
-              <h3 className="font-medium text-sm truncate">{chat.title}</h3>
+              <h3 className="truncate text-[16px] font-semibold">{chat.title}</h3>
               {chat.lastDate > 0 && (
-                <span className="text-xs text-muted-foreground ml-2 flex-shrink-0">
+                <span className={cn(
+                  "ml-2 shrink-0 text-xs text-muted-foreground",
+                  isActive && "text-white/95"
+                )}>
                   {formatTime(chat.lastDate)}
                 </span>
               )}
             </div>
 
-            <p className="text-xs text-muted-foreground truncate">
+            <p className={cn(
+              "truncate text-sm text-muted-foreground",
+              isActive && "text-white/95"
+            )}>
               {chat.lastText ? snippet(chat.lastText, 40) : "—"}
             </p>
           </div>
@@ -89,7 +104,10 @@ export function ChatList() {
           {/* Unread badge and actions */}
           <div className="flex items-center gap-2 flex-shrink-0">
             {chat.unread > 0 && (
-              <div className="bg-primary text-primary-foreground rounded-full min-w-[20px] h-5 flex items-center justify-center text-xs font-medium px-1.5">
+              <div className={cn(
+                "flex h-5 min-w-[20px] items-center justify-center rounded-full bg-primary px-1.5 text-xs font-medium text-primary-foreground",
+                isActive && "bg-white text-[#3390ec]"
+              )}>
                 {chat.unread > 99 ? "99+" : chat.unread}
               </div>
             )}
@@ -99,7 +117,10 @@ export function ChatList() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                  className={cn(
+                    "h-6 w-6 opacity-0 transition-opacity group-hover:opacity-100",
+                    isActive && "text-white hover:bg-white/15 hover:text-white"
+                  )}
                   onClick={(e) => e.stopPropagation()}
                 >
                   <MoreVertical className="h-3 w-3" />
@@ -121,8 +142,9 @@ export function ChatList() {
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-        </div>
-      ))}
+          </div>
+        );
+      })}
     </div>
   );
 }

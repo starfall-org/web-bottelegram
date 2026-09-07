@@ -6,8 +6,10 @@ import { InputArea } from '@/components/InputArea'
 import { ChatInfoDialog } from '@/components/ChatInfoDialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Wifi, WifiOff, ArrowDown, Paperclip } from 'lucide-react'
+import { Wifi, WifiOff, ArrowDown, Paperclip, Menu, Search } from 'lucide-react'
 import { botService } from '@/services/botService'
+import { getChatAvatarUrl } from '@/lib/telegramAvatar'
+import { Avatar } from '@/components/Avatar'
 
 export function ChatArea() {
   const [showNewMessageButton, setShowNewMessageButton] = useState(false)
@@ -197,6 +199,7 @@ export function ChatArea() {
             type: info.type || 'private',
             title,
             avatarText,
+            avatarUrl: await getChatAvatarUrl(info),
           }
         } else {
           throw new Error((res as any).description || 'Không tìm thấy chat')
@@ -225,7 +228,16 @@ export function ChatArea() {
 
   if (!activeChat) {
     return (
-      <main className="flex-1 flex flex-col relative">
+      <main className="telegram-chat-pane flex-1 flex flex-col relative min-w-0">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="fixed left-5 top-5 z-30 rounded-full bg-card/90 shadow-sm md:hidden"
+          onClick={() => window.dispatchEvent(new Event('telegram:open-sidebar'))}
+          aria-label="Open sidebar"
+        >
+          <Menu className="h-5 w-5" />
+        </Button>
         <div className="flex-1 flex items-center justify-center p-8">
           <div className="text-center space-y-4 max-w-md hud-panel rounded-2xl p-8">
             <div className="w-20 h-20 bg-primary/20 border border-primary/40 rounded-full flex items-center justify-center mx-auto hud-glow">
@@ -296,13 +308,13 @@ export function ChatArea() {
   }
 
   return (
-    <main className="flex-1 flex flex-col relative">
+    <main className="telegram-chat-pane flex-1 flex flex-col relative min-w-0">
       {/* Global Drag Overlay */}
       {isDraggingFile && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/45 backdrop-blur-sm pointer-events-none">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/60 backdrop-blur-sm pointer-events-none">
           <div className="text-center">
-            <Paperclip className="h-16 w-16 mx-auto mb-4 text-primary animate-bounce" />
-            <p className="text-2xl font-semibold text-primary mb-2">
+            <Paperclip className="h-16 w-16 mx-auto mb-4 text-[hsl(var(--primary))] animate-bounce" />
+            <p className="text-2xl font-semibold text-[hsl(var(--primary))] mb-2">
               Thả file vào đây để gửi
             </p>
             <p className="text-sm text-muted-foreground">
@@ -312,35 +324,42 @@ export function ChatArea() {
         </div>
       )}
 
-      {/* Chat Header */}
-      <div className="sticky top-0 z-20 border-b border-border/80 px-4 py-3 md:p-4 flex items-center justify-between bg-background/75 backdrop-blur-xl shadow-[0_6px_24px_hsl(var(--background)/0.55)]">
+      {/* Floating Telegram-style chat header */}
+      <div className="telegram-float-header z-20 flex h-[72px] shrink-0 items-center justify-between bg-[hsl(var(--background))] px-5 shadow-sm">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-primary/90 text-primary-foreground rounded-md flex items-center justify-center font-semibold shadow-[0_0_18px_hsl(var(--primary)/0.5)]">
-            {activeChat.avatarText}
-          </div>
-          <div>
-            <h2 className="font-medium">{activeChat.title}</h2>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              {isConnected ? (
-                <>
-                  <Wifi className="h-3 w-3 text-green-500" />
-                  <span>{t('chat.active')}</span>
-                </>
-              ) : (
-                <>
-                  <WifiOff className="h-3 w-3 text-red-500" />
-                  <span>{t('chat.notConnected')}</span>
-                </>
-              )}
-              <span>•</span>
-              <span>
-                {activeChat.members.size} {t('chat.members')}
-              </span>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="md:hidden h-9 w-9 rounded-full"
+            onClick={() => window.dispatchEvent(new Event('telegram:open-sidebar'))}
+            aria-label="Open sidebar"
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
+          <div className="flex items-center gap-3">
+            <Avatar
+              src={activeChat.avatarUrl}
+              alt={activeChat.title}
+              fallback={activeChat.avatarText}
+              className="flex h-12 w-12 items-center justify-center rounded-full bg-[hsl(var(--primary))] text-base font-semibold text-white"
+            />
+            <div>
+              <div className="text-[19px] font-semibold leading-6">{activeChat.title}</div>
+              <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                {isConnected ? (
+                  <><span className="inline-block h-1.5 w-1.5 rounded-full bg-green-500" /> online</>
+                ) : (
+                  <><span className="inline-block h-1.5 w-1.5 rounded-full bg-muted-foreground" /> offline</>
+                )}
+                {activeChat.members.size > 0 && <span>· {activeChat.members.size} members</span>}
+              </div>
             </div>
           </div>
         </div>
-        
         <div className="flex items-center gap-2">
+          <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full" title="Search">
+            <Search className="h-6 w-6" />
+          </Button>
           <ChatInfoDialog />
         </div>
       </div>
@@ -348,7 +367,7 @@ export function ChatArea() {
       {/* Messages Container */}
       <div
         ref={messagesContainerRef}
-        className="flex-1 overflow-y-auto px-3 py-4 md:px-4 md:py-6"
+        className="telegram-message-stream flex-1 overflow-y-auto px-3 py-4 md:px-6 md:py-2"
         onScroll={handleScroll}
       >
         {activeChatId && <MessageList chatId={activeChatId} />}
@@ -359,7 +378,7 @@ export function ChatArea() {
         <>
           <div className="pointer-events-none absolute bottom-20 left-0 right-0 h-16 bg-gradient-to-t from-background/90 via-background/60 to-transparent" />
           <Button
-            className="fixed bottom-24 right-4 md:right-6 rounded-full shadow-lg z-30 animate-slideIn hud-glow"
+            className="telegram-jump-button absolute bottom-24 right-5 z-30 rounded-full shadow-lg animate-slideIn md:right-8"
             onClick={() => scrollToBottom(true)}
             size="sm"
             aria-label={t('chat.newMessage')}
@@ -371,7 +390,7 @@ export function ChatArea() {
       )}
 
       {/* Input Area */}
-      <InputArea isDraggingGlobal={isDraggingFile} />
+      <InputArea className="telegram-composer bg-transparent border-0" isDraggingGlobal={isDraggingFile} />
     </main>
   )
 }

@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useBotStore, type BotState, type Message } from "@/store/botStore";
 import { botService, type TelegramUpdate } from "@/services/botService";
+import { getChatAvatarUrl, getUserAvatarUrl } from "@/lib/telegramAvatar";
 
 export function useBotConnection() {
     const {
@@ -26,6 +27,26 @@ export function useBotConnection() {
             setPolling(false);
             return;
         }
+
+        const avatarLoads = new Set<string>();
+
+        const refreshChatAvatar = async (chatId: string) => {
+            if (avatarLoads.has(chatId)) return;
+            avatarLoads.add(chatId);
+            try {
+                const response = await botService.getChat(chatId);
+                if (!response.ok || !response.result) return;
+
+                const avatarUrl = await getChatAvatarUrl(response.result);
+                if (avatarUrl) {
+                    getOrCreateChat(chatId, { avatarUrl });
+                }
+            } catch (error) {
+                console.warn("Failed to load chat avatar:", error);
+            } finally {
+                avatarLoads.delete(chatId);
+            }
+        };
 
         const initializeBot = async () => {
             try {
@@ -53,6 +74,14 @@ export function useBotConnection() {
                         shortDescription: null,
                         commands: [],
                     });
+
+                    void getUserAvatarUrl(botInfo.id)
+                        .then((avatarUrl) => {
+                            if (avatarUrl) setBotInfo({ avatarUrl });
+                        })
+                        .catch((error) =>
+                            console.warn("Failed to load bot avatar:", error),
+                        );
 
                     // Try to get commands + profile (description, short description)
                     try {
@@ -204,7 +233,10 @@ export function useBotConnection() {
                           .toUpperCase(),
             };
 
-            getOrCreateChat(chatId, chatData);
+            const chat = getOrCreateChat(chatId, chatData);
+            if (!chat.avatarUrl) {
+                void refreshChatAvatar(chatId);
+            }
 
             // Process message content
             let messageType:

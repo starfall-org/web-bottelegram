@@ -59,6 +59,9 @@ export interface Translation {
         status: string;
         deleteWebhook: string;
         clearAllData: string;
+        profilePhoto: string;
+        changePhoto: string;
+        photoJpegHint: string;
     };
 
     // Chat
@@ -120,6 +123,8 @@ export interface Translation {
         userInfo: string;
         type: string;
         openChat: string;
+        changePhoto: string;
+        photoPermissionRequired: string;
     };
 
     // Settings
@@ -279,6 +284,9 @@ export const translations: Record<Language, Translation> = {
             status: "Trạng thái",
             deleteWebhook: "Xóa webhook",
             clearAllData: "Xóa tất cả dữ liệu",
+            profilePhoto: "Ảnh đại diện",
+            changePhoto: "Đổi ảnh",
+            photoJpegHint: "Ảnh đại diện bot phải là tệp JPG.",
         },
 
         chat: {
@@ -341,6 +349,8 @@ export const translations: Record<Language, Translation> = {
             userInfo: "Thông tin người dùng",
             type: "Loại",
             openChat: "Mở cuộc trò chuyện",
+            changePhoto: "Đổi ảnh đại diện",
+            photoPermissionRequired: "Bot cần quyền thay đổi thông tin nhóm để đổi ảnh đại diện.",
         },
 
         settings: {
@@ -499,6 +509,9 @@ export const translations: Record<Language, Translation> = {
             status: "Status",
             deleteWebhook: "Delete webhook",
             clearAllData: "Clear all data",
+            profilePhoto: "Profile photo",
+            changePhoto: "Change photo",
+            photoJpegHint: "The bot profile photo must be a JPG file.",
         },
 
         chat: {
@@ -561,6 +574,8 @@ export const translations: Record<Language, Translation> = {
             userInfo: "User information",
             type: "Type",
             openChat: "Open Chat",
+            changePhoto: "Change photo",
+            photoPermissionRequired: "The bot needs permission to change chat info before it can change this photo.",
         },
 
         settings: {

@@ -22,6 +22,7 @@ import {
     Info,
 } from "lucide-react";
 import { botService } from "@/services/botService";
+import { getUserAvatarUrl } from "@/lib/telegramAvatar";
 
 import {
     type SettingsSection,
@@ -35,7 +36,15 @@ import { PreferencesSection } from "./settings/PreferencesSection";
 import { BotsSection } from "./settings/BotsSection";
 import { AboutSection } from "./settings/AboutSection";
 
-export function SettingsDialog() {
+interface SettingsDialogProps {
+    triggerClassName?: string;
+    showLabel?: boolean;
+}
+
+export function SettingsDialog({
+    triggerClassName,
+    showLabel = false,
+}: SettingsDialogProps) {
     const [open, setOpen] = useState(false);
     const [activeSection, setActiveSection] =
         useState<SettingsSection>("connection");
@@ -242,6 +251,27 @@ export function SettingsDialog() {
         }
     };
 
+    const handleUpdateBotAvatar = async (photo: File) => {
+        setIsLoading(true);
+        try {
+            const response = await botService.setMyProfilePhoto(photo);
+            if (!response.ok) {
+                throw new Error(response.description || t("common.error"));
+            }
+
+            const avatarUrl = await getUserAvatarUrl(botInfo.id);
+            if (avatarUrl) setBotInfo({ avatarUrl });
+            showToast(t("messages.botInfoUpdated"), "success");
+        } catch (error) {
+            showToast(
+                error instanceof Error ? error.message : t("common.error"),
+                "error",
+            );
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     const handleClearAllData = () => {
         if (window.confirm(t("messages.confirmClearData"))) {
             clearAllData();
@@ -337,6 +367,7 @@ export function SettingsDialog() {
                         botShortDescription={botShortDescription}
                         setBotShortDescription={setBotShortDescription}
                         handleUpdateBotInfo={handleUpdateBotInfo}
+                        handleUpdateBotAvatar={handleUpdateBotAvatar}
                     />
                 );
             case "appearance":
@@ -398,9 +429,10 @@ export function SettingsDialog() {
                     variant="ghost"
                     size="icon"
                     title={t("common.settings")}
-                    className="relative"
+                    className={cn("relative", triggerClassName)}
                 >
                     <Settings className="h-4 w-4" />
+                    {showLabel && <span>{t("common.settings")}</span>}
                 </Button>
             </DialogTrigger>
 

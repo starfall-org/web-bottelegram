@@ -181,6 +181,31 @@ export const useBotStore = create<BotState>()(
                             updatedBotData,
                         ),
                     }));
+                } else if (Object.keys(initialData).length > 0) {
+                    const updatedChat = {
+                        ...chat,
+                        ...initialData,
+                        permissions: {
+                            ...chat.permissions,
+                            ...(initialData.permissions || {}),
+                        },
+                    };
+                    const updatedChats = new Map(currentBotData.chats).set(
+                        chatId,
+                        updatedChat,
+                    );
+                    const updatedBotData = {
+                        ...currentBotData,
+                        chats: updatedChats,
+                    };
+
+                    set((state: BotState) => ({
+                        botDataMap: new Map(state.botDataMap).set(
+                            state.token,
+                            updatedBotData,
+                        ),
+                    }));
+                    chat = updatedChat;
                 }
 
                 return chat;

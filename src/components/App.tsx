@@ -34,7 +34,7 @@ export function App() {
           <LoadingSpinner />
         </div>
       }>
-        <div className="relative flex h-screen overflow-hidden bg-background text-foreground">
+        <div className="telegram-chat-surface relative flex h-screen overflow-hidden text-foreground">
           <Sidebar />
           <ChatArea />
           <CallbackNotification />

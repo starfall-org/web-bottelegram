@@ -4,49 +4,57 @@
 
 @layer base {
   :root {
-    --background: 225 42% 8%;
-    --foreground: 195 100% 96%;
-    --card: 226 38% 10%;
-    --card-foreground: 195 100% 96%;
-    --popover: 226 36% 10%;
-    --popover-foreground: 195 100% 96%;
-    --primary: 190 96% 56%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 229 30% 16%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 229 26% 15%;
-    --muted-foreground: 205 24% 68%;
-    --accent: 266 68% 48%;
-    --accent-foreground: 220 100% 98%;
+    --background: 0 0% 100%;
+    --foreground: 0 0% 0%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 0%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 0%;
+    --primary: 200 100% 50%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 20% 96%;
+    --secondary-foreground: 0 0% 0%;
+    --muted: 210 20% 96%;
+    --muted-foreground: 0 0% 45%;
+    --accent: 200 100% 95%;
+    --accent-foreground: 200 100% 30%;
     --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 196 52% 26%;
-    --input: 196 52% 24%;
-    --ring: 190 96% 56%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 0% 90%;
+    --input: 0 0% 95%;
+    --ring: 200 100% 50%;
     --radius: 0.75rem;
+    --telegram-blue: 200 100% 50%;
+    --chat-bg: 0 0% 97%;
+    --message-out: 200 100% 90%;
+    --message-in: 0 0% 100%;
+    --sidebar-bg: 0 0% 98%;
   }
 
-  [data-theme="light"] {
-    --background: 210 100% 97%;
-    --foreground: 227 42% 16%;
-    --card: 0 0% 100%;
-    --grid-line: 190 70% 82%;
-    --card-foreground: 240 10% 3.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 3.9%;
-    --primary: 190 96% 56%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 198 70% 92%;
-    --secondary-foreground: 240 5.9% 10%;
-    --muted: 210 70% 94%;
-    --muted-foreground: 219 18% 42%;
-    --accent: 267 72% 91%;
-    --accent-foreground: 240 32% 20%;
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 197 46% 78%;
-    --input: 197 46% 78%;
-    --ring: 190 96% 56%;
+  [data-theme="dark"] {
+    --background: 0 0% 12%;
+    --foreground: 0 0% 100%;
+    --card: 0 0% 16%;
+    --card-foreground: 0 0% 100%;
+    --popover: 0 0% 16%;
+    --popover-foreground: 0 0% 100%;
+    --primary: 200 100% 55%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 0 0% 20%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 0 0% 20%;
+    --muted-foreground: 0 0% 65%;
+    --accent: 200 100% 20%;
+    --accent-foreground: 200 100% 70%;
+    --destructive: 0 70% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 0% 25%;
+    --input: 0 0% 22%;
+    --ring: 200 100% 55%;
+    --chat-bg: 0 0% 10%;
+    --message-out: 200 70% 35%;
+    --message-in: 0 0% 18%;
+    --sidebar-bg: 0 0% 14%;
   }
 }
 
@@ -58,14 +66,11 @@
     @apply bg-background text-foreground;
   }
   body {
-    background-image:
-      radial-gradient(circle at 20% 12%, hsl(var(--primary) / 0.14), transparent 38%),
-      radial-gradient(circle at 80% 0%, hsl(var(--accent) / 0.13), transparent 36%),
-      linear-gradient(hsl(var(--border) / 0.14) 1px, transparent 1px),
-      linear-gradient(90deg, hsl(var(--border) / 0.14) 1px, transparent 1px);
-    background-size: auto, auto, 32px 32px, 32px 32px;
-    background-attachment: fixed;
+    background-color: hsl(var(--background));
+    background-image: none;
     text-rendering: geometricPrecision;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+    overflow: hidden;
   }
 
   button,
@@ -134,15 +139,15 @@
 
 /* Chat specific styles */
 .chat-message {
-  @apply max-w-[75%] break-words whitespace-pre-wrap rounded-2xl p-3 shadow-sm border border-border/60 transition-colors duration-200;
+  @apply max-w-[75%] break-words whitespace-pre-wrap rounded-[18px] border border-transparent px-3 py-2 shadow-sm transition-colors duration-200;
 }
 
 .chat-message.own {
-  @apply bg-primary/15 text-foreground ml-auto border-primary/30;
+  @apply ml-auto bg-[#e7ffc7] text-foreground;
 }
 
 .chat-message.other {
-  @apply bg-muted text-foreground border-border/70;
+  @apply bg-card text-foreground;
 }
 
 .chat-message:hover {
@@ -167,24 +172,133 @@
 }
 
 .hud-panel {
-  @apply border border-border/80 bg-card/60 backdrop-blur-xl shadow-[0_0_0_1px_hsl(var(--primary)/0.18),0_20px_55px_hsl(var(--background)/0.55)];
-}
-
-.hud-panel::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  pointer-events: none;
-  border: 1px solid hsl(var(--primary) / 0.2);
-  mask: linear-gradient(120deg, transparent, black 14%, black 86%, transparent);
+  @apply border border-border bg-card shadow-sm;
 }
 
 .hud-glow {
-  box-shadow: 0 0 28px hsl(var(--primary) / 0.24);
+  box-shadow: none;
 }
 
 .hud-title {
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: normal;
+}
+
+[data-theme="dark"] {
+  --background: 220 15% 14%; --foreground: 0 0% 96%; --card: 220 14% 18%;
+  --card-foreground: 0 0% 96%; --popover: 220 14% 18%; --popover-foreground: 0 0% 96%;
+  --secondary: 220 12% 23%; --secondary-foreground: 0 0% 96%; --muted: 220 12% 23%;
+  --muted-foreground: 215 14% 68%; --accent: 204 35% 27%; --accent-foreground: 0 0% 96%;
+  --border: 220 12% 25%; --input: 220 12% 25%;
+}
+
+[data-theme="dark"] .chat-message.own { background: #5c8f5e; }
+
+.telegram-chat-surface {
+  background:
+    linear-gradient(110deg, rgb(218 226 151 / .76), rgb(113 187 137 / .74) 50%, rgb(228 225 170 / .72)),
+    url('/images/chat-wallpaper-doodles.png') center / 560px auto;
+  background-blend-mode: color, multiply;
+}
+
+.telegram-chat-pane {
+  background: transparent;
+}
+
+.telegram-float-header {
+  width: min(1045px, calc(100% - 32px));
+  margin: 20px auto 10px;
+  border-radius: 999px;
+}
+
+.telegram-composer__bar {
+  width: min(1045px, calc(100% - 32px));
+  margin-inline: auto;
+}
+
+.telegram-message-stream {
+  scrollbar-gutter: stable;
+}
+
+.telegram-message-list {
+  padding-block: 2px 12px;
+}
+
+.telegram-message-list .chat-message {
+  box-shadow: 0 1px 1px rgb(62 84 59 / .16);
+}
+
+.telegram-message-list .chat-message.other {
+  background: rgb(255 255 255 / .98);
+}
+
+.telegram-composer {
+  background: transparent !important;
+}
+
+.telegram-composer__bar > div {
+  background: rgb(255 255 255 / .98);
+}
+
+.telegram-jump-button {
+  height: 56px;
+  width: 56px;
+  padding: 0;
+  color: hsl(var(--muted-foreground));
+  background: hsl(var(--card));
+}
+
+.telegram-sidebar__search-input:focus-visible {
+  box-shadow: none;
+  outline: none;
+}
+
+.telegram-notification-tip {
+  background: #f1f1f3;
+}
+
+.telegram-sidebar__compose {
+  position: absolute;
+  right: 28px;
+  bottom: 28px;
+  z-index: 5;
+  height: 58px;
+  width: 58px;
+  border-radius: 999px;
+  background: #3390ec;
+  box-shadow: 0 5px 16px rgb(51 144 236 / .32);
+}
+
+.telegram-sidebar__compose:hover {
+  background: #2585dc;
+}
+
+@media (min-width: 768px) {
+  .telegram-sidebar {
+    width: clamp(320px, 30vw, 540px) !important;
+    max-width: none !important;
+    margin: 20px 0 20px 20px;
+    position: relative !important;
+    inset: auto !important;
+    align-self: center;
+    height: calc(100dvh - 40px);
+    flex: 0 0 clamp(320px, 30vw, 540px);
+    border-radius: 28px;
+    overflow: hidden;
+    box-shadow: 0 1px 4px rgb(47 72 49 / .14);
+  }
+
+  .telegram-sidebar__menu {
+    height: 48px;
+    width: 48px;
+  }
+
+  .telegram-sidebar__search {
+    padding-top: 12px;
+  }
+}
+
+@media (max-width: 767px) {
+  .telegram-float-header { width: calc(100% - 20px); margin-top: 10px; }
+  .telegram-composer__bar { width: calc(100% - 16px); }
+  .telegram-sidebar__compose { bottom: 20px; right: 20px; }
 }

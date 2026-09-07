@@ -1,3 +1,4 @@
+import { useRef, type ChangeEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,9 +16,11 @@ import {
     Copy,
     Loader2,
     Zap,
+    ImagePlus,
 } from "lucide-react";
 import { SectionHeader } from "./SettingsComponents";
 import type { BotCommand, GatewayMode } from "@/store/botStore";
+import { Avatar } from "@/components/Avatar";
 
 interface ConnectionSectionProps {
     t: (key: string) => string;
@@ -27,6 +30,7 @@ interface ConnectionSectionProps {
     botInfo: {
         name: string | null;
         username: string | null;
+        avatarUrl?: string;
         commands?: BotCommand[];
     };
     gateway: GatewayMode;
@@ -57,6 +61,7 @@ interface ConnectionSectionProps {
     botShortDescription: string;
     setBotShortDescription: (value: string) => void;
     handleUpdateBotInfo: () => void;
+    handleUpdateBotAvatar: (photo: File) => void;
 }
 
 export function ConnectionSection({
@@ -92,7 +97,16 @@ export function ConnectionSection({
     botShortDescription,
     setBotShortDescription,
     handleUpdateBotInfo,
+    handleUpdateBotAvatar,
 }: ConnectionSectionProps) {
+    const avatarInputRef = useRef<HTMLInputElement>(null);
+
+    const handleAvatarFile = (event: ChangeEvent<HTMLInputElement>) => {
+        const photo = event.target.files?.[0];
+        event.target.value = "";
+        if (photo) handleUpdateBotAvatar(photo);
+    };
+
     return (
         <div className="space-y-6">
             <SectionHeader
@@ -362,6 +376,36 @@ export function ConnectionSection({
                     <Label className="text-sm font-medium">
                         {t("settings.botProfile")}
                     </Label>
+                </div>
+
+                <div className="flex items-center gap-4 rounded-xl border bg-muted/20 p-4">
+                    <Avatar
+                        src={botInfo.avatarUrl}
+                        alt={botInfo.name || "Bot"}
+                        fallback={(botInfo.name || "B").charAt(0).toUpperCase()}
+                        className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-primary text-xl font-semibold text-primary-foreground"
+                    />
+                    <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium">{t("bot.profilePhoto")}</p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">{t("bot.photoJpegHint")}</p>
+                    </div>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={!isConnected || isLoading}
+                        onClick={() => avatarInputRef.current?.click()}
+                    >
+                        <ImagePlus className="mr-2 h-4 w-4" />
+                        {t("bot.changePhoto")}
+                    </Button>
+                    <input
+                        ref={avatarInputRef}
+                        type="file"
+                        accept="image/jpeg"
+                        className="hidden"
+                        onChange={handleAvatarFile}
+                    />
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

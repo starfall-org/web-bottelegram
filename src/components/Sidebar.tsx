@@ -1,12 +1,10 @@
-import { useState, useEffect } from "react";
-import { useBotStore } from "@/store/botStore";
-import { useBotConnection } from "@/hooks/useBotConnection";
+import { useState, useEffect, useRef } from "react";
 import { useTranslation } from "@/i18n/useTranslation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ChatList } from "@/components/ChatList";
 import { SettingsDialog } from "@/components/SettingsDialog";
-import { Sun, Moon, Monitor, Menu, X, MessageSquare } from "lucide-react";
+import { Sun, Moon, Monitor, Menu, X, Bell, PenLine, Search } from "lucide-react";
 import { useTheme } from "@/components/ThemeProvider";
 import { cn } from "@/lib/utils";
 
@@ -34,10 +32,17 @@ export function Sidebar({ className }: SidebarProps) {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  useEffect(() => {
+    const openSidebar = () => setIsHidden(false);
+    window.addEventListener('telegram:open-sidebar', openSidebar);
+    return () => window.removeEventListener('telegram:open-sidebar', openSidebar);
+  }, []);
   const [openChatInput, setOpenChatInput] = useState("");
+  const [showAppMenu, setShowAppMenu] = useState(false);
+  const [showNotificationTip, setShowNotificationTip] = useState(true);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const { theme, setTheme } = useTheme();
-  const { isConnected, pollingStatus, lastError, botInfo } = useBotConnection();
-  const { token } = useBotStore();
   const { t } = useTranslation();
 
   const handleOpenChat = async () => {
@@ -66,93 +71,29 @@ export function Sidebar({ className }: SidebarProps) {
 
   return (
     <>
-      {/* Toggle button - always visible */}
-      {isHidden && (
-        <Button
-          variant="ghost"
-          size="icon"
-          className="fixed top-4 left-4 z-50 hud-glow border border-border/70 bg-card/80 backdrop-blur-md"
-          onClick={() => setIsHidden(false)}
-        >
-          <Menu className="h-4 w-4" />
-        </Button>
-      )}
-
       <aside
         className={cn(
-          "w-full max-w-[300px] md:max-w-[320px] border-r hud-panel relative flex flex-col transition-transform duration-300 ease-in-out",
+          "telegram-sidebar w-full max-w-[300px] md:max-w-[320px] flex flex-col bg-[hsl(var(--sidebar-bg))] transition-transform duration-300 ease-in-out",
           "absolute inset-y-0 left-0 z-40 md:relative",
           isHidden && "-translate-x-full",
           className
         )}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-border/80">
-          <div className="flex items-center gap-2">
-            <div className="relative">
-              <MessageSquare className="h-5 w-5 text-primary" />
-              {/* Connection indicator */}
-              <div
-                className={cn(
-                  "absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full border border-background transition-colors duration-300",
-                  pollingStatus === "polling"
-                    ? "bg-green-500 animate-pulse"
-                    : pollingStatus === "error"
-                    ? "bg-red-500"
-                    : "bg-yellow-500"
-                )}
-                title={lastError || pollingStatus}
-              />
-            </div>
-            <div className="flex flex-col">
-              <h1 className="font-semibold text-lg hud-title">
-                {botInfo.name || "Bottlegram"}
-              </h1>
-              {token && (
-                <p className="text-xs text-muted-foreground">
-                  {isConnected
-                    ? botInfo.name
-                      ? `${t("connection.connected")}: ${botInfo.name}`
-                      : t("connection.connected")
-                    : pollingStatus === "error"
-                    ? lastError || "Error"
-                    : t("connection.connecting")}
-                </p>
-              )}
-              {!token && (
-                <p className="text-xs text-red-500">{t("chat.noToken")}</p>
-              )}
-            </div>
-          </div>
-
-          <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggleTheme}
-              title={t("chat.toggleTheme")}
-            >
-              {getThemeIcon()}
-            </Button>
-
-            <SettingsDialog />
-
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setIsHidden(true)}
-              title="Close sidebar"
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-
-        {/* Open Chat Section */}
-        <div className="p-3 border-b border-border/80">
-          <div className="flex gap-2">
+        <div className="telegram-sidebar__search relative flex items-center gap-3 px-4 pt-3 pb-4">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="telegram-sidebar__menu shrink-0"
+            onClick={() => setShowAppMenu((open) => !open)}
+            title="Menu"
+          >
+            <Menu className="h-6 w-6" />
+          </Button>
+          <div className="relative min-w-0 flex-1">
+            <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder={t("chat.enterChatId")}
+              ref={searchInputRef}
+              placeholder="Search"
               value={openChatInput}
               onChange={(e) => setOpenChatInput(e.target.value)}
               onKeyDown={(e) => {
@@ -160,31 +101,73 @@ export function Sidebar({ className }: SidebarProps) {
                   handleOpenChat();
                 }
               }}
-              className="flex-1"
+              className="telegram-sidebar__search-input h-12 border-0 bg-[hsl(var(--input))] pl-11 text-base shadow-none"
             />
+          </div>
+          {showAppMenu && (
+            <div className="telegram-sidebar__app-menu absolute left-4 top-[62px] z-20 flex min-w-[190px] flex-col items-stretch gap-1 rounded-2xl bg-card p-2 shadow-xl">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-10 w-full justify-start gap-3 px-3"
+                onClick={toggleTheme}
+                title={t("chat.toggleTheme")}
+              >
+                {getThemeIcon()}
+                <span>{t("settings.appearance")}</span>
+              </Button>
+              <SettingsDialog
+                showLabel
+                triggerClassName="h-10 w-full justify-start gap-3 px-3"
+              />
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-10 w-full justify-start gap-3 px-3 md:hidden"
+                onClick={() => setIsHidden(true)}
+                title="Close sidebar"
+              >
+                <X className="h-4 w-4" />
+                <span>{t("common.close")}</span>
+              </Button>
+            </div>
+          )}
+        </div>
+
+        {showNotificationTip && (
+          <div className="telegram-notification-tip mx-3 mb-3 flex items-start gap-3 rounded-[20px] px-4 py-3">
+            <Bell className="mt-0.5 h-5 w-5 shrink-0 fill-[#e8aa20] text-[#d89814]" />
+            <div className="min-w-0 flex-1">
+              <p className="text-[15px] font-semibold leading-5">Never miss a message!</p>
+              <p className="mt-1 text-sm leading-5 text-muted-foreground">Enable notifications to stay updated.</p>
+            </div>
             <Button
-              onClick={handleOpenChat}
-              size="sm"
-              disabled={!openChatInput.trim()}
+              variant="ghost"
+              size="icon"
+              className="-mr-2 -mt-1 h-8 w-8 shrink-0 rounded-full"
+              onClick={() => setShowNotificationTip(false)}
+              title="Dismiss"
             >
-              →
+              <X className="h-5 w-5" />
             </Button>
           </div>
-        </div>
+        )}
 
         {/* Chat List */}
         <div className="flex-1 overflow-hidden">
           <ChatList />
         </div>
+
+        <Button
+          size="icon"
+          className="telegram-sidebar__compose"
+          onClick={() => searchInputRef.current?.focus()}
+          title="Open chat"
+        >
+          <PenLine className="h-6 w-6" />
+        </Button>
       </aside>
 
-      {/* Overlay when sidebar is open on small screens */}
-      {!isHidden && (
-        <div
-          className="fixed inset-0 bg-background/75 backdrop-blur-sm z-30 md:hidden"
-          onClick={() => setIsHidden(true)}
-        />
-      )}
     </>
   );
 }
