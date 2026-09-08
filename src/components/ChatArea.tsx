@@ -13,6 +13,7 @@ import { Avatar } from '@/components/Avatar'
 
 export function ChatArea() {
   const [showNewMessageButton, setShowNewMessageButton] = useState(false)
+  const [isComposerFocused, setIsComposerFocused] = useState(false)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
   const [isDraggingFile, setIsDraggingFile] = useState(false)
   const dragCounterRef = useRef(0)
@@ -200,6 +201,8 @@ export function ChatArea() {
             title,
             avatarText,
             avatarUrl: await getChatAvatarUrl(info),
+            username: info.username || undefined,
+            description: info.description || undefined,
           }
         } else {
           throw new Error((res as any).description || 'Không tìm thấy chat')
@@ -346,12 +349,17 @@ export function ChatArea() {
             <div>
               <div className="text-[19px] font-semibold leading-6">{activeChat.title}</div>
               <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                {isConnected ? (
+                {isComposerFocused ? (
+                  <span className="font-medium text-[#9b83ff]">{t('chat.composing')}</span>
+                ) : activeChat.type === 'group' || activeChat.type === 'supergroup' ? (
+                  <span>{activeChat.memberCount || activeChat.members.size || 0} members</span>
+                ) : activeChat.type === 'channel' ? (
+                  <span>{activeChat.memberCount || 0} subscribers</span>
+                ) : isConnected ? (
                   <><span className="inline-block h-1.5 w-1.5 rounded-full bg-green-500" /> online</>
                 ) : (
                   <><span className="inline-block h-1.5 w-1.5 rounded-full bg-muted-foreground" /> offline</>
                 )}
-                {activeChat.members.size > 0 && <span>· {activeChat.members.size} members</span>}
               </div>
             </div>
           </div>
@@ -390,7 +398,11 @@ export function ChatArea() {
       )}
 
       {/* Input Area */}
-      <InputArea className="telegram-composer bg-transparent border-0" isDraggingGlobal={isDraggingFile} />
+      <InputArea
+        className="telegram-composer bg-transparent border-0"
+        isDraggingGlobal={isDraggingFile}
+        onComposerFocusChange={setIsComposerFocused}
+      />
     </main>
   )
 }

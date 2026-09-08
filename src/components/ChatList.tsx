@@ -64,7 +64,7 @@ export function ChatList() {
             key={chat.id}
             className={cn(
               "group mx-2 flex cursor-pointer items-center gap-3 rounded-[18px] px-3 py-3 transition-colors hover:bg-muted/70",
-              isActive && "bg-[#3390ec] text-white shadow-sm hover:bg-[#3390ec]"
+              isActive && "bg-[#8875df] text-white shadow-sm hover:bg-[#8875df]"
             )}
             onClick={() => handleChatClick(chat.id)}
           >
@@ -106,7 +106,7 @@ export function ChatList() {
             {chat.unread > 0 && (
               <div className={cn(
                 "flex h-5 min-w-[20px] items-center justify-center rounded-full bg-primary px-1.5 text-xs font-medium text-primary-foreground",
-                isActive && "bg-white text-[#3390ec]"
+                isActive && "bg-white text-[#8875df]"
               )}>
                 {chat.unread > 99 ? "99+" : chat.unread}
               </div>

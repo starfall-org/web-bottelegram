@@ -1,4 +1,4 @@
-import { Bot, GrammyError, HttpError, InputFile } from "grammy";
+import { Bot, GrammyError, HttpError } from "grammy";
 import { mtProtoGateway } from "./mtprotoGateway";
 
 export type GatewayMode = "bot" | "mtproto";
@@ -207,6 +207,93 @@ export class BotService {
         }
     }
 
+    /**
+     * Fetch updates through the Bot API regardless of the active realtime
+     * gateway. This is used once during app bootstrap so MTProto sessions can
+     * recover updates that arrived while the web app was closed.
+     */
+    async getBotApiUpdates(
+        offset?: number,
+        limit = 100,
+    ): Promise<{
+        ok: boolean;
+        result?: TelegramUpdate[];
+        description?: string;
+        error_code?: number;
+    }> {
+        if (!this.config) throw new Error("Bot not configured");
+
+        try {
+            const apiRoot = this.config.proxyPrefix
+                ? this.config.proxyPrefix.replace(/\/+$/, "")
+                : "https://api.telegram.org";
+            const response = await fetch(
+                `${apiRoot}/bot${this.config.token}/getUpdates`,
+                {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        offset,
+                        limit,
+                        timeout: 0,
+                        allowed_updates: [
+                            "message",
+                            "edited_message",
+                            "channel_post",
+                            "edited_channel_post",
+                            "callback_query",
+                        ],
+                    }),
+                },
+            );
+            return await response.json();
+        } catch (error: any) {
+            return {
+                ok: false,
+                description: error?.message || "Failed to fetch missed updates",
+                error_code: error?.error_code || 0,
+            };
+        }
+    }
+
+    async getBotApiFile(fileId: string): Promise<{
+        ok: boolean;
+        result?: { file_id?: string; file_path?: string };
+        description?: string;
+        error_code?: number;
+    }> {
+        if (!this.config) throw new Error("Bot not configured");
+        try {
+            const apiRoot = this.config.proxyPrefix
+                ? this.config.proxyPrefix.replace(/\/+$/, "")
+                : "https://api.telegram.org";
+            const response = await fetch(
+                `${apiRoot}/bot${this.config.token}/getFile`,
+                {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ file_id: fileId }),
+                },
+            );
+            return await response.json();
+        } catch (error: any) {
+            return {
+                ok: false,
+                description: error?.message || "Failed to get Bot API file",
+                error_code: error?.error_code || 0,
+            };
+        }
+    }
+
+    getBotApiFileUrl(filePath: string): string {
+        if (!this.config) throw new Error("Bot not configured");
+        if (this.config.proxyPrefix) {
+            const proxyBase = this.config.proxyPrefix.replace(/\/+$/, "");
+            return `${proxyBase}/file/bot${this.config.token}/${filePath}`;
+        }
+        return `https://api.telegram.org/file/bot${this.config.token}/${filePath}`;
+    }
+
     async getMe() {
         if (this.mode === "mtproto") {
             return mtProtoGateway.getMe();
@@ -275,16 +362,17 @@ export class BotService {
         if (!this.bot) throw new Error("Bot not initialized");
 
         try {
-            let input;
-            if (typeof photo === "string") {
-                input = photo;
-            } else {
-                // Use File object directly for browser compatibility
-                
-                
-                input = new InputFile(photo, photo.name || "photo.jpg");
+            if (typeof photo !== "string") {
+                return await this.uploadBotApiFile(
+                    "sendPhoto",
+                    "photo",
+                    chatId,
+                    photo,
+                    options,
+                );
             }
-            const message = await this.bot.api.sendPhoto(chatId, input, {
+
+            const message = await this.bot.api.sendPhoto(chatId, photo, {
                 caption: options?.caption,
                 reply_parameters: options?.reply_to_message_id
                     ? { message_id: options.reply_to_message_id }
@@ -311,15 +399,17 @@ export class BotService {
         if (!this.bot) throw new Error("Bot not initialized");
 
         try {
-            let input;
-            if (typeof video === "string") {
-                input = video;
-            } else {
-                
-                
-                input = new InputFile(video, video.name || "video.mp4");
+            if (typeof video !== "string") {
+                return await this.uploadBotApiFile(
+                    "sendVideo",
+                    "video",
+                    chatId,
+                    video,
+                    options,
+                );
             }
-            const message = await this.bot.api.sendVideo(chatId, input, {
+
+            const message = await this.bot.api.sendVideo(chatId, video, {
                 caption: options?.caption,
                 reply_parameters: options?.reply_to_message_id
                     ? { message_id: options.reply_to_message_id }
@@ -346,15 +436,17 @@ export class BotService {
         if (!this.bot) throw new Error("Bot not initialized");
 
         try {
-            let input;
-            if (typeof audio === "string") {
-                input = audio;
-            } else {
-                
-                
-                input = new InputFile(audio, audio.name || "audio.mp3");
+            if (typeof audio !== "string") {
+                return await this.uploadBotApiFile(
+                    "sendAudio",
+                    "audio",
+                    chatId,
+                    audio,
+                    options,
+                );
             }
-            const message = await this.bot.api.sendAudio(chatId, input, {
+
+            const message = await this.bot.api.sendAudio(chatId, audio, {
                 caption: options?.caption,
                 reply_parameters: options?.reply_to_message_id
                     ? { message_id: options.reply_to_message_id }
@@ -381,21 +473,79 @@ export class BotService {
         if (!this.bot) throw new Error("Bot not initialized");
 
         try {
-            let input;
-            if (typeof document === "string") {
-                input = document;
-            } else {
-                
-                
-                input = new InputFile(document, document.name || "document");
+            if (typeof document !== "string") {
+                return await this.uploadBotApiFile(
+                    "sendDocument",
+                    "document",
+                    chatId,
+                    document,
+                    options,
+                );
             }
-            const message = await this.bot.api.sendDocument(chatId, input, {
+
+            const message = await this.bot.api.sendDocument(chatId, document, {
                 caption: options?.caption,
                 reply_parameters: options?.reply_to_message_id
                     ? { message_id: options.reply_to_message_id }
                     : undefined,
             });
             return { ok: true, result: message };
+        } catch (error) {
+            return {
+                ok: false,
+                description:
+                    error instanceof Error ? error.message : "Unknown error",
+            };
+        }
+    }
+
+    async sendMediaGroup(
+        chatId: number | string,
+        files: File[],
+        options?: { caption?: string; reply_to_message_id?: number },
+    ) {
+        if (this.mode === "mtproto") {
+            return mtProtoGateway.sendMediaGroup(chatId, files, options);
+        }
+        if (!this.config) throw new Error("Bot not configured");
+        if (files.length < 2) {
+            return { ok: false, description: "Media group requires at least 2 files" };
+        }
+
+        try {
+            const formData = new FormData();
+            formData.append("chat_id", String(chatId));
+
+            const media = files.map((file, index) => {
+                const name = `media_${index}`;
+                const type = file.type.startsWith("image/")
+                    ? "photo"
+                    : file.type.startsWith("video/")
+                      ? "video"
+                      : file.type.startsWith("audio/")
+                        ? "audio"
+                        : "document";
+                return {
+                    type,
+                    media: `attach://${name}`,
+                    ...(index === 0 && options?.caption
+                        ? { caption: options.caption }
+                        : {}),
+                };
+            });
+
+            formData.append("media", JSON.stringify(media));
+            files.forEach((file, index) => {
+                formData.append(`media_${index}`, file, file.name || `file_${index}`);
+            });
+            if (options?.reply_to_message_id) {
+                formData.append(
+                    "reply_parameters",
+                    JSON.stringify({ message_id: options.reply_to_message_id }),
+                );
+            }
+
+            return await this.callMultipartApi("sendMediaGroup", formData);
         } catch (error) {
             return {
                 ok: false,
@@ -508,6 +658,30 @@ export class BotService {
         }
     }
 
+    private async uploadBotApiFile(
+        method: "sendPhoto" | "sendVideo" | "sendAudio" | "sendDocument",
+        fieldName: "photo" | "video" | "audio" | "document",
+        chatId: number | string,
+        file: File,
+        options?: { caption?: string; reply_to_message_id?: number },
+    ) {
+        const formData = new FormData();
+        formData.append("chat_id", String(chatId));
+        formData.append(fieldName, file, file.name || fieldName);
+
+        if (options?.caption) {
+            formData.append("caption", options.caption);
+        }
+        if (options?.reply_to_message_id) {
+            formData.append(
+                "reply_parameters",
+                JSON.stringify({ message_id: options.reply_to_message_id }),
+            );
+        }
+
+        return this.callMultipartApi(method, formData);
+    }
+
     private async callMultipartApi(method: string, formData: FormData) {
         if (!this.config) throw new Error("Bot not configured");
 
@@ -520,8 +694,9 @@ export class BotService {
         );
         return response.json() as Promise<{
             ok: boolean;
-            result?: boolean;
+            result?: any;
             description?: string;
+            error_code?: number;
         }>;
     }
 
@@ -610,11 +785,10 @@ export class BotService {
         if (!this.bot) throw new Error("Bot not initialized");
 
         try {
-            const result = await this.bot.api.setChatPhoto(
-                chatId,
-                new InputFile(photo, photo.name || "chat-avatar.jpg"),
-            );
-            return { ok: true, result };
+            const formData = new FormData();
+            formData.append("chat_id", String(chatId));
+            formData.append("photo", photo, photo.name || "chat-avatar.jpg");
+            return await this.callMultipartApi("setChatPhoto", formData);
         } catch (error) {
             return {
                 ok: false,
@@ -623,7 +797,6 @@ export class BotService {
             };
         }
     }
-
     async getFile(fileId: string) {
         if (this.mode === "mtproto") {
             return mtProtoGateway.getFile(fileId);
@@ -651,6 +824,43 @@ export class BotService {
         try {
             const chat = await this.bot.api.getChat(chatId);
             return { ok: true, result: chat };
+        } catch (error) {
+            return {
+                ok: false,
+                description:
+                    error instanceof Error ? error.message : "Unknown error",
+            };
+        }
+    }
+
+    async getChatMemberCount(chatId: number | string) {
+        if (this.mode === "mtproto" && this.config) {
+            // Member count is inexpensive and Bot API exposes it directly, so
+            // prefer that even when MTProto handles realtime traffic.
+            try {
+                const apiRoot = this.config.proxyPrefix
+                    ? this.config.proxyPrefix.replace(/\/+$/, "")
+                    : "https://api.telegram.org";
+                const response = await fetch(
+                    `${apiRoot}/bot${this.config.token}/getChatMemberCount`,
+                    {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ chat_id: chatId }),
+                    },
+                );
+                const payload = await response.json();
+                if (payload?.ok) return payload;
+            } catch {
+                // Fall through to MTProto metadata below.
+            }
+            return mtProtoGateway.getChatMemberCount(chatId);
+        }
+        if (!this.bot) throw new Error("Bot not initialized");
+
+        try {
+            const count = await this.bot.api.getChatMemberCount(chatId);
+            return { ok: true, result: count };
         } catch (error) {
             return {
                 ok: false,

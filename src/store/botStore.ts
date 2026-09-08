@@ -20,9 +20,28 @@ import { partializeState, rehydrateState } from "./persistence";
 
 const DEFAULT_BOT_INFO: BotInfo = createDefaultBotInfo();
 
+const messageOrderValue = (message: Message) => {
+    const numericId = Number(message.id);
+    return Number.isFinite(numericId) ? numericId : message.date;
+};
+
+const compareMessages = (a: Message, b: Message) => {
+    const aOrder = messageOrderValue(a);
+    const bOrder = messageOrderValue(b);
+    if (aOrder !== bOrder) return aOrder - bOrder;
+    return a.date - b.date;
+};
+
+const getMessagePreview = (message?: Message) => {
+    if (!message) return "";
+    if (message.type === "text") return message.text || "";
+    return message.caption || message.text || `[${message.type}]`;
+};
+
 // Re-export types for convenience
 export type {
     Message,
+    MediaGroupItem,
     Member,
     GatewayMode,
     MtProtoSettings,
@@ -220,37 +239,65 @@ export const useBotStore = create<BotState>()(
                 const chat = currentBotData.chats.get(chatId);
                 if (!chat) return false;
 
-                if (chat.messageIds.has(message.id)) {
-                    return false; // Already exists
+                // Telegram message ids are unique inside a chat. This check is
+                // intentionally done before any merge/sort so catch-up updates
+                // cannot duplicate messages already received over MTProto.
+                if (chat.messageIds.has(message.id)) return false;
+
+                const updatedMessageIds = new Set(chat.messageIds);
+                updatedMessageIds.add(message.id);
+                let updatedMessages = [...chat.messages];
+
+                if (message.mediaGroupId && message.mediaGroupItems?.length) {
+                    const groupIndex = updatedMessages.findIndex(
+                        (item) => item.mediaGroupId === message.mediaGroupId,
+                    );
+
+                    if (groupIndex >= 0) {
+                        const existing = updatedMessages[groupIndex];
+                        const existingItemIds = new Set(
+                            (existing.mediaGroupItems || []).map((item) => String(item.id)),
+                        );
+                        const mergedItems = [
+                            ...(existing.mediaGroupItems || []),
+                            ...message.mediaGroupItems.filter(
+                                (item) => !existingItemIds.has(String(item.id)),
+                            ),
+                        ].sort((a, b) => Number(a.id) - Number(b.id));
+
+                        updatedMessages[groupIndex] = {
+                            ...existing,
+                            caption: existing.caption || message.caption,
+                            text: existing.text || message.text,
+                            mediaGroupItems: mergedItems,
+                            date: Math.min(existing.date, message.date),
+                        };
+                    } else {
+                        updatedMessages.push(message);
+                    }
+                } else {
+                    updatedMessages.push(message);
                 }
+
+                // Never blindly append catch-up updates. Telegram message ids
+                // are monotonic per chat, so sorting keeps old missed messages
+                // above newer ones instead of placing them at the bottom.
+                updatedMessages.sort(compareMessages);
+                const latestMessage = updatedMessages[updatedMessages.length - 1];
 
                 const updatedChat = {
                     ...chat,
-                    messages: [...chat.messages, message],
-                    messageIds: new Set([...chat.messageIds, message.id]),
-                    lastText:
-                        message.type === "text"
-                            ? message.text || ""
-                            : message.caption ||
-                              message.text ||
-                              `[${message.type}]`,
-                    lastDate: message.date,
+                    messages: updatedMessages,
+                    messageIds: updatedMessageIds,
+                    lastText: getMessagePreview(latestMessage),
+                    lastDate: latestMessage?.date || chat.lastDate,
                 };
 
-                const updatedChats = new Map(currentBotData.chats).set(
-                    chatId,
-                    updatedChat,
-                );
-                const updatedBotData = {
-                    ...currentBotData,
-                    chats: updatedChats,
-                };
+                const updatedChats = new Map(currentBotData.chats).set(chatId, updatedChat);
+                const updatedBotData = { ...currentBotData, chats: updatedChats };
 
                 set((state: BotState) => ({
-                    botDataMap: new Map(state.botDataMap).set(
-                        state.token,
-                        updatedBotData,
-                    ),
+                    botDataMap: new Map(state.botDataMap).set(state.token, updatedBotData),
                 }));
 
                 return true;
@@ -266,20 +313,29 @@ export const useBotStore = create<BotState>()(
                 if (!chat) return false;
 
                 const messageIndex = chat.messages.findIndex(
-                    (m: Message) => m.id === messageId,
+                    (m: Message) =>
+                        m.id === messageId ||
+                        m.mediaGroupItems?.some((item) => item.id === messageId),
                 );
                 if (messageIndex === -1) return false;
 
+                const removedMessage = chat.messages[messageIndex];
                 const updatedMessages = [...chat.messages];
                 updatedMessages.splice(messageIndex, 1);
 
                 const updatedMessageIds = new Set(chat.messageIds);
                 updatedMessageIds.delete(messageId);
+                removedMessage.mediaGroupItems?.forEach((item) =>
+                    updatedMessageIds.delete(item.id),
+                );
+                const latestMessage = updatedMessages[updatedMessages.length - 1];
 
                 const updatedChat = {
                     ...chat,
                     messages: updatedMessages,
                     messageIds: updatedMessageIds,
+                    lastText: getMessagePreview(latestMessage),
+                    lastDate: latestMessage?.date || 0,
                 };
 
                 const updatedChats = new Map(currentBotData.chats).set(
@@ -315,29 +371,23 @@ export const useBotStore = create<BotState>()(
                 if (!chat) return false;
 
                 const idx = chat.messages.findIndex(
-                    (m: Message) => m.id === messageId,
+                    (m: Message) =>
+                        m.id === messageId ||
+                        m.mediaGroupItems?.some((item) => item.id === messageId),
                 );
                 if (idx === -1) return false;
 
                 const updatedMessages = [...chat.messages];
                 const updatedMessage = { ...updatedMessages[idx], ...patch };
                 updatedMessages[idx] = updatedMessage;
+                updatedMessages.sort(compareMessages);
+                const latestMessage = updatedMessages[updatedMessages.length - 1];
 
-                const isLast = idx === chat.messages.length - 1;
                 const updatedChat = {
                     ...chat,
                     messages: updatedMessages,
-                    ...(isLast
-                        ? {
-                              lastText:
-                                  updatedMessage.type === "text"
-                                      ? updatedMessage.text || ""
-                                      : updatedMessage.caption ||
-                                        updatedMessage.text ||
-                                        `[${updatedMessage.type}]`,
-                              lastDate: updatedMessage.date || chat.lastDate,
-                          }
-                        : {}),
+                    lastText: getMessagePreview(latestMessage),
+                    lastDate: latestMessage?.date || chat.lastDate,
                 };
 
                 const updatedChats = new Map(currentBotData.chats).set(

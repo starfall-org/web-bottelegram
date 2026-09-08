@@ -32,29 +32,29 @@
   }
 
   [data-theme="dark"] {
-    --background: 0 0% 12%;
-    --foreground: 0 0% 100%;
-    --card: 0 0% 16%;
-    --card-foreground: 0 0% 100%;
-    --popover: 0 0% 16%;
-    --popover-foreground: 0 0% 100%;
-    --primary: 200 100% 55%;
+    --background: 0 0% 11%;
+    --foreground: 0 0% 97%;
+    --card: 0 0% 13%;
+    --card-foreground: 0 0% 97%;
+    --popover: 0 0% 13%;
+    --popover-foreground: 0 0% 97%;
+    --primary: 253 72% 68%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 0 0% 20%;
-    --secondary-foreground: 0 0% 100%;
-    --muted: 0 0% 20%;
-    --muted-foreground: 0 0% 65%;
-    --accent: 200 100% 20%;
-    --accent-foreground: 200 100% 70%;
-    --destructive: 0 70% 55%;
+    --secondary: 0 0% 17%;
+    --secondary-foreground: 0 0% 97%;
+    --muted: 0 0% 17%;
+    --muted-foreground: 0 0% 63%;
+    --accent: 253 28% 23%;
+    --accent-foreground: 253 88% 78%;
+    --destructive: 0 72% 57%;
     --destructive-foreground: 0 0% 100%;
-    --border: 0 0% 25%;
-    --input: 0 0% 22%;
-    --ring: 200 100% 55%;
-    --chat-bg: 0 0% 10%;
-    --message-out: 200 70% 35%;
-    --message-in: 0 0% 18%;
-    --sidebar-bg: 0 0% 14%;
+    --border: 0 0% 19%;
+    --input: 0 0% 12%;
+    --ring: 253 72% 68%;
+    --chat-bg: 0 0% 4%;
+    --message-out: 253 62% 63%;
+    --message-in: 0 0% 13%;
+    --sidebar-bg: 0 0% 9%;
   }
 }
 
@@ -183,20 +183,30 @@
   letter-spacing: normal;
 }
 
-[data-theme="dark"] {
-  --background: 220 15% 14%; --foreground: 0 0% 96%; --card: 220 14% 18%;
-  --card-foreground: 0 0% 96%; --popover: 220 14% 18%; --popover-foreground: 0 0% 96%;
-  --secondary: 220 12% 23%; --secondary-foreground: 0 0% 96%; --muted: 220 12% 23%;
-  --muted-foreground: 215 14% 68%; --accent: 204 35% 27%; --accent-foreground: 0 0% 96%;
-  --border: 220 12% 25%; --input: 220 12% 25%;
+[data-theme="dark"] .chat-message.own {
+  background: #8875df;
+  color: #fff;
 }
 
-[data-theme="dark"] .chat-message.own { background: #5c8f5e; }
+[data-theme="dark"] .chat-message.other {
+  background: #222222;
+  color: #f7f7f7;
+}
 
 .telegram-chat-surface {
   background:
-    linear-gradient(110deg, rgb(73 126 76 / .52), rgb(42 111 69 / .54) 50%, rgb(91 132 77 / .50)),
+    linear-gradient(120deg, rgb(255 255 255 / .76), rgb(247 247 249 / .78)),
     url('/images/chat-wallpaper-doodles.png') center / 560px auto;
+  background-blend-mode: normal;
+}
+
+[data-theme="dark"] .telegram-chat-surface {
+  background-color: #050507;
+  background-image:
+    linear-gradient(120deg, rgb(4 4 7 / .82), rgb(8 6 10 / .78) 54%, rgb(8 7 5 / .82)),
+    url('/images/chat-wallpaper-doodles.png');
+  background-position: center;
+  background-size: auto, 560px auto;
   background-blend-mode: normal;
 }
 
@@ -264,12 +274,12 @@
   height: 58px;
   width: 58px;
   border-radius: 999px;
-  background: #3390ec;
-  box-shadow: 0 5px 16px rgb(51 144 236 / .32);
+  background: #8875df;
+  box-shadow: 0 5px 16px rgb(136 117 223 / .32);
 }
 
 .telegram-sidebar__compose:hover {
-  background: #2585dc;
+  background: #7865d2;
 }
 
 @media (min-width: 768px) {
@@ -301,4 +311,46 @@
   .telegram-float-header { width: calc(100% - 20px); margin-top: 10px; }
   .telegram-composer__bar { width: calc(100% - 16px); }
   .telegram-sidebar__compose { bottom: 20px; right: 20px; }
+}
+
+
+[data-theme="dark"] .telegram-sidebar {
+  background: #171717;
+  border: 1px solid rgb(255 255 255 / .04);
+  box-shadow: 0 18px 50px rgb(0 0 0 / .36);
+}
+
+[data-theme="dark"] .telegram-float-header {
+  background: #202020 !important;
+  border: 1px solid rgb(255 255 255 / .035);
+  box-shadow: 0 8px 28px rgb(0 0 0 / .28);
+}
+
+[data-theme="dark"] .telegram-message-list .chat-message.other {
+  background: #222222;
+}
+
+[data-theme="dark"] .telegram-message-list .chat-message {
+  border-color: rgb(255 255 255 / .025);
+  box-shadow: 0 2px 8px rgb(0 0 0 / .2);
+}
+
+[data-theme="dark"] .telegram-composer__bar > div {
+  background: #202020;
+  border-color: rgb(255 255 255 / .04);
+  box-shadow: 0 8px 26px rgb(0 0 0 / .3);
+}
+
+[data-theme="dark"] .telegram-notification-tip {
+  background: #2a2a2a;
+  color: #fff;
+}
+
+[data-theme="dark"] .telegram-sidebar__search-input {
+  background: #111111;
+}
+
+[data-theme="dark"] .telegram-jump-button {
+  background: #242424;
+  color: #aaa;
 }

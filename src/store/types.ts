@@ -5,14 +5,26 @@ export interface InlineKeyboardButton {
   web_app?: { url: string }
 }
 
+export interface MediaGroupItem {
+  id: number | string
+  type: 'photo' | 'video' | 'audio' | 'document'
+  mediaUrl?: string
+  caption?: string
+  fileName?: string
+  mimeType?: string
+  date?: number
+}
+
 export interface Message {
   id: number | string
-  type: 'text' | 'photo' | 'video' | 'audio' | 'voice' | 'document' | 'sticker'
+  type: 'text' | 'photo' | 'video' | 'audio' | 'voice' | 'document' | 'sticker' | 'media_group'
   side: 'left' | 'right'
   text?: string
   mediaUrl?: string
   caption?: string
   fileName?: string
+  mediaGroupId?: string
+  mediaGroupItems?: MediaGroupItem[]
   stickerFormat?: string
   emoji?: string
   date: number
@@ -49,6 +61,8 @@ export interface Chat {
   title: string
   avatarText: string
   avatarUrl?: string
+  username?: string
+  memberCount?: number
   messages: Message[]
   messageIds: Set<number | string>
   members: Map<string, ChatMember>
@@ -106,34 +120,24 @@ export interface MtProtoSettings {
 export type GatewayMode = 'bot' | 'mtproto'
 
 export interface BotState {
-  // Current connection state
   token: string
-  // Gateway transport: Bot API (grammy) or MTProto (mtcute)
   gateway: GatewayMode
   mtproto: MtProtoSettings
   isConnected: boolean
   isPolling: boolean
   pollingStatus: 'idle' | 'polling' | 'error'
   lastError: string | null
-
-  // Bot data per token (key: bot token, value: BotData)
   botDataMap: Map<string, BotData>
-
-  // UI state
   replyTo: string | null
   editingMessageId: string | null
   theme: 'light' | 'dark' | 'system'
   language: 'vi' | 'en'
-
-  // Preferences
   preferences: {
     autoScroll: boolean
     sound: boolean
     push: boolean
     parseMode: 'MarkdownV2' | 'Markdown' | 'HTML' | 'None'
   }
-
-  // Actions
   setToken: (token: string) => void
   setGateway: (gateway: GatewayMode) => void
   setMtprotoSettings: (settings: Partial<MtProtoSettings>) => void
@@ -149,8 +153,6 @@ export interface BotState {
   setLanguage: (lang: 'vi' | 'en') => void
   updatePreferences: (prefs: Partial<BotState['preferences']>) => void
   setLastUpdateId: (updateId: number) => void
-
-  // Chat actions - these now work with current bot
   getOrCreateChat: (chatId: string, initialData?: Partial<Chat>) => Chat
   addMessage: (chatId: string, message: Message) => boolean
   removeMessage: (chatId: string, messageId: number | string) => boolean
@@ -159,20 +161,14 @@ export interface BotState {
   removeMember: (chatId: string, userId: string) => boolean
   clearChatHistory: (chatId: string) => boolean
   deleteChat: (chatId: string) => boolean
-
-  // Sticker storage
   addRecentSticker: (sticker: StickerEntry) => void
   getRecentStickers: () => StickerEntry[]
   addFavoriteSticker: (sticker: StickerEntry) => void
   removeFavoriteSticker: (file_id: string) => void
   getFavoriteStickers: () => StickerEntry[]
-
-  // Utility
   clearAllData: () => void
   clearBotData: (botToken: string) => void
   getSortedChats: () => Chat[]
-
-  // Current bot getters
   getCurrentBotData: () => BotData | undefined
   getCurrentBotInfo: () => BotInfo
   getCurrentChats: () => Map<string, Chat>

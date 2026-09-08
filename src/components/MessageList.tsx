@@ -92,6 +92,75 @@ function MessageItem({
 
     const renderContent = () => {
         switch (message.type) {
+            case "media_group": {
+                const items = message.mediaGroupItems || [];
+                return (
+                    <div className="max-w-[430px]">
+                        <div className={cn(
+                            "grid gap-1 overflow-hidden rounded-xl",
+                            items.length === 1 ? "grid-cols-1" : "grid-cols-2",
+                        )}>
+                            {items.map((item, index) => (
+                                <div
+                                    key={`${item.id}-${index}`}
+                                    className={cn(
+                                        "relative min-h-[110px] overflow-hidden bg-black/20",
+                                        items.length === 3 && index === 0 && "row-span-2",
+                                    )}
+                                >
+                                    {item.type === "photo" && item.mediaUrl ? (
+                                        <img
+                                            src={item.mediaUrl}
+                                            alt={item.caption || item.fileName || "Photo"}
+                                            className="h-full max-h-[260px] w-full cursor-pointer object-cover transition-opacity hover:opacity-90"
+                                            loading="lazy"
+                                            onClick={(event) => {
+                                                event.stopPropagation();
+                                                window.open(item.mediaUrl, "_blank");
+                                            }}
+                                        />
+                                    ) : item.type === "video" && item.mediaUrl ? (
+                                        <video
+                                            src={item.mediaUrl}
+                                            controls
+                                            preload="metadata"
+                                            className="h-full max-h-[260px] w-full object-cover"
+                                            onClick={(event) => event.stopPropagation()}
+                                        />
+                                    ) : item.type === "audio" ? (
+                                        <div className="flex h-full min-h-[110px] items-center p-3">
+                                            {item.mediaUrl ? (
+                                                <audio
+                                                    src={item.mediaUrl}
+                                                    controls
+                                                    className="w-full"
+                                                    onClick={(event) => event.stopPropagation()}
+                                                />
+                                            ) : (
+                                                <span className="text-sm text-muted-foreground">🎵 {item.fileName || "Audio"}</span>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <a
+                                            href={item.mediaUrl}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            onClick={(event) => event.stopPropagation()}
+                                            className="flex h-full min-h-[110px] items-center justify-center gap-2 p-3 text-sm hover:bg-muted/40"
+                                        >
+                                            📄 <span className="truncate">{item.fileName || "Document"}</span>
+                                        </a>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                        {message.caption && (
+                            <p className="mt-2 text-sm">{message.caption}</p>
+                        )}
+                    </div>
+                );
+            }
+
             case "photo":
                 return (
                     <div>
@@ -336,7 +405,7 @@ function MessageItem({
                         <UserInfoDialog
                             userId={message.fromId}
                             userName={message.fromName || "Unknown"}
-                            username={undefined}
+                            username={message.fromUsername}
                         >
                             <button className="text-primary hover:underline cursor-pointer">
                                 {message.fromName}

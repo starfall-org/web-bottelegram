@@ -4,7 +4,7 @@
  * Bot-API-shaped results) so the rest of the app can switch between
  * Bot Gateway (grammy/HTTP) and MTProto Gateway transparently.
  */
-import { TelegramClient } from "@mtcute/web";
+import { BotKeyboard, InputMedia, TelegramClient } from "@mtcute/web";
 
 export interface MtProtoConfig {
     apiId: number;
@@ -289,6 +289,22 @@ export class MtProtoGateway {
         }
     }
 
+    async getChatMemberCount(chatId: number | string) {
+        try {
+            await this.ensureConnected();
+            const chat = await this.client.getChat(this.toPeerId(chatId));
+            const count =
+                chat.membersCount ??
+                chat.memberCount ??
+                chat.participantsCount ??
+                chat.raw?.participantsCount ??
+                0;
+            return { ok: true, result: Number(count) || 0 };
+        } catch (error: any) {
+            return { ok: false, description: error?.message || "Failed to get member count" };
+        }
+    }
+
     async getChatAdministrators(chatId: number | string) {
         try {
             const members = await this.client.getChatMembers(this.toPeerId(chatId), { type: "admins" });
@@ -374,6 +390,51 @@ export class MtProtoGateway {
         return this.sendMedia(chatId, document, { caption: options?.caption, replyTo: options?.reply_to_message_id, type: "document" });
     }
 
+    async sendMediaGroup(
+        chatId: number | string,
+        files: File[],
+        options?: { caption?: string; reply_to_message_id?: number },
+    ) {
+        try {
+            await this.ensureConnected();
+            const inputs = files.map((file, index) => {
+                const params = {
+                    caption: index === 0 ? options?.caption : undefined,
+                    fileName: file.name || `file_${index}`,
+                    fileMime: file.type || undefined,
+                    fileSize: file.size,
+                };
+
+                if (file.type.startsWith("image/")) return InputMedia.photo(file, params);
+                if (file.type.startsWith("video/")) return InputMedia.video(file, params);
+                if (file.type.startsWith("audio/")) return InputMedia.audio(file, params);
+                return InputMedia.document(file, params);
+            });
+
+            const result = await this.client.sendMediaGroup(
+                this.toPeerId(chatId),
+                inputs,
+                { replyTo: options?.reply_to_message_id },
+            );
+            const groupId = String(
+                result?.[0]?.groupedId ??
+                result?.[0]?.groupId ??
+                Date.now(),
+            );
+            return {
+                ok: true,
+                result: result.map((message: any) => ({
+                    ...this.toBotMessage(message),
+                    media_group_id: String(
+                        message.groupedId ?? message.groupId ?? groupId,
+                    ),
+                })),
+            };
+        } catch (error: any) {
+            return { ok: false, description: error?.message || "Failed to send media group" };
+        }
+    }
+
     async sendSticker(chatId: number | string, sticker: string) {
         try {
             const result = await this.client.sendMedia(this.toPeerId(chatId), sticker, {});
@@ -382,16 +443,34 @@ export class MtProtoGateway {
             return { ok: false, description: error?.message || "Failed to send sticker" };
         }
     }
-
     private async sendMedia(chatId: number | string, media: string | File, options: any) {
         try {
-            let input: any = media;
-            if (typeof media !== "string" && media instanceof File) {
-                input = new Uint8Array(await media.arrayBuffer());
-                input.fileName = media.name || "file";
+            const fileOptions = media instanceof File
+                ? {
+                      caption: options.caption,
+                      fileName: media.name || "file",
+                      fileMime: media.type || undefined,
+                      fileSize: media.size,
+                  }
+                : { caption: options.caption };
+
+            let input: any;
+            switch (options.type) {
+                case "photo":
+                    input = InputMedia.photo(media, fileOptions);
+                    break;
+                case "video":
+                    input = InputMedia.video(media, fileOptions);
+                    break;
+                case "audio":
+                    input = InputMedia.audio(media, fileOptions);
+                    break;
+                default:
+                    input = InputMedia.document(media, fileOptions);
+                    break;
             }
+
             const result = await this.client.sendMedia(this.toPeerId(chatId), input, {
-                caption: options.caption,
                 replyTo: options.replyTo,
             });
             return { ok: true, result: this.toBotMessage(result) };
@@ -419,23 +498,29 @@ export class MtProtoGateway {
     }
 
     private toReplyMarkup(markup: any) {
-        return markup.inline_keyboard.map((row: any[]) =>
+        const rows = markup?.inline_keyboard;
+        if (!Array.isArray(rows) || rows.length === 0) {
+            // mtcute removes an existing inline keyboard when replyMarkup is omitted.
+            return undefined;
+        }
+
+        const buttons = rows.map((row: any[]) =>
             row.map((button: any) => {
                 if (button.callback_data) {
-                    return { type: "callback" as const, text: button.text, data: new TextEncoder().encode(button.callback_data) };
+                    return BotKeyboard.callback(button.text, button.callback_data);
                 }
                 if (button.url) {
-                    return { type: "url" as const, text: button.text, url: button.url };
+                    return BotKeyboard.url(button.text, button.url);
                 }
                 if (button.web_app?.url) {
-                    return { type: "webview" as const, text: button.text, url: button.web_app.url };
+                    return BotKeyboard.webView(button.text, button.web_app.url);
                 }
-                return { type: "text" as const, text: button.text };
+                throw new Error(`Unsupported inline keyboard button: ${button.text || "(unnamed)"}`);
             }),
         );
-    }
 
-    /** Convert an mtcute Message into a Bot-API-shaped message object */
+        return BotKeyboard.inline(buttons);
+    }
     toBotMessage(message: any): any {
         const chat = message.chat || {};
         const sender = message.sender || {};
@@ -460,6 +545,10 @@ export class MtProtoGateway {
                 is_bot: sender.isBot,
             },
         };
+        const groupedId = message.groupedId ?? message.groupId ?? message.raw?.groupedId;
+        if (groupedId != null) {
+            result.media_group_id = String(groupedId);
+        }
         if (message.replyToMessage) {
             result.reply_to_message = {
                 message_id: message.replyToMessage.id,
