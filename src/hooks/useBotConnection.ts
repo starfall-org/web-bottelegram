@@ -42,6 +42,7 @@ export function useBotConnection() {
 
         let cancelled = false;
         const profileLoads = new Set<string>();
+        const memberProfileLoads = new Set<string>();
 
         const refreshChatProfile = async (chatId: string) => {
             if (profileLoads.has(chatId)) return;
@@ -80,6 +81,37 @@ export function useBotConnection() {
             } finally {
                 // Keep the chat marked for this page lifetime so every new
                 // message does not trigger another getChat/member-count call.
+            }
+        };
+
+        const refreshMemberProfile = async (chatId: string, userId: number) => {
+            const key = `${chatId}:${userId}`;
+            if (memberProfileLoads.has(key)) return;
+
+            const member = useBotStore
+                .getState()
+                .getCurrentChats()
+                .get(chatId)
+                ?.members.get(String(userId));
+            if (member?.avatarUrl) return;
+
+            memberProfileLoads.add(key);
+            try {
+                const photosResponse = await botService.getBotApiUserProfilePhotos(userId, 1);
+                const sizes = photosResponse.ok
+                    ? photosResponse.result?.photos?.[0]
+                    : undefined;
+                const photo = sizes?.[sizes.length - 1];
+                if (!photo?.file_id) return;
+
+                const fileResponse = await botService.getBotApiFile(photo.file_id);
+                if (!fileResponse.ok || !fileResponse.result?.file_path) return;
+                const avatarUrl = botService.getBotApiFileUrl(fileResponse.result.file_path);
+                if (!cancelled) {
+                    upsertMember(chatId, { id: String(userId), avatarUrl });
+                }
+            } catch (error) {
+                console.warn("Failed to load member profile photo:", error);
             }
         };
 
@@ -207,6 +239,10 @@ export function useBotConnection() {
                     isBot: Boolean(message.from.is_bot),
                     lastSeen: Date.now(),
                 });
+
+                if (message.chat.type === "group" || message.chat.type === "supergroup") {
+                    void refreshMemberProfile(chatId, Number(message.from.id));
+                }
             }
 
             let messageType: Message["type"] = "text";
@@ -421,7 +457,7 @@ export function useBotConnection() {
                 botService.setConfig({
                     token,
                     proxyPrefix,
-                    apiId: mtproto.apiId || undefined,
+                    apiId: mtproto.apiId || 4,
                     apiHash: mtproto.apiHash || undefined,
                 });
 

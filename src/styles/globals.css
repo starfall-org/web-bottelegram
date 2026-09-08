@@ -233,7 +233,68 @@
   padding-block: 2px 12px;
 }
 
+/* Telegram-like message geometry: natural width with a proportional cap.
+   Keep the ratio stable across small and large screens instead of using a
+   fixed pixel width. */
+.telegram-message-cluster {
+  width: fit-content;
+  max-width: 68%;
+  flex: 0 0 auto;
+}
+
+.telegram-message-lineflow {
+  /* Let browser line-breaking decide where text wraps. The timestamp is part
+     of the inline flow, so it only consumes room on the final line rather
+     than stealing width from every line. */
+  display: block;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+
+.telegram-message-content {
+  display: inline;
+  padding: 0;
+}
+
+.telegram-message-time {
+  display: inline-block;
+  margin-left: 0.55em;
+  color: hsl(var(--muted-foreground));
+  font-size: 12px;
+  line-height: 16px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.telegram-message-media-time {
+  margin-top: 2px;
+  text-align: right;
+  color: hsl(var(--muted-foreground));
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.chat-message.own .telegram-message-time,
+.chat-message.own .telegram-message-media-time {
+  color: rgb(255 255 255 / .82);
+}
+
+@media (max-width: 767px) {
+  .telegram-message-list {
+    width: 96%;
+  }
+
+  .telegram-message-cluster {
+    max-width: 86%;
+  }
+}
+
 .telegram-message-list .chat-message {
+  /* The surrounding cluster is intrinsic-width capped. Keep the bubble itself
+     intrinsic too so short text never gets flex-shrunk into a vertical stack. */
+  width: fit-content;
+  max-width: 100%;
   box-shadow: 0 1px 1px rgb(62 84 59 / .16);
 }
 
@@ -250,11 +311,38 @@
 }
 
 .telegram-jump-button {
+  position: absolute;
   height: 56px;
   width: 56px;
+  min-width: 56px;
   padding: 0;
   color: hsl(var(--muted-foreground));
   background: hsl(var(--card));
+}
+
+.telegram-jump-button > svg {
+  display: block;
+  width: 28px;
+  height: 28px;
+}
+
+.telegram-jump-button__badge {
+  position: absolute;
+  top: -8px;
+  right: -5px;
+  display: flex;
+  min-width: 34px;
+  height: 34px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 0 8px;
+  background: #8875df;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1;
+  box-shadow: 0 2px 8px rgb(0 0 0 / .28);
 }
 
 .telegram-sidebar__search-input:focus-visible {
@@ -353,4 +441,19 @@
 [data-theme="dark"] .telegram-jump-button {
   background: #242424;
   color: #aaa;
+}
+
+.telegram-inline-keyboard {
+  margin-top: 2px;
+}
+
+/* Telegram-style incoming group messages: avatar sits outside the bubble and
+   the sender identity lives inside the top of the bubble. */
+.chat-message.group-peer-message {
+  min-width: 120px;
+  border-radius: 8px 18px 18px 18px;
+}
+
+[data-theme="dark"] .chat-message.group-peer-message {
+  background: #222222;
 }

@@ -1,16 +1,14 @@
-import { useEffect, lazy, Suspense } from 'react'
+import { useEffect } from 'react'
 import { useBotStore } from '@/store/botStore'
 import { useBotConnection } from '@/hooks/useBotConnection'
 import { ThemeProvider } from '@/components/ThemeProvider'
-import { LoadingSpinner } from '@/components/LoadingSpinner'
-
-// Lazy load components that aren't needed immediately
-const Sidebar = lazy(() => import('@/components/Sidebar').then(m => ({ default: m.Sidebar })))
-const ChatArea = lazy(() => import('@/components/ChatArea').then(m => ({ default: m.ChatArea })))
-const CallbackNotification = lazy(() => import('@/components/CallbackNotification').then(m => ({ default: m.CallbackNotification })))
+import { LoginScreen } from '@/components/LoginScreen'
+import { Sidebar } from '@/components/Sidebar'
+import { ChatArea } from '@/components/ChatArea'
+import { CallbackNotification } from '@/components/CallbackNotification'
 
 export function App() {
-  const { theme } = useBotStore()
+  const { theme, token, gateway, mtproto } = useBotStore()
   
   // Initialize bot connection and polling
   useBotConnection()
@@ -27,19 +25,22 @@ export function App() {
     }
   }, [theme])
 
+  const hasCredentials = Boolean(
+    token.trim() &&
+      (gateway === 'bot' || (mtproto.apiHash.trim() && (mtproto.apiId || 4) > 0)),
+  )
+
   return (
     <ThemeProvider>
-      <Suspense fallback={
-        <div className="flex h-screen items-center justify-center bg-background">
-          <LoadingSpinner />
-        </div>
-      }>
+      {!hasCredentials ? (
+        <LoginScreen />
+      ) : (
         <div className="telegram-chat-surface relative flex h-screen overflow-hidden text-foreground">
           <Sidebar />
           <ChatArea />
           <CallbackNotification />
         </div>
-      </Suspense>
+      )}
     </ThemeProvider>
   )
 }

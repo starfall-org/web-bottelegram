@@ -5,39 +5,30 @@ import { MessageList } from '@/components/MessageList'
 import { InputArea } from '@/components/InputArea'
 import { ChatInfoDialog } from '@/components/ChatInfoDialog'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Wifi, WifiOff, ArrowDown, Paperclip, Menu, Search } from 'lucide-react'
-import { botService } from '@/services/botService'
-import { getChatAvatarUrl } from '@/lib/telegramAvatar'
+import { ArrowDown, Paperclip, Menu, Search } from 'lucide-react'
 import { Avatar } from '@/components/Avatar'
 
 export function ChatArea() {
   const [showNewMessageButton, setShowNewMessageButton] = useState(false)
+  const [unreadBelowCount, setUnreadBelowCount] = useState(0)
   const [isComposerFocused, setIsComposerFocused] = useState(false)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
   const [isDraggingFile, setIsDraggingFile] = useState(false)
   const dragCounterRef = useRef(0)
   const prevActiveChatIdRef = useRef<string | null>(null)
   const prevMessageCountRef = useRef<number>(0)
+  const prevMessageIdsRef = useRef<Set<string>>(new Set())
 
-  const [openChatInput, setOpenChatInput] = useState('')
-  const [openChatTitle, setOpenChatTitle] = useState('')
-  const [openChatLoading, setOpenChatLoading] = useState(false)
-  const [openChatError, setOpenChatError] = useState<string | null>(null)
   
   const {
     getCurrentActiveChatId,
     getCurrentChats,
-    getCurrentBotInfo,
     isConnected,
-    getOrCreateChat,
-    setActiveChatId,
   } = useBotStore()
   
   const { t } = useTranslation()
   const activeChatId = getCurrentActiveChatId()
   const chats = getCurrentChats()
-  const botInfo = getCurrentBotInfo()
   const activeChat = activeChatId ? chats?.get(activeChatId) : null
 
   const scrollToBottom = (smooth = false) => {
@@ -47,6 +38,7 @@ export function ChatArea() {
         behavior: smooth ? 'smooth' : 'auto'
       })
       setShowNewMessageButton(false)
+      setUnreadBelowCount(0)
     }
   }
 
@@ -58,8 +50,9 @@ export function ChatArea() {
     
     if (!isAtBottom && !showNewMessageButton) {
       setShowNewMessageButton(true)
-    } else if (isAtBottom && showNewMessageButton) {
-      setShowNewMessageButton(false)
+    } else if (isAtBottom) {
+      if (showNewMessageButton) setShowNewMessageButton(false)
+      if (unreadBelowCount) setUnreadBelowCount(0)
     }
   }
 
@@ -72,7 +65,11 @@ export function ChatArea() {
       if (chatChanged) {
         // Reset message count when switching chats
         prevMessageCountRef.current = activeChat.messages?.length || 0
+        prevMessageIdsRef.current = new Set(
+          (activeChat.messages || []).map((message) => String(message.id)),
+        )
         prevActiveChatIdRef.current = activeChatId
+        setUnreadBelowCount(0)
         
         // Scroll immediately when chat opens
         scrollToBottom(false)
@@ -80,34 +77,36 @@ export function ChatArea() {
     }
   }, [activeChatId, activeChat])
 
-  // Auto scroll when new messages arrive
+  // Auto scroll when new messages arrive. If the user has scrolled up,
+  // keep their position and count only newly received messages below them.
   useEffect(() => {
     if (activeChat?.messages && messagesContainerRef.current) {
       const currentMessageCount = activeChat.messages.length
+      const currentIds = new Set(activeChat.messages.map((message) => String(message.id)))
+      const isSameChat = prevActiveChatIdRef.current === activeChatId
+      const newlyAdded = isSameChat
+        ? activeChat.messages.filter((message) => !prevMessageIdsRef.current.has(String(message.id)))
+        : []
+      const incomingNewCount = newlyAdded.filter((message) => message.side === 'left').length
+
       const { scrollTop, scrollHeight, clientHeight } = messagesContainerRef.current
       const isNearBottom = scrollTop + clientHeight >= scrollHeight - 100
-      
-      // Only auto-scroll if user is already near the bottom
+
       if (isNearBottom) {
         scrollToBottom(true)
-        
-        // Only play sound if this is a NEW message (not just switching chats)
-        // Check if message count increased AND we're on the same chat
-        const isNewMessage = currentMessageCount > prevMessageCountRef.current && 
-                            prevActiveChatIdRef.current === activeChatId
-        
-        if (isNewMessage) {
-          const lastMessage = activeChat.messages[activeChat.messages.length - 1]
-          if (lastMessage && lastMessage.side === 'left') {
-            playNotificationSound()
-          }
-        }
+      } else if (incomingNewCount > 0) {
+        setUnreadBelowCount((count) => count + incomingNewCount)
+        setShowNewMessageButton(true)
       }
-      
-      // Update the previous message count
+
+      if (incomingNewCount > 0) {
+        playNotificationSound()
+      }
+
       prevMessageCountRef.current = currentMessageCount
+      prevMessageIdsRef.current = currentIds
     }
-  }, [activeChat?.messages?.length, activeChatId])
+  }, [activeChat?.messages, activeChatId])
 
   const playNotificationSound = () => {
     // Simple notification sound using Web Audio API
@@ -172,66 +171,9 @@ export function ChatArea() {
     }
   }, [])
 
-  const handleOpenChat = async () => {
-    setOpenChatError(null)
-    const raw = openChatInput.trim()
-    if (!raw) return
-    setOpenChatLoading(true)
-    try {
-      let chatId = ''
-      let chatData: any = null
-
-      if (raw.startsWith('@') || /[A-Za-z]/.test(raw)) {
-        if (!isConnected) {
-          throw new Error('Cần kết nối bot để tra cứu @username')
-        }
-        const uname = raw.startsWith('@') ? raw : `@${raw}`
-        const res = await botService.getChat(uname)
-        if (res.ok && (res as any).result) {
-          const info: any = (res as any).result
-          chatId = String(info.id)
-          const title =
-            info.title ||
-            `${(info.first_name || '')} ${(info.last_name || '')}`.trim() ||
-            info.username ||
-            chatId
-          const avatarText = (title || 'U').charAt(0).toUpperCase()
-          chatData = {
-            type: info.type || 'private',
-            title,
-            avatarText,
-            avatarUrl: await getChatAvatarUrl(info),
-            username: info.username || undefined,
-            description: info.description || undefined,
-          }
-        } else {
-          throw new Error((res as any).description || 'Không tìm thấy chat')
-        }
-      } else {
-        chatId = raw
-        const title = openChatTitle.trim() || `Chat ${chatId}`
-        const avatarText = (title || 'U').charAt(0).toUpperCase()
-        chatData = {
-          type: 'private',
-          title,
-          avatarText,
-        }
-      }
-
-      getOrCreateChat(chatId, chatData)
-      setActiveChatId(chatId)
-      setOpenChatInput('')
-      setOpenChatTitle('')
-    } catch (e: any) {
-      setOpenChatError(e?.message || 'Không thể mở chat')
-    } finally {
-      setOpenChatLoading(false)
-    }
-  }
-
   if (!activeChat) {
     return (
-      <main className="telegram-chat-pane flex-1 flex flex-col relative min-w-0">
+      <main className="telegram-chat-pane flex-1 relative min-w-0">
         <Button
           variant="ghost"
           size="icon"
@@ -241,71 +183,6 @@ export function ChatArea() {
         >
           <Menu className="h-5 w-5" />
         </Button>
-        <div className="flex-1 flex items-center justify-center p-8">
-          <div className="text-center space-y-4 max-w-md hud-panel rounded-2xl p-8">
-            <div className="w-20 h-20 bg-primary/20 border border-primary/40 rounded-full flex items-center justify-center mx-auto hud-glow">
-              <span className="text-3xl">💬</span>
-            </div>
-            <div className="space-y-2">
-              <h3 className="text-lg font-medium">{t('chat.noChatSelected')}</h3>
-              <p className="text-muted-foreground">{t('chat.noChatSelectedDesc')}</p>
-            </div>
-            {botInfo.name && (
-              <div className="mt-6 p-4 bg-muted/40 border border-border/70 rounded-lg">
-                <p className="flex items-center justify-center gap-2 text-sm">
-                  {isConnected ? (
-                    <>
-                      <Wifi className="h-4 w-4 text-green-500" />
-                      <span>
-                        {t('chat.connectedTo')} <strong>{botInfo.name}</strong>
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <WifiOff className="h-4 w-4 text-red-500" />
-                      <span>{t('chat.notConnectedToBot')}</span>
-                    </>
-                  )}
-                </p>
-                {botInfo.username && (
-                  <p className="text-xs text-muted-foreground mt-1">
-                    @{botInfo.username}
-                  </p>
-                )}
-              </div>
-            )}
-
-            <div className="mt-6 space-y-2 p-4 border border-border/80 rounded-lg text-left bg-background/45">
-              <p className="text-sm font-medium">Mở chat mới</p>
-              <div className="flex flex-col sm:flex-row gap-2">
-                <Input
-                  placeholder="Chat ID hoặc @username"
-                  value={openChatInput}
-                  onChange={(e) => setOpenChatInput(e.target.value)}
-                  disabled={openChatLoading}
-                />
-                <Input
-                  placeholder="Tiêu đề (tùy chọn)"
-                  value={openChatTitle}
-                  onChange={(e) => setOpenChatTitle(e.target.value)}
-                  disabled={openChatLoading}
-                />
-                <Button
-                  onClick={handleOpenChat}
-                  disabled={openChatLoading || !openChatInput.trim()}
-                >
-                  {openChatLoading ? 'Đang mở...' : 'Mở chat'}
-                </Button>
-              </div>
-              {openChatError && (
-                <p className="text-xs text-destructive">{openChatError}</p>
-              )}
-              <p className="text-[10px] text-muted-foreground">
-                Gợi ý: Nhập @channel/@group hoặc ID số. Với người dùng, bot chỉ nhắn nếu họ đã start bot.
-              </p>
-            </div>
-          </div>
-        </div>
       </main>
     )
   }
@@ -381,18 +258,24 @@ export function ChatArea() {
         {activeChatId && <MessageList chatId={activeChatId} />}
       </div>
 
-      {/* New Message Overlay + Button */}
+      {/* Scroll-to-bottom button. The badge counts incoming messages that arrived
+          while the user was reading older messages. */}
       {showNewMessageButton && (
         <>
           <div className="pointer-events-none absolute bottom-20 left-0 right-0 h-16 bg-gradient-to-t from-background/90 via-background/60 to-transparent" />
           <Button
             className="telegram-jump-button absolute bottom-24 right-5 z-30 rounded-full shadow-lg animate-slideIn md:right-8"
             onClick={() => scrollToBottom(true)}
-            size="sm"
+            size="icon"
             aria-label={t('chat.newMessage')}
+            title={t('chat.newMessage')}
           >
-            <ArrowDown className="h-4 w-4 mr-2" />
-            {t('chat.newMessage')}
+            <ArrowDown className="h-7 w-7 shrink-0" strokeWidth={2.25} />
+            {unreadBelowCount > 0 && (
+              <span className="telegram-jump-button__badge" aria-label={`${unreadBelowCount} unread messages`}>
+                {unreadBelowCount > 99 ? '99+' : unreadBelowCount}
+              </span>
+            )}
           </Button>
         </>
       )}

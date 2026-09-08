@@ -162,6 +162,9 @@ export const rehydrateState = (state?: BotState) => {
         }
         if (!state.mtproto) {
             state.mtproto = createDefaultMtprotoSettings();
+        } else if (!state.mtproto.apiId) {
+            // Older persisted states stored a null API ID. Use the app default.
+            state.mtproto.apiId = 4;
         }
         if (!state.language) {
             state.language = "vi";

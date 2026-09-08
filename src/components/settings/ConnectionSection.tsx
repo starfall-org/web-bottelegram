@@ -222,12 +222,12 @@ export function ConnectionSection({
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-xl border bg-muted/30">
                         <div className="space-y-2">
                             <Label htmlFor="mtproto-api-id" className="text-xs text-muted-foreground">
-                                {t("settings.gatewayApiId")} *
+                                {t("settings.gatewayApiId")} (mặc định 4)
                             </Label>
                             <Input
                                 id="mtproto-api-id"
                                 inputMode="numeric"
-                                placeholder="123456"
+                                placeholder="4"
                                 value={mtprotoApiId}
                                 onChange={(e) => setMtprotoApiId(e.target.value.replace(/[^0-9]/g, ""))}
                                 className="h-10 font-mono text-sm"

@@ -13,15 +13,33 @@ import { MoreVertical, Trash2, Eraser } from "lucide-react";
 import { cn, snippet, formatTime } from "@/lib/utils";
 import { Avatar } from "@/components/Avatar";
 
-export function ChatList() {
+interface ChatListProps {
+  query?: string;
+  onChatSelected?: () => void;
+}
+
+export function ChatList({ query = "", onChatSelected }: ChatListProps) {
   const { getCurrentActiveChatId, setActiveChatId, getSortedChats, deleteChat, clearChatHistory } =
     useBotStore();
   const { t } = useTranslation();
   const activeChatId = getCurrentActiveChatId();
   const sortedChats = getSortedChats();
+  const normalizedQuery = query.trim().replace(/^@/, "").toLocaleLowerCase();
+  const visibleChats = normalizedQuery
+    ? sortedChats.filter((chat: Chat) => {
+        const title = chat.title.toLocaleLowerCase();
+        const username = (chat.username || "").replace(/^@/, "").toLocaleLowerCase();
+        return (
+          String(chat.id).includes(query.trim()) ||
+          title.includes(query.trim().toLocaleLowerCase()) ||
+          username.includes(normalizedQuery)
+        );
+      })
+    : sortedChats;
 
   const handleChatClick = (chatId: string) => {
     setActiveChatId(chatId);
+    onChatSelected?.();
   };
 
   const handleDeleteChat = (e: React.MouseEvent, chatId: string) => {
@@ -44,12 +62,14 @@ export function ChatList() {
     }
   };
 
-  if (sortedChats.length === 0) {
+  if (visibleChats.length === 0) {
     return (
       <div className="flex-1 flex items-center justify-center p-6">
         <div className="text-center text-muted-foreground">
-          <p className="text-sm">{t('chat.noChats')}</p>
-          <p className="text-xs mt-1">{t('chat.noChatsDesc')}</p>
+          <p className="text-sm">{normalizedQuery ? "Không có chat trong danh sách" : t('chat.noChats')}</p>
+          <p className="text-xs mt-1">
+            {normalizedQuery ? "Nhấn Enter để tìm và thêm chat này." : t('chat.noChatsDesc')}
+          </p>
         </div>
       </div>
     );
@@ -57,7 +77,7 @@ export function ChatList() {
 
   return (
     <div className="flex-1 overflow-y-auto">
-      {sortedChats.map((chat: Chat) => {
+      {visibleChats.map((chat: Chat) => {
         const isActive = activeChatId === chat.id;
         return (
           <div

@@ -98,7 +98,7 @@ export function SettingsDialog({
     useEffect(() => {
         if (open) {
             setTokenInput(token);
-            setMtprotoApiId(mtproto.apiId ? String(mtproto.apiId) : "");
+            setMtprotoApiId(String(mtproto.apiId || 4));
             setMtprotoApiHash(mtproto.apiHash || "");
             setProxyInput(localStorage.getItem("cors_proxy") || "");
             setToast(null);
@@ -106,9 +106,15 @@ export function SettingsDialog({
             setBotUsernameInput(botInfo.username || "");
             setBotDescription(botInfo.description || "");
             setBotShortDescription(botInfo.shortDescription || "");
-            setActiveSection("home");
         }
-    }, [open, token, botInfo]);
+    }, [open, token, botInfo, mtproto.apiId, mtproto.apiHash]);
+
+    // Reset navigation only when the dialog itself is opened. Bot/profile data can
+    // change while editing Commands (for example after setMyCommands), and must
+    // not kick the user back to the settings home screen.
+    useEffect(() => {
+        if (open) setActiveSection("home");
+    }, [open]);
 
     const showToast = useCallback(
         (message: string, type: StatusToast["type"] = "info") => {
@@ -129,7 +135,7 @@ export function SettingsDialog({
             botService.setConfig({
                 token: tok,
                 proxyPrefix,
-                apiId: mtprotoApiId ? Number(mtprotoApiId) : undefined,
+                apiId: mtprotoApiId ? Number(mtprotoApiId) : 4,
                 apiHash: mtprotoApiHash || undefined,
             });
             return true;
@@ -142,7 +148,7 @@ export function SettingsDialog({
         // Persist to the store; useBotConnection reacts to gateway/config
         // changes and re-initializes the connection automatically.
         setGateway(mode);
-        const apiIdNum = mtprotoApiId ? Number(mtprotoApiId) : null;
+        const apiIdNum = mtprotoApiId ? Number(mtprotoApiId) : 4;
         setMtprotoSettings({ apiId: apiIdNum, apiHash: mtprotoApiHash.trim() });
     };
 
@@ -156,7 +162,7 @@ export function SettingsDialog({
             setToken(tokenInput.trim());
             localStorage.setItem("bot_token", tokenInput.trim());
             setMtprotoSettings({
-                apiId: mtprotoApiId ? Number(mtprotoApiId) : null,
+                apiId: mtprotoApiId ? Number(mtprotoApiId) : 4,
                 apiHash: mtprotoApiHash.trim(),
             });
             if (proxyInput.trim()) {

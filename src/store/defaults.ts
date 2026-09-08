@@ -69,6 +69,6 @@ export const createDefaultPreferences = () => ({
 })
 
 export const createDefaultMtprotoSettings = (): MtProtoSettings => ({
-  apiId: null,
+  apiId: 4,
   apiHash: ''
 })

@@ -1,5 +1,5 @@
-import { useState, useCallback } from "react";
-import { useBotStore, Message } from "@/store/botStore";
+import { useState, useCallback, useEffect, useRef } from "react";
+import { useBotStore, Message, type ChatMember } from "@/store/botStore";
 import {
     Trash2,
     Reply,
@@ -24,6 +24,7 @@ import { useTranslation } from "@/i18n/useTranslation";
 import { UserInfoDialog } from "@/components/UserInfoDialog";
 import { botService } from "@/services/botService";
 import { InlineKeyboard } from "@/components/InlineKeyboard";
+import { Avatar } from "@/components/Avatar";
 import { parseMarkdown } from "@/lib/markdown";
 
 interface MessageListProps {
@@ -38,6 +39,7 @@ interface MessageItemProps {
     onScrollToMessage?: (messageId: number | string) => void;
     onSelect?: (messageId: number | string) => void;
     showSenderName?: boolean;
+    senderMember?: ChatMember;
     replySenderName?: string;
     isSelectionMode?: boolean;
     isSelected?: boolean;
@@ -51,6 +53,7 @@ function MessageItem({
     onScrollToMessage,
     onSelect,
     showSenderName = false,
+    senderMember,
     replySenderName,
     isSelectionMode = false,
     isSelected = false,
@@ -331,29 +334,37 @@ function MessageItem({
                         isOwn ? "items-end" : "items-start",
                     )}
                 >
-                    {showSenderName && message.fromId && (
+                    <div className={cn("flex w-full items-end gap-2", isOwn && "flex-row-reverse")}>
+                        {showSenderName && !isOwn && message.fromId && (
+                            <Avatar
+                                src={senderMember?.avatarUrl}
+                                alt={message.fromName || "User"}
+                                fallback={senderMember?.avatarText || (message.fromName || "?").charAt(0).toUpperCase()}
+                                className="mb-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/20 text-sm font-semibold text-primary"
+                            />
+                        )}
+                        <div className={cn("telegram-message-cluster flex flex-col gap-1", isOwn ? "items-end" : "items-start")}>
                         <div
                             className={cn(
-                                "text-xs font-medium px-2",
-                                isOwn ? "text-right" : "text-left",
+                                "chat-message relative cursor-pointer max-w-full",
+                                isOwn ? "own" : "other",
+                                showSenderName && !isOwn && "group-peer-message",
+                                isSelected && "ring-2 ring-primary ring-offset-2",
+                                message.reply_to &&
+                                    "border-l-4 border-primary pl-3",
                             )}
+                            onClick={handleClick}
                         >
-                            <span className="text-muted-foreground">
-                                {message.fromName}
-                            </span>
-                        </div>
-                    )}
-
-                    <div
-                        className={cn(
-                            "chat-message relative cursor-pointer",
-                            isOwn ? "own" : "other",
-                            isSelected && "ring-2 ring-primary ring-offset-2",
-                            message.reply_to &&
-                                "border-l-4 border-primary pl-3",
-                        )}
-                        onClick={handleClick}
-                    >
+                            {showSenderName && !isOwn && message.fromId && (
+                                <div className="mb-1 flex min-w-0 items-center justify-between gap-4 text-sm leading-4">
+                                    <span className="truncate font-semibold text-[#55c94d]">{message.fromName}</span>
+                                    {(senderMember?.isCreator || senderMember?.isAdmin) && (
+                                        <span className="shrink-0 text-xs text-muted-foreground">
+                                            {senderMember.isCreator ? "owner" : "admin"}
+                                        </span>
+                                    )}
+                                </div>
+                            )}
                         {message.reply_preview && (
                             <div className="text-xs mb-2 p-2 bg-muted/50 rounded border-l-4 border-primary">
                                 <div className="font-medium text-primary mb-0.5">
@@ -365,15 +376,24 @@ function MessageItem({
                             </div>
                         )}
 
-                        <div className="mb-2">{renderContent()}</div>
-
+                        {message.type === "text" ? (
+                            <div className="telegram-message-lineflow">
+                                <span className="telegram-message-content">{renderContent()}</span>
+                                <span className="telegram-message-time">{formatTime(message.date)}</span>
+                            </div>
+                        ) : (
+                            <>
+                                <div>{renderContent()}</div>
+                                <div className="telegram-message-media-time">
+                                    <span>{formatTime(message.date)}</span>
+                                </div>
+                            </>
+                        )}
+                        </div>
                         <InlineKeyboard
                             buttons={message.reply_markup || []}
                             onCallbackClick={handleCallbackClick}
                         />
-
-                        <div className="flex items-center justify-between text-xs text-muted-foreground">
-                            <span>{formatTime(message.date)}</span>
                         </div>
                     </div>
                 </div>
@@ -390,41 +410,54 @@ function MessageItem({
                 isOwn ? "items-end" : "items-start",
             )}
         >
-            {showSenderName && message.fromId && (
-                <div
-                    className={cn(
-                        "text-xs font-medium px-2",
-                        isOwn ? "text-right" : "text-left",
-                    )}
-                >
-                    {isOwn ? (
-                        <span className="text-muted-foreground">
-                            {message.fromName}
-                        </span>
-                    ) : (
-                        <UserInfoDialog
-                            userId={message.fromId}
-                            userName={message.fromName || "Unknown"}
-                            username={message.fromUsername}
-                        >
-                            <button className="text-primary hover:underline cursor-pointer">
-                                {message.fromName}
-                            </button>
-                        </UserInfoDialog>
-                    )}
-                </div>
-            )}
+            <div className={cn("flex w-full items-end gap-2", isOwn && "flex-row-reverse")}>
+                {showSenderName && !isOwn && message.fromId && (
+                    <UserInfoDialog
+                        userId={message.fromId}
+                        userName={message.fromName || "Unknown"}
+                        username={message.fromUsername}
+                    >
+                        <button type="button" className="mb-0.5 shrink-0 rounded-full" onClick={(event) => event.stopPropagation()}>
+                            <Avatar
+                                src={senderMember?.avatarUrl}
+                                alt={message.fromName || "User"}
+                                fallback={senderMember?.avatarText || (message.fromName || "?").charAt(0).toUpperCase()}
+                                className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/20 text-sm font-semibold text-primary"
+                            />
+                        </button>
+                    </UserInfoDialog>
+                )}
 
+                <div className={cn("telegram-message-cluster flex flex-col gap-1", isOwn ? "items-end" : "items-start")}>
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                     <div
                         className={cn(
-                            "chat-message relative cursor-pointer",
+                            "chat-message relative cursor-pointer max-w-full",
                             isOwn ? "own" : "other",
+                            showSenderName && !isOwn && "group-peer-message",
                             message.reply_to &&
                                 "border-l-4 border-primary pl-3",
                         )}
                     >
+                        {showSenderName && !isOwn && message.fromId && (
+                            <div className="mb-1 flex min-w-0 items-center justify-between gap-4 text-sm leading-4">
+                                <UserInfoDialog
+                                    userId={message.fromId}
+                                    userName={message.fromName || "Unknown"}
+                                    username={message.fromUsername}
+                                >
+                                    <button type="button" className="truncate font-semibold text-[#55c94d] hover:underline" onClick={(event) => event.stopPropagation()}>
+                                        {message.fromName}
+                                    </button>
+                                </UserInfoDialog>
+                                {(senderMember?.isCreator || senderMember?.isAdmin) && (
+                                    <span className="shrink-0 text-xs text-muted-foreground">
+                                        {senderMember.isCreator ? "owner" : "admin"}
+                                    </span>
+                                )}
+                            </div>
+                        )}
                         {message.reply_preview && (
                             <div
                                 className="text-xs mb-2 p-2 bg-muted/50 rounded border-l-4 border-primary cursor-pointer hover:bg-muted/70 transition-colors"
@@ -443,16 +476,19 @@ function MessageItem({
                             </div>
                         )}
 
-                        <div className="mb-2">{renderContent()}</div>
-
-                        <InlineKeyboard
-                            buttons={message.reply_markup || []}
-                            onCallbackClick={handleCallbackClick}
-                        />
-
-                        <div className="flex items-center justify-between text-xs text-muted-foreground">
-                            <span>{formatTime(message.date)}</span>
-                        </div>
+                        {message.type === "text" ? (
+                            <div className="telegram-message-lineflow">
+                                <span className="telegram-message-content">{renderContent()}</span>
+                                <span className="telegram-message-time">{formatTime(message.date)}</span>
+                            </div>
+                        ) : (
+                            <>
+                                <div>{renderContent()}</div>
+                                <div className="telegram-message-media-time">
+                                    <span>{formatTime(message.date)}</span>
+                                </div>
+                            </>
+                        )}
                     </div>
                 </DropdownMenuTrigger>
 
@@ -560,12 +596,19 @@ function MessageItem({
                     )}
                 </DropdownMenuContent>
             </DropdownMenu>
+
+            <InlineKeyboard
+                buttons={message.reply_markup || []}
+                onCallbackClick={handleCallbackClick}
+            />
+                </div>
+            </div>
         </div>
     );
 }
 
 export function MessageList({ chatId }: MessageListProps) {
-    const { getCurrentChats, setReplyTo, removeMessage } = useBotStore();
+    const { getCurrentChats, setReplyTo, removeMessage, upsertMember } = useBotStore();
     const { t } = useTranslation();
     const chats = getCurrentChats();
     const chat = chats?.get(chatId);
@@ -576,6 +619,49 @@ export function MessageList({ chatId }: MessageListProps) {
     >(new Set());
     const [isSelectionMode, setIsSelectionMode] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
+    const avatarLoadsRef = useRef<Set<string>>(new Set());
+
+    // Hydrate profile photos for senders already present in persisted group history.
+    // New incoming members are also hydrated in useBotConnection.
+    useEffect(() => {
+        if (!chat || (chat.type !== "group" && chat.type !== "supergroup")) return;
+
+        const missingSenderIds = Array.from(
+            new Set(
+                chat.messages
+                    .filter((message) => message.side === "left" && message.fromId)
+                    .map((message) => Number(message.fromId)),
+            ),
+        ).filter((userId) => {
+            const member = chat.members.get(String(userId));
+            const key = `${chatId}:${userId}`;
+            return userId > 0 && !member?.avatarUrl && !avatarLoadsRef.current.has(key);
+        });
+
+        missingSenderIds.forEach((userId) => {
+            const key = `${chatId}:${userId}`;
+            avatarLoadsRef.current.add(key);
+            void (async () => {
+                try {
+                    const photosResponse = await botService.getBotApiUserProfilePhotos(userId, 1);
+                    const sizes = photosResponse.ok
+                        ? photosResponse.result?.photos?.[0]
+                        : undefined;
+                    const photo = sizes?.[sizes.length - 1];
+                    if (!photo?.file_id) return;
+
+                    const fileResponse = await botService.getBotApiFile(photo.file_id);
+                    if (!fileResponse.ok || !fileResponse.result?.file_path) return;
+                    upsertMember(chatId, {
+                        id: String(userId),
+                        avatarUrl: botService.getBotApiFileUrl(fileResponse.result.file_path),
+                    });
+                } catch (error) {
+                    console.warn("Failed to hydrate group member avatar:", error);
+                }
+            })();
+        });
+    }, [chatId, chat?.type, chat?.messages, chat?.members, upsertMember]);
 
     const handleScrollToMessage = (messageId: number | string) => {
         const messageElement = document.getElementById(`message-${messageId}`);
@@ -751,7 +837,7 @@ export function MessageList({ chatId }: MessageListProps) {
     };
 
     return (
-        <div className="telegram-message-list relative mx-auto max-w-[720px]">
+        <div className="telegram-message-list relative mx-auto w-[92%] max-w-none">
             {/* Selection Toolbar */}
             {isSelectionMode && (
                 <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/70 border-b p-3 mb-3 rounded-lg shadow-sm">
@@ -838,6 +924,7 @@ export function MessageList({ chatId }: MessageListProps) {
                             onScrollToMessage={handleScrollToMessage}
                             onSelect={handleSelectMessage}
                             showSenderName={isGroupChat}
+                            senderMember={message.fromId ? chat.members.get(String(message.fromId)) : undefined}
                             replySenderName={replySenderName}
                             isSelectionMode={isSelectionMode}
                             isSelected={selectedMessages.has(message.id)}

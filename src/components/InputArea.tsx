@@ -3,7 +3,7 @@ import { useBotStore } from "@/store/botStore";
 import { botService } from "@/services/botService";
 import { useTranslation } from "@/i18n/useTranslation";
 import { Button } from "@/components/ui/button";
-import { Send, Paperclip, Smile, X, Plus, Mic, Keyboard } from "lucide-react";
+import { Send, Paperclip, Smile, X, Plus, Mic, Keyboard, Link2, MousePointerClick, Rows, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { StickerPanel } from "@/components/input/StickerPanel";
 import { useSendFiles } from "@/components/input/useSendFiles";
@@ -619,176 +619,259 @@ export function InputArea({
 
       {/* Inline Keyboard Builder */}
       {showKeyboardBuilder && (
-        <div className="px-4 py-3 border-b bg-muted/30">
-          <div className="flex items-center justify-between mb-3">
-            <div>
-              <span className="text-sm font-semibold">Inline Keyboard</span>
-              <p className="text-xs text-muted-foreground">
-                Thêm nút tương tác vào tin nhắn
-              </p>
-            </div>
-            <div className="flex gap-1">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={addKeyboardRow}
-                className="h-8 px-3 text-xs"
-              >
-                <Plus className="h-3 w-3 mr-1" />
-                Thêm hàng
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setShowKeyboardBuilder(false);
-                  setInlineKeyboard([]);
-                }}
-                className="h-8 px-2"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-          <div className="space-y-3 max-h-64 overflow-y-auto">
-            {inlineKeyboard.length === 0 ? (
-              <div className="text-center py-6 text-muted-foreground text-sm">
-                <span className="text-2xl block mb-2">⌨️</span>
-                Chưa có nút nào. Click "Thêm hàng" để bắt đầu.
-              </div>
-            ) : (
-              inlineKeyboard.map((row, rowIdx) => (
-                <div
-                  key={rowIdx}
-                  className="space-y-2 p-3 border rounded-lg bg-background/50"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-medium text-muted-foreground">
-                      Hàng {rowIdx + 1}
-                    </span>
-                    <div className="flex gap-1">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => addKeyboardButton(rowIdx)}
-                        className="h-6 px-2 text-xs"
-                      >
-                        <Plus className="h-3 w-3 mr-1" />
-                        Nút
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          const newKeyboard = [...inlineKeyboard];
-                          newKeyboard.splice(rowIdx, 1);
-                          setInlineKeyboard(newKeyboard);
-                        }}
-                        className="h-6 px-2 text-xs text-destructive"
-                      >
-                        <X className="h-3 w-3" />
-                      </Button>
-                    </div>
+        <div className="px-3 pb-3 sm:px-4">
+          <div className="overflow-hidden rounded-[22px] border border-white/10 bg-[#171717] shadow-xl">
+            <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3.5">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#8875df]/15 text-[#a995ff]">
+                  <Keyboard className="h-5 w-5" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold text-white">Inline Keyboard</span>
+                    {inlineKeyboard.length > 0 && (
+                      <span className="rounded-full bg-white/[0.07] px-2 py-0.5 text-[11px] text-[#aaa]">
+                        {inlineKeyboard.length} hàng · {inlineKeyboard.reduce((total, row) => total + row.length, 0)} nút
+                      </span>
+                    )}
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    {row.map((btn, btnIdx) => (
-                      <div
-                        key={btnIdx}
-                        className="flex flex-col gap-1.5 p-2 border rounded-md bg-card min-w-[200px]"
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-medium">
-                            Nút {btnIdx + 1}
-                          </span>
+                  <p className="mt-0.5 text-xs text-[#8d8d8d]">
+                    Tạo các nút callback hoặc liên kết bên dưới tin nhắn.
+                  </p>
+                </div>
+              </div>
+              <div className="flex shrink-0 items-center gap-1.5">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={addKeyboardRow}
+                  className="h-9 rounded-xl bg-[#8875df] px-3 text-xs text-white hover:bg-[#7865d2] hover:text-white"
+                >
+                  <Plus className="mr-1.5 h-4 w-4" />
+                  Thêm hàng
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => {
+                    setShowKeyboardBuilder(false);
+                    setInlineKeyboard([]);
+                  }}
+                  className="h-9 w-9 rounded-xl text-[#999] hover:bg-white/[0.06] hover:text-white"
+                  aria-label="Đóng Inline Keyboard"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+
+            <div className="max-h-[420px] overflow-y-auto p-3 sm:p-4">
+              {inlineKeyboard.length === 0 ? (
+                <button
+                  type="button"
+                  onClick={addKeyboardRow}
+                  className="flex w-full flex-col items-center justify-center rounded-2xl border border-dashed border-white/10 bg-[#111] px-4 py-8 text-center transition-colors hover:border-[#8875df]/50 hover:bg-[#8875df]/[0.04]"
+                >
+                  <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-white/[0.05] text-[#aaa]">
+                    <Rows className="h-5 w-5" />
+                  </div>
+                  <span className="text-sm font-medium text-white">Chưa có nút</span>
+                  <span className="mt-1 text-xs text-[#858585]">Thêm hàng đầu tiên để tạo inline keyboard.</span>
+                </button>
+              ) : (
+                <div className="space-y-3">
+                  {inlineKeyboard.map((row, rowIdx) => (
+                    <div
+                      key={rowIdx}
+                      className="rounded-2xl border border-white/[0.08] bg-[#111] p-3"
+                    >
+                      <div className="mb-3 flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <div className="flex h-7 min-w-7 items-center justify-center rounded-lg bg-white/[0.06] px-2 text-xs font-semibold text-[#bdbdbd]">
+                            {rowIdx + 1}
+                          </div>
+                          <div>
+                            <p className="text-xs font-medium text-white">Hàng {rowIdx + 1}</p>
+                            <p className="text-[11px] text-[#777]">{row.length} nút</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1">
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => removeKeyboardButton(rowIdx, btnIdx)}
-                            className="h-5 w-5 p-0 text-destructive hover:text-destructive"
+                            onClick={() => addKeyboardButton(rowIdx)}
+                            className="h-8 rounded-lg px-2.5 text-xs text-[#a995ff] hover:bg-[#8875df]/10 hover:text-[#b9aaff]"
                           >
-                            <X className="h-3 w-3" />
+                            <Plus className="mr-1 h-3.5 w-3.5" />
+                            Thêm nút
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              const newKeyboard = [...inlineKeyboard];
+                              newKeyboard.splice(rowIdx, 1);
+                              setInlineKeyboard(newKeyboard);
+                            }}
+                            className="h-8 w-8 rounded-lg text-[#8d8d8d] hover:bg-red-500/10 hover:text-red-400"
+                            aria-label={`Xóa hàng ${rowIdx + 1}`}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
                           </Button>
                         </div>
-                        <div className="space-y-1.5">
-                          <div>
-                            <label className="text-xs text-muted-foreground">
-                              Văn bản hiển thị
-                            </label>
-                            <input
-                              type="text"
-                              placeholder="Ví dụ: Xem thêm"
-                              value={btn.text}
-                              onChange={(e) =>
-                                updateKeyboardButton(
-                                  rowIdx,
-                                  btnIdx,
-                                  "text",
-                                  e.target.value,
-                                )
-                              }
-                              onKeyDown={(e) => e.stopPropagation()}
-                              className="w-full px-2 py-1.5 text-sm border rounded bg-background"
-                            />
-                          </div>
-                          <div>
-                            <label className="text-xs text-muted-foreground">
-                              Loại nút
-                            </label>
-                            <select
-                              value={btn.url ? "url" : "callback"}
-                              onChange={(e) => {
-                                const newKeyboard = [...inlineKeyboard];
-                                if (e.target.value === "url") {
-                                  newKeyboard[rowIdx][btnIdx] = {
-                                    text: btn.text,
-                                    url: "",
-                                  };
-                                } else {
-                                  newKeyboard[rowIdx][btnIdx] = {
-                                    text: btn.text,
-                                    callback_data: "",
-                                  };
-                                }
-                                setInlineKeyboard(newKeyboard);
-                              }}
-                              className="w-full px-2 py-1.5 text-sm border rounded bg-background"
-                            >
-                              <option value="callback">
-                                Callback (Xử lý bởi bot)
-                              </option>
-                              <option value="url">Link (Mở URL)</option>
-                            </select>
-                          </div>
-                          <div>
-                            <label className="text-xs text-muted-foreground">
-                              {btn.url ? "URL" : "Callback Data"}
-                            </label>
-                            <input
-                              type="text"
-                              placeholder={
-                                btn.url ? "https://example.com" : "action_name"
-                              }
-                              value={btn.callback_data || btn.url || ""}
-                              onChange={(e) => {
-                                const field = btn.url ? "url" : "callback_data";
-                                updateKeyboardButton(
-                                  rowIdx,
-                                  btnIdx,
-                                  field,
-                                  e.target.value,
-                                );
-                              }}
-                              onKeyDown={(e) => e.stopPropagation()}
-                              className="w-full px-2 py-1.5 text-sm border rounded bg-background font-mono"
-                            />
-                          </div>
-                        </div>
                       </div>
-                    ))}
+
+                      {row.length === 0 ? (
+                        <button
+                          type="button"
+                          onClick={() => addKeyboardButton(rowIdx)}
+                          className="flex h-11 w-full items-center justify-center rounded-xl border border-dashed border-white/[0.08] text-xs text-[#777] transition-colors hover:border-[#8875df]/40 hover:text-[#a995ff]"
+                        >
+                          <Plus className="mr-1.5 h-3.5 w-3.5" />
+                          Thêm nút vào hàng này
+                        </button>
+                      ) : (
+                        <div className="grid gap-2 lg:grid-cols-2">
+                          {row.map((btn, btnIdx) => {
+                            const buttonType = btn.url ? "url" : "callback";
+                            return (
+                              <div
+                                key={btnIdx}
+                                className="rounded-xl border border-white/[0.07] bg-[#181818] p-3"
+                              >
+                                <div className="mb-3 flex items-center justify-between gap-2">
+                                  <span className="text-xs font-medium text-[#cfcfcf]">Nút {btnIdx + 1}</span>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => removeKeyboardButton(rowIdx, btnIdx)}
+                                    className="h-7 w-7 rounded-lg text-[#777] hover:bg-red-500/10 hover:text-red-400"
+                                    aria-label={`Xóa nút ${btnIdx + 1}`}
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </Button>
+                                </div>
+
+                                <div className="space-y-3">
+                                  <div className="space-y-1.5">
+                                    <label className="text-[11px] font-medium text-[#888]">Nhãn nút</label>
+                                    <input
+                                      type="text"
+                                      placeholder="Ví dụ: Xem thêm"
+                                      value={btn.text}
+                                      onChange={(e) =>
+                                        updateKeyboardButton(rowIdx, btnIdx, "text", e.target.value)
+                                      }
+                                      onKeyDown={(e) => e.stopPropagation()}
+                                      className="h-10 w-full rounded-xl border border-white/[0.08] bg-[#101010] px-3 text-sm text-white outline-none transition-colors placeholder:text-[#555] focus:border-[#8875df]"
+                                    />
+                                  </div>
+
+                                  <div className="space-y-1.5">
+                                    <label className="text-[11px] font-medium text-[#888]">Loại nút</label>
+                                    <div className="grid grid-cols-2 rounded-xl bg-[#101010] p-1">
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const newKeyboard = [...inlineKeyboard];
+                                          newKeyboard[rowIdx][btnIdx] = {
+                                            text: btn.text,
+                                            callback_data: btn.callback_data || "",
+                                          };
+                                          setInlineKeyboard(newKeyboard);
+                                        }}
+                                        className={cn(
+                                          "flex h-8 items-center justify-center gap-1.5 rounded-lg text-xs transition-colors",
+                                          buttonType === "callback"
+                                            ? "bg-[#2a2635] text-[#b6a5ff]"
+                                            : "text-[#777] hover:text-[#aaa]",
+                                        )}
+                                      >
+                                        <MousePointerClick className="h-3.5 w-3.5" />
+                                        Callback
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const newKeyboard = [...inlineKeyboard];
+                                          newKeyboard[rowIdx][btnIdx] = {
+                                            text: btn.text,
+                                            url: btn.url || "",
+                                          };
+                                          setInlineKeyboard(newKeyboard);
+                                        }}
+                                        className={cn(
+                                          "flex h-8 items-center justify-center gap-1.5 rounded-lg text-xs transition-colors",
+                                          buttonType === "url"
+                                            ? "bg-[#2a2635] text-[#b6a5ff]"
+                                            : "text-[#777] hover:text-[#aaa]",
+                                        )}
+                                      >
+                                        <Link2 className="h-3.5 w-3.5" />
+                                        URL
+                                      </button>
+                                    </div>
+                                  </div>
+
+                                  <div className="space-y-1.5">
+                                    <label className="text-[11px] font-medium text-[#888]">
+                                      {buttonType === "url" ? "URL" : "Callback Data"}
+                                    </label>
+                                    <div className="relative">
+                                      {buttonType === "url" ? (
+                                        <Link2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#666]" />
+                                      ) : (
+                                        <MousePointerClick className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#666]" />
+                                      )}
+                                      <input
+                                        type="text"
+                                        placeholder={buttonType === "url" ? "https://example.com" : "action_name"}
+                                        value={btn.callback_data || btn.url || ""}
+                                        onChange={(e) =>
+                                          updateKeyboardButton(
+                                            rowIdx,
+                                            btnIdx,
+                                            buttonType === "url" ? "url" : "callback_data",
+                                            e.target.value,
+                                          )
+                                        }
+                                        onKeyDown={(e) => e.stopPropagation()}
+                                        className="h-10 w-full rounded-xl border border-white/[0.08] bg-[#101010] pl-9 pr-3 font-mono text-sm text-white outline-none transition-colors placeholder:text-[#555] focus:border-[#8875df]"
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+
+                  <div className="rounded-2xl border border-white/[0.08] bg-[#101010] p-3">
+                    <div className="mb-2 flex items-center justify-between">
+                      <span className="text-[11px] font-medium uppercase tracking-wide text-[#777]">Xem trước</span>
+                      <span className="text-[11px] text-[#666]">Telegram layout</span>
+                    </div>
+                    <div className="space-y-1.5">
+                      {inlineKeyboard.map((row, rowIdx) => (
+                        <div key={`preview-${rowIdx}`} className="flex gap-1.5">
+                          {row.map((btn, btnIdx) => (
+                            <div
+                              key={`preview-${rowIdx}-${btnIdx}`}
+                              className="flex min-h-9 min-w-0 flex-1 items-center justify-center rounded-lg bg-[#26222f] px-2 text-center text-xs font-medium text-[#b9aaff]"
+                            >
+                              <span className="truncate">{btn.text.trim() || `Nút ${btnIdx + 1}`}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
-              ))
-            )}
+              )}
+            </div>
           </div>
         </div>
       )}
