@@ -1,4 +1,4 @@
-import { Bot, GrammyError, HttpError, InputFile } from "grammy";
+import { Bot, GrammyError, HttpError } from "grammy";
 import { mtProtoGateway } from "./mtprotoGateway";
 
 export type GatewayMode = "bot" | "mtproto";
@@ -275,16 +275,15 @@ export class BotService {
         if (!this.bot) throw new Error("Bot not initialized");
 
         try {
-            let input;
-            if (typeof photo === "string") {
-                input = photo;
-            } else {
-                // Use File object directly for browser compatibility
-                
-                
-                input = new InputFile(photo, photo.name || "photo.jpg");
+            if (typeof photo !== "string") {
+                return await this.sendMediaFile(
+                    "sendPhoto",
+                    chatId,
+                    photo,
+                    options,
+                );
             }
-            const message = await this.bot.api.sendPhoto(chatId, input, {
+            const message = await this.bot.api.sendPhoto(chatId, photo, {
                 caption: options?.caption,
                 reply_parameters: options?.reply_to_message_id
                     ? { message_id: options.reply_to_message_id }
@@ -311,15 +310,15 @@ export class BotService {
         if (!this.bot) throw new Error("Bot not initialized");
 
         try {
-            let input;
-            if (typeof video === "string") {
-                input = video;
-            } else {
-                
-                
-                input = new InputFile(video, video.name || "video.mp4");
+            if (typeof video !== "string") {
+                return await this.sendMediaFile(
+                    "sendVideo",
+                    chatId,
+                    video,
+                    options,
+                );
             }
-            const message = await this.bot.api.sendVideo(chatId, input, {
+            const message = await this.bot.api.sendVideo(chatId, video, {
                 caption: options?.caption,
                 reply_parameters: options?.reply_to_message_id
                     ? { message_id: options.reply_to_message_id }
@@ -346,15 +345,15 @@ export class BotService {
         if (!this.bot) throw new Error("Bot not initialized");
 
         try {
-            let input;
-            if (typeof audio === "string") {
-                input = audio;
-            } else {
-                
-                
-                input = new InputFile(audio, audio.name || "audio.mp3");
+            if (typeof audio !== "string") {
+                return await this.sendMediaFile(
+                    "sendAudio",
+                    chatId,
+                    audio,
+                    options,
+                );
             }
-            const message = await this.bot.api.sendAudio(chatId, input, {
+            const message = await this.bot.api.sendAudio(chatId, audio, {
                 caption: options?.caption,
                 reply_parameters: options?.reply_to_message_id
                     ? { message_id: options.reply_to_message_id }
@@ -381,15 +380,15 @@ export class BotService {
         if (!this.bot) throw new Error("Bot not initialized");
 
         try {
-            let input;
-            if (typeof document === "string") {
-                input = document;
-            } else {
-                
-                
-                input = new InputFile(document, document.name || "document");
+            if (typeof document !== "string") {
+                return await this.sendMediaFile(
+                    "sendDocument",
+                    chatId,
+                    document,
+                    options,
+                );
             }
-            const message = await this.bot.api.sendDocument(chatId, input, {
+            const message = await this.bot.api.sendDocument(chatId, document, {
                 caption: options?.caption,
                 reply_parameters: options?.reply_to_message_id
                     ? { message_id: options.reply_to_message_id }
@@ -520,9 +519,58 @@ export class BotService {
         );
         return response.json() as Promise<{
             ok: boolean;
-            result?: boolean;
+            result?: any;
             description?: string;
         }>;
+    }
+
+    /**
+     * Upload media as multipart/form-data directly via fetch.
+     *
+     * grammy's web build serializes multipart bodies as a streaming
+     * ReadableStream, which browsers reject for file uploads (it surfaces as
+     * `HttpError: Network request for 'sendPhoto' failed!`). Native FormData
+     * uploads work reliably in the browser.
+     */
+    private async sendMediaFile(
+        method: "sendPhoto" | "sendVideo" | "sendAudio" | "sendDocument",
+        chatId: number | string,
+        file: File,
+        options?: { caption?: string; reply_to_message_id?: number },
+    ) {
+        if (!this.config) throw new Error("Bot not configured");
+
+        try {
+            const field =
+                method === "sendPhoto"
+                    ? "photo"
+                    : method === "sendVideo"
+                      ? "video"
+                      : method === "sendAudio"
+                        ? "audio"
+                        : "document";
+
+            const formData = new FormData();
+            formData.append("chat_id", String(chatId));
+            if (options?.caption) {
+                formData.append("caption", options.caption);
+            }
+            if (options?.reply_to_message_id) {
+                formData.append(
+                    "reply_parameters",
+                    JSON.stringify({ message_id: options.reply_to_message_id }),
+                );
+            }
+            formData.append(field, file, file.name || field);
+
+            return await this.callMultipartApi(method, formData);
+        } catch (error) {
+            return {
+                ok: false,
+                description:
+                    error instanceof Error ? error.message : "Unknown error",
+            };
+        }
     }
 
     async getUserProfilePhotos(userId: number, limit = 1) {
@@ -610,11 +658,12 @@ export class BotService {
         if (!this.bot) throw new Error("Bot not initialized");
 
         try {
-            const result = await this.bot.api.setChatPhoto(
-                chatId,
-                new InputFile(photo, photo.name || "chat-avatar.jpg"),
-            );
-            return { ok: true, result };
+            // Same FormData upload as sendPhoto: grammy's streaming multipart
+            // body is rejected by browsers for file uploads.
+            const formData = new FormData();
+            formData.append("chat_id", String(chatId));
+            formData.append("photo", photo, photo.name || "chat-avatar.jpg");
+            return await this.callMultipartApi("setChatPhoto", formData);
         } catch (error) {
             return {
                 ok: false,

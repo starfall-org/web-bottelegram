@@ -386,9 +386,21 @@ export class MtProtoGateway {
     private async sendMedia(chatId: number | string, media: string | File, options: any) {
         try {
             let input: any = media;
-            if (typeof media !== "string" && media instanceof File) {
-                input = new Uint8Array(await media.arrayBuffer());
-                input.fileName = media.name || "file";
+            // mtcute's sendMedia expects an InputMediaLike object. A bare
+            // Uint8Array (or a File) is not one, so wrap it in an InputMedia
+            // builder — otherwise normalizeInputMedia passes `undefined` to
+            // uploadFile and throws "Could not convert input `file` to stream!"
+            if (typeof media !== "string") {
+                const file = media instanceof File ? media : new File([media], media?.fileName || "file");
+                input = {
+                    type: options.type,
+                    file,
+                    fileName: file.name,
+                    fileMime: file.type || undefined,
+                    caption: options.caption,
+                };
+            } else {
+                input = { type: options.type, file: media, caption: options.caption };
             }
             const result = await this.client.sendMedia(this.toPeerId(chatId), input, {
                 caption: options.caption,
