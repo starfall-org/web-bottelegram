@@ -84,6 +84,24 @@ export interface BotCommand {
   description: string
 }
 
+export interface CustomCommandButton {
+  id: string
+  text: string
+  type: 'callback' | 'url'
+  value: string
+  row: number
+}
+
+export interface CustomBotCommand {
+  id: string
+  command: string
+  description: string
+  response: string
+  enabled: boolean
+  builtin?: 'start'
+  buttons: CustomCommandButton[]
+}
+
 export interface BotInfo {
   id: number | null
   username: string | null
@@ -108,6 +126,7 @@ export interface BotData {
   chats: Map<string, Chat>
   recentStickers: StickerEntry[]
   favoriteStickers: StickerEntry[]
+  customCommands: CustomBotCommand[]
   lastUpdateId: number
   activeChatId: string | null
 }
@@ -166,6 +185,9 @@ export interface BotState {
   addFavoriteSticker: (sticker: StickerEntry) => void
   removeFavoriteSticker: (file_id: string) => void
   getFavoriteStickers: () => StickerEntry[]
+  getCustomCommands: () => CustomBotCommand[]
+  upsertCustomCommand: (command: CustomBotCommand) => void
+  removeCustomCommand: (commandId: string) => boolean
   clearAllData: () => void
   clearBotData: (botToken: string) => void
   getSortedChats: () => Chat[]

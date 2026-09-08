@@ -8,7 +8,9 @@ import type {
     Chat,
     ChatMember,
     Message,
+    MediaGroupItem,
     StickerEntry,
+    CustomBotCommand,
 } from "./types";
 import {
     createDefaultBotData,
@@ -42,6 +44,8 @@ const getMessagePreview = (message?: Message) => {
 export type {
     Message,
     MediaGroupItem,
+    CustomBotCommand,
+    CustomCommandButton,
     Member,
     GatewayMode,
     MtProtoSettings,
@@ -256,7 +260,7 @@ export const useBotStore = create<BotState>()(
                     if (groupIndex >= 0) {
                         const existing = updatedMessages[groupIndex];
                         const existingItemIds = new Set(
-                            (existing.mediaGroupItems || []).map((item) => String(item.id)),
+                            (existing.mediaGroupItems || []).map((item: MediaGroupItem) => String(item.id)),
                         );
                         const mergedItems = [
                             ...(existing.mediaGroupItems || []),
@@ -325,7 +329,7 @@ export const useBotStore = create<BotState>()(
 
                 const updatedMessageIds = new Set(chat.messageIds);
                 updatedMessageIds.delete(messageId);
-                removedMessage.mediaGroupItems?.forEach((item) =>
+                removedMessage.mediaGroupItems?.forEach((item: MediaGroupItem) =>
                     updatedMessageIds.delete(item.id),
                 );
                 const latestMessage = updatedMessages[updatedMessages.length - 1];
@@ -657,6 +661,44 @@ export const useBotStore = create<BotState>()(
                 const state = get();
                 const data = state.getCurrentBotData();
                 return data?.favoriteStickers || [];
+            },
+
+            getCustomCommands: () => {
+                const state = get();
+                const data = state.getCurrentBotData();
+                return data?.customCommands || createDefaultBotData().customCommands;
+            },
+
+            upsertCustomCommand: (command: CustomBotCommand) => {
+                const state = get();
+                if (!state.token) return;
+                const currentBotData =
+                    state.botDataMap.get(state.token) || createDefaultBotData();
+                const existing = currentBotData.customCommands || [];
+                const index = existing.findIndex((item: CustomBotCommand) => item.id === command.id);
+                const next = [...existing];
+                if (index >= 0) next[index] = command;
+                else next.push(command);
+                const updatedBotData = { ...currentBotData, customCommands: next };
+                set((state: BotState) => ({
+                    botDataMap: new Map(state.botDataMap).set(state.token, updatedBotData),
+                }));
+            },
+
+            removeCustomCommand: (commandId: string) => {
+                const state = get();
+                if (!state.token) return false;
+                const currentBotData =
+                    state.botDataMap.get(state.token) || createDefaultBotData();
+                const existing = currentBotData.customCommands || [];
+                const target = existing.find((item: CustomBotCommand) => item.id === commandId);
+                if (!target || target.builtin === "start") return false;
+                const next = existing.filter((item: CustomBotCommand) => item.id !== commandId);
+                const updatedBotData = { ...currentBotData, customCommands: next };
+                set((state: BotState) => ({
+                    botDataMap: new Map(state.botDataMap).set(state.token, updatedBotData),
+                }));
+                return true;
             },
 
             // Utility actions

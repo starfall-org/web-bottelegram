@@ -4,35 +4,41 @@ import { useTheme } from "@/components/ThemeProvider";
 import { useTranslation } from "@/i18n/useTranslation";
 import {
     Dialog,
+    DialogClose,
     DialogContent,
-    DialogDescription,
-    DialogHeader,
     DialogTitle,
     DialogTrigger,
 } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
+import { Avatar } from "@/components/Avatar";
 import { cn } from "@/lib/utils";
 import {
+    ArrowLeft,
+    Bell,
+    Bot,
+    ChevronRight,
+    Database,
+    Info,
+    ListTree,
+    MoreVertical,
+    Palette,
+    Search,
     Settings,
     Wifi,
     WifiOff,
-    Palette,
-    Bell,
-    Database,
-    Info,
 } from "lucide-react";
 import { botService } from "@/services/botService";
 import { getUserAvatarUrl } from "@/lib/telegramAvatar";
-
 import {
     type SettingsSection,
     type StatusToast,
-    NavItem,
     StatusToastUI,
 } from "./settings/SettingsComponents";
 import { ConnectionSection } from "./settings/ConnectionSection";
 import { AppearanceSection } from "./settings/AppearanceSection";
 import { PreferencesSection } from "./settings/PreferencesSection";
+import { CommandsSection } from "./settings/CommandsSection";
 import { BotsSection } from "./settings/BotsSection";
 import { AboutSection } from "./settings/AboutSection";
 
@@ -47,7 +53,7 @@ export function SettingsDialog({
 }: SettingsDialogProps) {
     const [open, setOpen] = useState(false);
     const [activeSection, setActiveSection] =
-        useState<SettingsSection>("connection");
+        useState<SettingsSection>("home");
     const [tokenInput, setTokenInput] = useState("");
     const [proxyInput, setProxyInput] = useState("");
     const [showToken, setShowToken] = useState(false);
@@ -80,10 +86,12 @@ export function SettingsDialog({
         isPolling,
         preferences,
         updatePreferences,
+        getCustomCommands,
         clearAllData,
     } = useBotStore();
 
     const botInfo = getCurrentBotInfo();
+    const customCommands = getCustomCommands();
     const { theme, setTheme } = useTheme();
     const { t, language, changeLanguage } = useTranslation();
 
@@ -98,6 +106,7 @@ export function SettingsDialog({
             setBotUsernameInput(botInfo.username || "");
             setBotDescription(botInfo.description || "");
             setBotShortDescription(botInfo.shortDescription || "");
+            setActiveSection("home");
         }
     }, [open, token, botInfo]);
 
@@ -317,6 +326,13 @@ export function SettingsDialog({
             description: t("settings.appPreferencesDesc"),
         },
         {
+            id: "commands",
+            icon: ListTree,
+            label: "Commands",
+            description: "Responses and inline buttons",
+            badge: customCommands.length || undefined,
+        },
+        {
             id: "bots",
             icon: Database,
             label: t("settings.botHistory"),
@@ -389,6 +405,10 @@ export function SettingsDialog({
                         handleClearAllData={handleClearAllData}
                     />
                 );
+            case "commands":
+                return (
+                    <CommandsSection showToast={showToast} />
+                );
             case "bots":
                 return (
                     <BotsSection
@@ -422,6 +442,99 @@ export function SettingsDialog({
         }
     };
 
+    const renderSettingsHome = () => {
+        const groups = [navItems.slice(0, 3), navItems.slice(3)];
+        return (
+            <ScrollArea className="min-h-0 flex-1">
+                <div className="px-5 pb-8">
+                    <div className="flex flex-col items-center pb-10 pt-8 text-center">
+                        <Avatar
+                            src={botInfo.avatarUrl}
+                            alt={botInfo.name || "Bot"}
+                            fallback={(botInfo.name || botInfo.username || "B").charAt(0).toUpperCase()}
+                            className="flex h-48 w-48 items-center justify-center rounded-full bg-gradient-to-b from-[#8bd45f] to-[#45c43f] text-6xl font-medium text-white"
+                        />
+                        <h2 className="mt-8 max-w-full truncate px-4 text-[27px] font-semibold leading-tight">
+                            {botInfo.name || botInfo.username || "Telegram Bot"}
+                        </h2>
+                        <p className="mt-2 text-[17px] text-[#9a9a9a]">
+                            {isConnected ? "online" : "offline"}
+                        </p>
+                    </div>
+
+                    <div className="mb-6 overflow-hidden rounded-[28px] bg-[#222222]">
+                        <div className="flex min-h-[86px] items-center gap-5 px-6">
+                            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#8875df]">
+                                <Bot className="h-7 w-7 text-white" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                                <p className="truncate text-[19px] font-medium">
+                                    {botInfo.username ? `@${botInfo.username}` : "Bot account"}
+                                </p>
+                                <p className="mt-1 text-[15px] text-[#969696]">
+                                    {gateway === "mtproto" ? "MTProto gateway" : "Bot API gateway"}
+                                </p>
+                            </div>
+                            <div
+                                className={cn(
+                                    "flex items-center gap-2 rounded-full px-3 py-1 text-xs",
+                                    isConnected
+                                        ? "bg-green-500/10 text-green-400"
+                                        : "bg-white/5 text-[#999]",
+                                )}
+                            >
+                                {isConnected ? <Wifi className="h-3.5 w-3.5" /> : <WifiOff className="h-3.5 w-3.5" />}
+                                {isConnected ? "Connected" : "Disconnected"}
+                            </div>
+                        </div>
+                    </div>
+
+                    {groups.map((group, groupIndex) => (
+                        <div key={groupIndex} className="mb-6 overflow-hidden rounded-[28px] bg-[#222222]">
+                            {group.map((item, index) => {
+                                const Icon = item.icon;
+                                const iconBackgrounds: Record<string, string> = {
+                                    connection: "bg-[#4caf50]",
+                                    appearance: "bg-[#3390ec]",
+                                    preferences: "bg-[#ff5b55]",
+                                    commands: "bg-[#8875df]",
+                                    bots: "bg-[#ff9500]",
+                                    about: "bg-[#7d7d7d]",
+                                };
+                                return (
+                                    <div key={item.id}>
+                                        {index > 0 && <div className="ml-[86px] border-t border-white/5" />}
+                                        <button
+                                            type="button"
+                                            onClick={() => setActiveSection(item.id)}
+                                            className="flex min-h-[82px] w-full items-center gap-5 px-6 text-left transition-colors hover:bg-white/[0.035]"
+                                        >
+                                            <div className={cn("flex h-11 w-11 shrink-0 items-center justify-center rounded-xl", iconBackgrounds[item.id] || "bg-[#777]") }>
+                                                <Icon className="h-6 w-6 text-white" />
+                                            </div>
+                                            <div className="min-w-0 flex-1">
+                                                <p className="text-[18px] font-medium">{item.label}</p>
+                                                <p className="mt-1 truncate text-[14px] text-[#969696]">{item.description}</p>
+                                            </div>
+                                            {item.badge !== undefined && Number(item.badge) > 0 && (
+                                                <span className="rounded-md bg-[#8875df]/25 px-2 py-0.5 text-xs font-medium text-[#aa96ff]">
+                                                    {item.badge}
+                                                </span>
+                                            )}
+                                            <ChevronRight className="h-5 w-5 text-[#737373]" />
+                                        </button>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    ))}
+                </div>
+            </ScrollArea>
+        );
+    };
+
+    const activeNavItem = navItems.find((item) => item.id === activeSection);
+
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
@@ -436,100 +549,59 @@ export function SettingsDialog({
                 </Button>
             </DialogTrigger>
 
-            <DialogContent className="max-w-4xl h-[90vh] max-h-[800px] p-0 gap-0 overflow-hidden">
-                <div className="flex h-full overflow-hidden">
-                    {/* Sidebar Navigation */}
-                    <div className="w-64 border-r bg-muted/30 flex-col shrink-0 hidden sm:flex overflow-hidden">
-                        <DialogHeader className="p-4 pb-2">
-                            <DialogTitle className="flex items-center gap-2 text-base">
-                                <div className="p-1.5 rounded-lg bg-primary/10">
-                                    <Settings className="h-4 w-4 text-primary" />
-                                </div>
-                                {t("settings.title")}
-                            </DialogTitle>
-                            <DialogDescription className="text-xs">
-                                {t("settings.description")}
-                            </DialogDescription>
-                        </DialogHeader>
-
-                        <nav className="flex-1 p-2 space-y-1 overflow-y-auto">
-                            {navItems.map((item) => (
-                                <NavItem
-                                    key={item.id}
-                                    icon={item.icon}
-                                    label={item.label}
-                                    description={item.description}
-                                    active={activeSection === item.id}
-                                    onClick={() => setActiveSection(item.id)}
-                                    badge={item.badge}
-                                />
-                            ))}
-                        </nav>
-
-                        {/* Connection Status in Sidebar */}
-                        <div className="p-3 border-t">
-                            <div
-                                className={cn(
-                                    "flex items-center gap-2 px-3 py-2 rounded-lg text-xs",
-                                    isConnected
-                                        ? "bg-green-500/10 text-green-600"
-                                        : "bg-muted text-muted-foreground",
-                                )}
-                            >
-                                {isConnected ? (
-                                    <Wifi className="h-3.5 w-3.5" />
-                                ) : (
-                                    <WifiOff className="h-3.5 w-3.5" />
-                                )}
-                                <span className="truncate">
-                                    {isConnected
-                                        ? botInfo.name ||
-                                          t("connection.connected")
-                                        : t("connection.disconnected")}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Mobile Navigation */}
-                    <div className="sm:hidden border-b p-2 flex gap-1 overflow-x-auto shrink-0 absolute top-0 left-0 right-0 bg-background z-10">
-                        {navItems.map((item) => {
-                            const Icon = item.icon;
-                            return (
-                                <button
-                                    key={item.id}
-                                    onClick={() => setActiveSection(item.id)}
-                                    className={cn(
-                                        "flex items-center gap-2 px-3 py-2 rounded-lg text-sm whitespace-nowrap transition-colors",
-                                        activeSection === item.id
-                                            ? "bg-primary text-primary-foreground"
-                                            : "bg-muted hover:bg-accent",
-                                    )}
+            <DialogContent
+                showClose={false}
+                overlayClassName="!bg-black/10 !backdrop-blur-none md:!bg-transparent"
+                className="!left-0 !top-0 !bottom-0 !translate-x-0 !translate-y-0 !w-full !max-w-none !rounded-none border-white/5 bg-[#171717] p-0 text-white shadow-2xl overflow-hidden gap-0 md:!left-5 md:!top-5 md:!bottom-5 md:!w-[min(650px,calc(100vw-40px))] md:!rounded-[30px]"
+            >
+                <div className="flex h-full min-h-0 flex-col">
+                    <div className="flex h-[82px] shrink-0 items-center justify-between px-6">
+                        <div className="flex min-w-0 items-center gap-5">
+                            {activeSection === "home" ? (
+                                <DialogClose asChild>
+                                    <Button variant="ghost" size="icon" className="h-11 w-11 rounded-full text-white hover:bg-white/10">
+                                        <ArrowLeft className="h-7 w-7" />
+                                    </Button>
+                                </DialogClose>
+                            ) : (
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-11 w-11 rounded-full text-white hover:bg-white/10"
+                                    onClick={() => setActiveSection("home")}
                                 >
-                                    <Icon className="h-4 w-4" />
-                                    <span>{item.label}</span>
-                                </button>
-                            );
-                        })}
-                    </div>
-
-                    {/* Content Area */}
-                    <div className="flex-1 flex flex-col min-w-0 sm:pt-0 pt-14 overflow-hidden">
-                        {/* Toast */}
-                        {toast && (
-                            <div className="px-6 pt-4 shrink-0">
-                                <StatusToastUI
-                                    toast={toast}
-                                    onClose={() => setToast(null)}
-                                />
-                            </div>
-                        )}
-
-                        {/* Main Content - Scrollable */}
-                        <div className="flex-1 overflow-y-auto overscroll-contain">
-                            <div className="p-6 pb-12">{renderContent()}</div>
+                                    <ArrowLeft className="h-7 w-7" />
+                                </Button>
+                            )}
+                            <DialogTitle className="truncate text-[26px] font-semibold">
+                                {activeSection === "home" ? "Settings" : activeNavItem?.label || "Settings"}
+                            </DialogTitle>
+                        </div>
+                        <div className="flex items-center gap-1">
+                            <Button variant="ghost" size="icon" className="h-11 w-11 rounded-full text-white hover:bg-white/10" title="Search settings">
+                                <Search className="h-7 w-7" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-11 w-11 rounded-full text-white hover:bg-white/10" title="More">
+                                <MoreVertical className="h-7 w-7" />
+                            </Button>
                         </div>
                     </div>
+
+                    {toast && (
+                        <div className="shrink-0 px-5 pb-3">
+                            <StatusToastUI toast={toast} onClose={() => setToast(null)} />
+                        </div>
+                    )}
+
+                    {activeSection === "home" ? (
+                        renderSettingsHome()
+                    ) : (
+                        <ScrollArea className="min-h-0 flex-1">
+                            <div className="px-5 pb-10 pt-2">
+                                {renderContent()}
+                            </div>
+                        </ScrollArea>
+                    )}
                 </div>
             </DialogContent>
         </Dialog>

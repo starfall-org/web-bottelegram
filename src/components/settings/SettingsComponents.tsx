@@ -9,9 +9,11 @@ import {
 } from "lucide-react";
 
 export type SettingsSection =
+    | "home"
     | "connection"
     | "appearance"
     | "preferences"
+    | "commands"
     | "bots"
     | "about";
 

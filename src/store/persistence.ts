@@ -4,6 +4,7 @@ import {
     createDefaultBotInfo,
     createDefaultPreferences,
     createDefaultMtprotoSettings,
+    createDefaultCustomCommands,
 } from "./defaults";
 
 /**
@@ -95,6 +96,9 @@ export const deserializeBotDataMap = (
                     activeChatId: botData.activeChatId || null,
                     recentStickers: botData.recentStickers || [],
                     favoriteStickers: botData.favoriteStickers || [],
+                    customCommands: Array.isArray(botData.customCommands) && botData.customCommands.length
+                        ? botData.customCommands
+                        : createDefaultCustomCommands(),
                 },
             ];
         }),

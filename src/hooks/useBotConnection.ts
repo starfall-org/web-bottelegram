@@ -7,6 +7,11 @@ import {
 } from "@/store/botStore";
 import { botService, type TelegramUpdate } from "@/services/botService";
 import { getChatAvatarUrl, getUserAvatarUrl } from "@/lib/telegramAvatar";
+import { DEFAULT_START_RESPONSE } from "@/store/defaults";
+import {
+    commandButtonsToReplyMarkup,
+    parseBotCommand,
+} from "@/services/customCommandUtils";
 
 export function useBotConnection() {
     const {
@@ -126,14 +131,48 @@ export function useBotConnection() {
                 return;
             }
 
-            if (message.text && message.text.startsWith("/start")) {
-                try {
-                    await botService.sendMessage(
-                        chatId,
-                        "Attention! This bot is logging in Bottlegram service. Your messages will be watched by human.",
-                    );
-                } catch (error) {
-                    console.warn("Failed to send /start reply:", error);
+            if (typeof message.text === "string" && message.text.startsWith("/")) {
+                const parsed = parseBotCommand(
+                    message.text,
+                    useBotStore.getState().getCurrentBotInfo().username,
+                );
+                if (parsed) {
+                    const command = useBotStore
+                        .getState()
+                        .getCustomCommands()
+                        .find(
+                            (item) =>
+                                item.enabled &&
+                                item.command.toLowerCase() === parsed.command,
+                        );
+                    if (command) {
+                        const responseText =
+                            command.response.trim() ||
+                            (command.builtin === "start"
+                                ? DEFAULT_START_RESPONSE
+                                : "");
+                        const replyMarkup = commandButtonsToReplyMarkup(command.buttons);
+
+                        if (responseText || replyMarkup) {
+                            try {
+                                await botService.sendMessage(
+                                    chatId,
+                                    responseText || "​",
+                                    {
+                                        reply_to_message_id: message.message_id,
+                                        reply_markup: replyMarkup
+                                            ? { inline_keyboard: replyMarkup }
+                                            : undefined,
+                                    },
+                                );
+                            } catch (error) {
+                                console.warn(
+                                    `Failed to reply to /${command.command}:`,
+                                    error,
+                                );
+                            }
+                        }
+                    }
                 }
             }
 

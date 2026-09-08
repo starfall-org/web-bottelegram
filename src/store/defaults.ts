@@ -1,4 +1,25 @@
-import type { Chat, BotInfo, BotData, MtProtoSettings } from './types'
+import type {
+  Chat,
+  BotInfo,
+  BotData,
+  MtProtoSettings,
+  CustomBotCommand,
+} from './types'
+
+export const DEFAULT_START_RESPONSE =
+  'Attention! This bot is logging in Bottlegram service. Your messages will be watched by human.'
+
+export const createDefaultCustomCommands = (): CustomBotCommand[] => ([
+  {
+    id: 'builtin-start',
+    command: 'start',
+    description: 'Start bot',
+    response: '',
+    enabled: true,
+    builtin: 'start',
+    buttons: [],
+  },
+])
 
 export const createDefaultChat = (chatId: string, initialData: Partial<Chat> = {}): Chat => ({
   id: chatId,
@@ -35,6 +56,7 @@ export const createDefaultBotData = (): BotData => ({
   chats: new Map(),
   recentStickers: [],
   favoriteStickers: [],
+  customCommands: createDefaultCustomCommands(),
   lastUpdateId: 0,
   activeChatId: null
 })
