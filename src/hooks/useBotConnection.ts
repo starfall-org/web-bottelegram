@@ -97,17 +97,9 @@ export function useBotConnection() {
 
             memberProfileLoads.add(key);
             try {
-                const photosResponse = await botService.getBotApiUserProfilePhotos(userId, 1);
-                const sizes = photosResponse.ok
-                    ? photosResponse.result?.photos?.[0]
-                    : undefined;
-                const photo = sizes?.[sizes.length - 1];
-                if (!photo?.file_id) return;
-
-                const fileResponse = await botService.getBotApiFile(photo.file_id);
-                if (!fileResponse.ok || !fileResponse.result?.file_path) return;
-                const avatarUrl = botService.getBotApiFileUrl(fileResponse.result.file_path);
-                if (!cancelled) {
+                // Use the unified avatar API — works for both Bot and MTProto gateways
+                const avatarUrl = await getUserAvatarUrl(userId);
+                if (avatarUrl && !cancelled) {
                     upsertMember(chatId, { id: String(userId), avatarUrl });
                 }
             } catch (error) {

@@ -271,17 +271,106 @@ export class MtProtoGateway {
 
     async getChat(chatId: number | string) {
         try {
-            const chat = await this.client.getChat(this.toPeerId(chatId));
+            await this.ensureConnected();
+            let peer: any = null;
+            let isUser = false;
+            // getChat only works for groups/channels; for private users try getUser
+            try {
+                peer = await this.client.getChat(this.toPeerId(chatId));
+            } catch (chatErr: any) {
+                const msg = String(chatErr?.message || "");
+                const isPeerTypeErr = msg.includes("peer type") || chatErr?.name === "MtInvalidPeerTypeError" || msg.includes("PEER") ;
+                if (isPeerTypeErr) {
+                    peer = await this.client.getUser(this.toPeerId(chatId));
+                    isUser = true;
+                } else {
+                    // fallback: try user anyway (covers private chats stored as -id etc.)
+                    try {
+                        peer = await this.client.getUser(this.toPeerId(chatId));
+                        isUser = true;
+                    } catch {
+                        throw chatErr;
+                    }
+                }
+            }
+            if (peer?.type === "user") isUser = true;
+
+            // Extract photo as Bot-API compatible {small_file_id, big_file_id}
+            let photo: any = null;
+            if (peer?.photo) {
+                try {
+                    const small = (peer.photo as any).small;
+                    const big = (peer.photo as any).big;
+                    if (small && big) {
+                        photo = {
+                            small_file_id: small.fileId,
+                            small_file_unique_id: small.uniqueFileId,
+                            big_file_id: big.fileId,
+                            big_file_unique_id: big.uniqueFileId,
+                        };
+                    }
+                } catch (e) {
+                    console.warn("[MtProto] Failed to extract ChatPhoto fileIds", e);
+                }
+            }
+            // Fallback to FullChat.fullPhoto for supergroups where Chat.photo may be empty
+            if (!photo && !isUser) {
+                try {
+                    const full = await this.client.getFullChat(this.toPeerId(chatId));
+                    const fullPhoto: any = (full as any).fullPhoto;
+                    if (fullPhoto) {
+                        const fid = fullPhoto.fileId ?? fullPhoto.file_id;
+                        const ufid = fullPhoto.uniqueFileId ?? fullPhoto.file_unique_id;
+                        if (fid) {
+                            photo = {
+                                small_file_id: fid,
+                                small_file_unique_id: ufid || fid,
+                                big_file_id: fid,
+                                big_file_unique_id: ufid || fid,
+                            };
+                        } else if (fullPhoto.thumbnails?.length) {
+                            const thumbs = fullPhoto.thumbnails as any[];
+                            const first = thumbs[0];
+                            const last = thumbs[thumbs.length - 1];
+                            photo = {
+                                small_file_id: first.fileId || first.file_id,
+                                big_file_id: last.fileId || last.file_id,
+                            };
+                        }
+                    }
+                } catch {}
+            }
+
+            let description = "";
+            if (isUser) {
+                description = (peer as any).bio || "";
+                if (!description) {
+                    try {
+                        const fullUser = await this.client.getFullUser(this.toPeerId(chatId));
+                        description = (fullUser as any).bio || description;
+                    } catch {}
+                }
+            } else {
+                description = (peer as any).description || (peer as any).bio || "";
+                if (!description) {
+                    try {
+                        const full = await this.client.getFullChat(this.toPeerId(chatId));
+                        description = (full as any).bio || "";
+                    } catch {}
+                }
+            }
+
             return {
                 ok: true,
                 result: {
-                    id: chat.id,
-                    type: chat.type === "user" ? "private" : chat.chatType || "group",
-                    title: chat.title,
-                    first_name: chat.firstName,
-                    last_name: chat.lastName,
-                    username: chat.username,
-                    description: chat.description || chat.bio || "",
+                    id: peer.id,
+                    type: isUser ? "private" : (peer.chatType || peer.type || "group"),
+                    title: isUser ? peer.displayName : peer.title,
+                    first_name: isUser ? peer.firstName : undefined,
+                    last_name: isUser ? peer.lastName : undefined,
+                    username: peer.username,
+                    description,
+                    photo: photo || undefined,
                 },
             };
         } catch (error: any) {
@@ -482,14 +571,68 @@ export class MtProtoGateway {
     /**
      * Bot-API shaped getFile: downloads via MTProto and returns an
      * object URL as `file_path` (which getFileUrl passes through).
+     * Accepts both Bot-API fileId strings and direct FileLocation objects
+     * (ChatPhotoSize etc.).
      */
-    async getFile(fileId: string) {
+    async getFile(fileIdOrLocation: string | any) {
         try {
-            const bytes = await this.client.downloadAsBuffer(fileId);
-            const url = URL.createObjectURL(new Blob([bytes]));
-            return { ok: true, result: { file_id: fileId, file_path: url } };
+            const fileId = typeof fileIdOrLocation === "string" ? fileIdOrLocation : undefined;
+            const bytes = await this.client.downloadAsBuffer(fileIdOrLocation);
+            // If it's a vector thumb (Uint8Array SVG path) still return as blob
+            const blob = bytes instanceof Uint8Array ? new Blob([bytes as any]) : new Blob([bytes]);
+            const url = URL.createObjectURL(blob);
+            return { ok: true, result: { file_id: fileId || String(fileIdOrLocation?.fileId || "mtproto"), file_path: url } };
         } catch (error: any) {
             return { ok: false, description: error?.message || "Failed to get file" };
+        }
+    }
+
+    /**
+     * Download a chat's photo directly via MTProto using FileLocation, without
+     * needing a fileId roundtrip. Returns blob URL.
+     */
+    async getChatPhotoUrl(chatId: number | string): Promise<{ ok: boolean; url?: string; description?: string }> {
+        try {
+            await this.ensureConnected();
+            let peer: any;
+            try {
+                peer = await this.client.getChat(this.toPeerId(chatId));
+            } catch {
+                peer = await this.client.getUser(this.toPeerId(chatId));
+            }
+            if (!peer?.photo) return { ok: false, description: "no photo" };
+            const loc = peer.photo.small || peer.photo.big;
+            if (!loc) return { ok: false, description: "no photo location" };
+            const bytes = await this.client.downloadAsBuffer(loc);
+            const url = URL.createObjectURL(new Blob([bytes as any]));
+            return { ok: true, url };
+        } catch (error: any) {
+            return { ok: false, description: error?.message || "Failed to get chat photo" };
+        }
+    }
+
+    async getUserProfilePhotos(userId: number | string, limit = 3): Promise<{ ok: boolean; result?: any; description?: string }> {
+        try {
+            await this.ensureConnected();
+            const photos = await this.client.getProfilePhotos(this.toPeerId(userId), { limit });
+            // Convert mtcute Photo objects to Bot-API shape so telegramAvatar can reuse same path
+            const botApiPhotos = (Array.isArray(photos) ? photos : []).map((p: any) => {
+                const thumbs: any[] = p.thumbnails || [];
+                if (thumbs.length === 0) {
+                    // fallback: use Photo.fileId directly
+                    return [{ file_id: p.fileId, file_unique_id: p.uniqueFileId || p.fileId, file_size: 0 }];
+                }
+                return thumbs.map((t: any) => ({
+                    file_id: t.fileId || t.file_id,
+                    file_unique_id: t.uniqueFileId || t.file_unique_id || t.fileId,
+                    file_size: (t as any).fileSize || 0,
+                    width: (t as any).width,
+                    height: (t as any).height,
+                }));
+            });
+            return { ok: true, result: { total_count: (photos as any).total ?? botApiPhotos.length, photos: botApiPhotos } };
+        } catch (error: any) {
+            return { ok: false, description: error?.message || "Failed to get profile photos (MTProto)" };
         }
     }
 

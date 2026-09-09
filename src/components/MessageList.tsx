@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { useTranslation } from "@/i18n/useTranslation";
 import { UserInfoDialog } from "@/components/UserInfoDialog";
 import { botService } from "@/services/botService";
+import { getUserAvatarUrl } from "@/lib/telegramAvatar";
 import { InlineKeyboard } from "@/components/InlineKeyboard";
 import { Avatar } from "@/components/Avatar";
 import { parseMarkdown } from "@/lib/markdown";
@@ -643,18 +644,11 @@ export function MessageList({ chatId }: MessageListProps) {
             avatarLoadsRef.current.add(key);
             void (async () => {
                 try {
-                    const photosResponse = await botService.getBotApiUserProfilePhotos(userId, 1);
-                    const sizes = photosResponse.ok
-                        ? photosResponse.result?.photos?.[0]
-                        : undefined;
-                    const photo = sizes?.[sizes.length - 1];
-                    if (!photo?.file_id) return;
-
-                    const fileResponse = await botService.getBotApiFile(photo.file_id);
-                    if (!fileResponse.ok || !fileResponse.result?.file_path) return;
+                    const avatarUrl = await getUserAvatarUrl(userId);
+                    if (!avatarUrl) return;
                     upsertMember(chatId, {
                         id: String(userId),
-                        avatarUrl: botService.getBotApiFileUrl(fileResponse.result.file_path),
+                        avatarUrl,
                     });
                 } catch (error) {
                     console.warn("Failed to hydrate group member avatar:", error);

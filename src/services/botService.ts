@@ -743,11 +743,19 @@ export class BotService {
 
   async getUserProfilePhotos(userId: number, limit = 1) {
     if (this.mode === "mtproto") {
-      return {
-        ok: false,
-        description:
-          "Profile photos are currently available through the Bot API gateway only",
-      };
+      try {
+        const mtRes = await mtProtoGateway.getUserProfilePhotos(userId, limit);
+        if (mtRes.ok) return mtRes;
+        // MTProto may fail for some users (e.g. not cached) — fallback to Bot API fetch
+        console.warn("[BotService] MTProto getProfilePhotos failed, falling back to Bot API:", mtRes.description);
+        const fallback = await this.getBotApiUserProfilePhotos(userId, limit);
+        if (fallback.ok) return fallback;
+        return mtRes;
+      } catch (error: any) {
+        const fallback = await this.getBotApiUserProfilePhotos(userId, limit).catch(() => ({ ok: false }) as any);
+        if ((fallback as any)?.ok) return fallback as any;
+        return { ok: false, description: error?.message || "Failed to get profile photos (MTProto)" };
+      }
     }
     if (!this.bot) throw new Error("Bot not initialized");
 
@@ -868,7 +876,7 @@ export class BotService {
       };
     }
   }
-  async getFile(fileId: string) {
+  async getFile(fileId: string | any) {
     if (this.mode === "mtproto") {
       return mtProtoGateway.getFile(fileId);
     }
@@ -882,6 +890,43 @@ export class BotService {
         ok: false,
         description: error instanceof Error ? error.message : "Unknown error",
       };
+    }
+  }
+
+  /**
+   * Try Bot API file download first, then fall back to MTProto FileLocation / fileId.
+   * Useful for chat avatars where MTProto provides FileLocation objects directly.
+   */
+  async getAvatarFile(fileIdOrLocation: string | any): Promise<{ ok: boolean; result?: { file_id?: string; file_path?: string }; description?: string }> {
+    if (typeof fileIdOrLocation === "string") {
+      return this.getFile(fileIdOrLocation);
+    }
+    if (this.mode === "mtproto") {
+      return mtProtoGateway.getFile(fileIdOrLocation);
+    }
+    // In Bot mode, fileIdOrLocation is expected to be a string; if someone passes a FileLocation, try MTProto
+    try {
+      return await mtProtoGateway.getFile(fileIdOrLocation);
+    } catch {
+      return { ok: false, description: "Invalid file location" };
+    }
+  }
+
+  async getChatPhotoUrl(chatId: number | string): Promise<{ ok: boolean; url?: string; description?: string }> {
+    if (this.mode === "mtproto") {
+      return mtProtoGateway.getChatPhotoUrl(chatId);
+    }
+    try {
+      const chatRes = await this.getChat(chatId);
+      if (!chatRes.ok || !(chatRes.result as any)?.photo?.small_file_id) {
+        return { ok: false, description: "no chat photo" };
+      }
+      const fileId = (chatRes.result as any).photo.small_file_id;
+      const fileRes: any = await this.getFile(fileId);
+      if (!fileRes.ok || !fileRes.result?.file_path) return { ok: false, description: fileRes.description || "no file_path" };
+      return { ok: true, url: this.getFileUrl(fileRes.result.file_path) };
+    } catch (error: any) {
+      return { ok: false, description: error?.message || "Failed to get chat photo" };
     }
   }
 
