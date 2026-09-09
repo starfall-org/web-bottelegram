@@ -6,7 +6,7 @@ import { ChatList } from "@/components/ChatList";
 import { useBotStore } from "@/store/botStore";
 import { botService } from "@/services/botService";
 import { SettingsDialog } from "@/components/SettingsDialog";
-import { Sun, Moon, Monitor, Menu, X, Bell, PenLine, Search } from "lucide-react";
+import { Sun, Moon, Monitor, Menu, X, Bell, PenLine, Search, Settings } from "lucide-react";
 import { useTheme } from "@/components/ThemeProvider";
 import { cn } from "@/lib/utils";
 
@@ -44,6 +44,7 @@ export function Sidebar({ className }: SidebarProps) {
   const [searchError, setSearchError] = useState<string | null>(null);
   const [isResolvingChat, setIsResolvingChat] = useState(false);
   const [showAppMenu, setShowAppMenu] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [showNotificationTip, setShowNotificationTip] = useState(true);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
@@ -60,12 +61,15 @@ export function Sidebar({ className }: SidebarProps) {
   // Telegram-style transient menu: clicking anywhere outside the menu or its
   // trigger closes it. Pointerdown makes this work before another control
   // receives focus and also covers touch input.
+  // Ignore clicks inside Radix portals (Dialogs) so opening Settings etc. doesn't
+  // get treated as an "outside" click and unmount the dialog trigger.
   useEffect(() => {
     if (!showAppMenu) return;
 
     const handleOutsidePointer = (event: PointerEvent) => {
       const target = event.target as Node | null;
       if (!target) return;
+      if (target instanceof Element && target.closest('[role="dialog"], [data-radix-portal]')) return;
       if (appMenuRef.current?.contains(target)) return;
       if (menuButtonRef.current?.contains(target)) return;
       setShowAppMenu(false);
@@ -259,10 +263,19 @@ export function Sidebar({ className }: SidebarProps) {
                 {getThemeIcon()}
                 <span>{t("settings.appearance")}</span>
               </Button>
-              <SettingsDialog
-                showLabel
-                triggerClassName="h-10 w-full justify-start gap-3 px-3"
-              />
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-10 w-full justify-start gap-3 px-3"
+                onClick={() => {
+                  setShowAppMenu(false);
+                  setSettingsOpen(true);
+                }}
+                title={t("common.settings")}
+              >
+                <Settings className="h-4 w-4" />
+                <span>{t("common.settings")}</span>
+              </Button>
               <Button
                 variant="ghost"
                 size="sm"
@@ -324,7 +337,11 @@ export function Sidebar({ className }: SidebarProps) {
           <PenLine className="h-6 w-6" />
         </Button>
       </aside>
-
+      {/* Settings dialog is controlled here so it survives the app-menu unmount.
+          Previously it was rendered inside {showAppMenu && ...} and clicking any
+          item inside the dialog counted as an "outside pointerdown" ->
+          showAppMenu=false -> unmounted the dialog -> dialog appeared to close. */}
+      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} hideTrigger />
     </>
   );
 }

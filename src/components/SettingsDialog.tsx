@@ -45,13 +45,25 @@ import { AboutSection } from "./settings/AboutSection";
 interface SettingsDialogProps {
     triggerClassName?: string;
     showLabel?: boolean;
+    open?: boolean;
+    onOpenChange?: (open: boolean) => void;
+    hideTrigger?: boolean;
 }
 
 export function SettingsDialog({
     triggerClassName,
     showLabel = false,
+    open: controlledOpen,
+    onOpenChange,
+    hideTrigger = false,
 }: SettingsDialogProps) {
-    const [open, setOpen] = useState(false);
+    const [internalOpen, setInternalOpen] = useState(false);
+    const isControlled = controlledOpen !== undefined;
+    const open = isControlled ? controlledOpen : internalOpen;
+    const setOpen = (next: boolean) => {
+        if (!isControlled) setInternalOpen(next);
+        onOpenChange?.(next);
+    };
     const [activeSection, setActiveSection] =
         useState<SettingsSection>("home");
     const [tokenInput, setTokenInput] = useState("");
@@ -543,17 +555,19 @@ export function SettingsDialog({
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    title={t("common.settings")}
-                    className={cn("relative", triggerClassName)}
-                >
-                    <Settings className="h-4 w-4" />
-                    {showLabel && <span>{t("common.settings")}</span>}
-                </Button>
-            </DialogTrigger>
+            {!hideTrigger && (
+                <DialogTrigger asChild>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        title={t("common.settings")}
+                        className={cn("relative", triggerClassName)}
+                    >
+                        <Settings className="h-4 w-4" />
+                        {showLabel && <span>{t("common.settings")}</span>}
+                    </Button>
+                </DialogTrigger>
+            )}
 
             <DialogContent
                 showClose={false}
